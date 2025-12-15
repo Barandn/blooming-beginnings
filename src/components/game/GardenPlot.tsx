@@ -42,7 +42,7 @@ const GardenPlot = ({ state, timeLeft, isWatering = false, onClick }: GardenPlot
             onClick={onClick}
             className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all whitespace-nowrap z-10"
           >
-            Tohum Ek
+            Plant Seed
           </button>
         );
       case "ready":
@@ -51,7 +51,7 @@ const GardenPlot = ({ state, timeLeft, isWatering = false, onClick }: GardenPlot
             onClick={onClick}
             className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-secondary text-secondary-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all whitespace-nowrap z-10"
           >
-            Hasat Et
+            Harvest
           </button>
         );
       default:
@@ -61,7 +61,7 @@ const GardenPlot = ({ state, timeLeft, isWatering = false, onClick }: GardenPlot
             className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap z-10"
           >
             <Droplets className="w-3 h-3" />
-            Sula
+            Water
           </button>
         ) : null;
     }
