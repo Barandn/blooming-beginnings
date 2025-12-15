@@ -14,7 +14,7 @@ const Index = () => {
   const handlePlotClick = (action: string) => {
     toast({
       title: action,
-      description: "Bu özellik yakında eklenecek! 🌱",
+      description: "This feature is coming soon! 🌱",
     });
   };
 
@@ -47,9 +47,9 @@ const Index = () => {
                 timeLeft={plot.timeLeft}
                 isWatering={plot.isWatering}
                 onClick={() => handlePlotClick(
-                  plot.state === "empty" ? "Tohum ekiliyor..." :
-                  plot.state === "ready" ? "Hasat ediliyor..." :
-                  "Büyüyor..."
+                  plot.state === "empty" ? "Planting seed..." :
+                  plot.state === "ready" ? "Harvesting..." :
+                  "Growing..."
                 )}
               />
             ))}

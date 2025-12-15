@@ -11,31 +11,29 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
   const [animatingItem, setAnimatingItem] = useState<NavItem | null>(null);
 
   const navItems = [
-    { id: "garden" as NavItem, label: "Bahçe", emoji: "🌸" },
-    { id: "market" as NavItem, label: "Tohum Pazarı", emoji: "🏪" },
-    { id: "barn" as NavItem, label: "Ambar", emoji: "🏠" },
+    { id: "garden" as NavItem, label: "Garden", emoji: "🌻" },
+    { id: "market" as NavItem, label: "Market", emoji: "🛒" },
+    { id: "barn" as NavItem, label: "Barn", emoji: "🏡" },
   ];
 
   const handleClick = (id: NavItem) => {
-    setAnimatingItem(id);
-    onItemClick(id);
+    if (id !== activeItem) {
+      setAnimatingItem(id);
+      onItemClick(id);
+    }
   };
 
   useEffect(() => {
     if (animatingItem) {
-      const timer = setTimeout(() => setAnimatingItem(null), 300);
+      const timer = setTimeout(() => setAnimatingItem(null), 400);
       return () => clearTimeout(timer);
     }
   }, [animatingItem]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0">
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-card via-card/95 to-transparent h-24 -top-8 pointer-events-none" />
-      
-      {/* Navigation container */}
-      <div className="relative bg-card/80 backdrop-blur-md border-t border-border/50 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
-        <div className="flex justify-around items-end py-3 px-4 max-w-md mx-auto">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+      <div className="bg-card/90 backdrop-blur-xl rounded-full shadow-xl border border-border/30 px-2 py-2">
+        <div className="flex items-center gap-1">
           {navItems.map((item) => {
             const isActive = activeItem === item.id;
             const isAnimating = animatingItem === item.id;
@@ -44,45 +42,28 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
               <button
                 key={item.id}
                 onClick={() => handleClick(item.id)}
-                className={`relative flex flex-col items-center gap-1 px-5 py-2 rounded-2xl transition-all duration-300 ${
+                className={`relative flex flex-col items-center justify-center px-5 py-2 rounded-full transition-all duration-300 ease-out ${
                   isActive
-                    ? "bg-primary/15 -translate-y-2"
-                    : "hover:bg-muted/50"
+                    ? "bg-primary shadow-lg"
+                    : "hover:bg-muted/60 active:scale-95"
                 }`}
               >
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-full" />
-                )}
-                
-                {/* Emoji with animation */}
                 <span 
-                  className={`text-3xl transition-transform duration-200 ${
-                    isActive ? "scale-110" : ""
-                  } ${isAnimating ? "animate-nav-pop" : ""}`}
+                  className={`text-2xl transition-all duration-300 ${
+                    isAnimating ? "animate-nav-pop" : ""
+                  } ${isActive ? "scale-110" : ""}`}
                 >
                   {item.emoji}
                 </span>
                 
-                {/* Label */}
-                <span className={`text-[10px] font-bold transition-colors duration-200 ${
-                  isActive ? "text-primary" : "text-muted-foreground"
+                <span className={`text-[10px] font-bold mt-0.5 transition-all duration-300 ${
+                  isActive ? "text-primary-foreground" : "text-muted-foreground"
                 }`}>
                   {item.label}
                 </span>
-
-                {/* Glow effect for active */}
-                {isActive && (
-                  <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-xl -z-10" />
-                )}
               </button>
             );
           })}
-        </div>
-        
-        {/* Home indicator bar */}
-        <div className="flex justify-center pb-2">
-          <div className="w-32 h-1 bg-foreground/20 rounded-full" />
         </div>
       </div>
     </div>
