@@ -41,7 +41,7 @@ const Index = () => {
         <GameHeader coins={coins} />
         
         {/* Garden Grid */}
-        <div className="flex flex-col items-center justify-center px-4 pt-6 pb-28">
+        <div className="flex flex-col items-center justify-center px-4 pt-32 pb-28">
           <div className="grid grid-cols-3 gap-3">
             {plots.map((plot, index) => (
               <GardenPlot
