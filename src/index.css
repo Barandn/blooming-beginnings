@@ -91,16 +91,16 @@
   }
 
   .glow-harvest {
-    box-shadow: 0 0 20px hsl(var(--harvest-glow)), 0 4px 0 hsl(var(--wood));
+    box-shadow: 0 0 20px hsl(var(--harvest-glow));
     animation: pulse-glow 2s ease-in-out infinite;
   }
 
   @keyframes pulse-glow {
     0%, 100% {
-      box-shadow: 0 0 15px hsl(var(--harvest-glow)), 0 4px 0 hsl(var(--wood));
+      box-shadow: 0 0 15px hsl(var(--harvest-glow));
     }
     50% {
-      box-shadow: 0 0 30px hsl(var(--harvest-glow)), 0 4px 0 hsl(var(--wood));
+      box-shadow: 0 0 30px hsl(var(--harvest-glow));
     }
   }
 
@@ -115,12 +115,58 @@
 
   @keyframes water-drop {
     0% {
-      transform: translateY(-10px);
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    20% {
       opacity: 1;
     }
     100% {
-      transform: translateY(10px);
+      transform: translateY(30px);
       opacity: 0;
+    }
+  }
+
+  @keyframes ripple {
+    0% {
+      transform: scale(0);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  @keyframes grow {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes nav-pop {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.2);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes sparkle {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
     }
   }
 
@@ -129,6 +175,22 @@
   }
 
   .animate-water {
-    animation: water-drop 1s ease-in-out infinite;
+    animation: water-drop 1.2s ease-in-out infinite;
+  }
+
+  .animate-ripple {
+    animation: ripple 1s ease-out infinite;
+  }
+
+  .animate-grow {
+    animation: grow 3s ease-in-out infinite;
+  }
+
+  .animate-nav-pop {
+    animation: nav-pop 0.3s ease-out;
+  }
+
+  .animate-sparkle {
+    animation: sparkle 1.5s ease-in-out infinite;
   }
 }
