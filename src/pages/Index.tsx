@@ -5,6 +5,7 @@ import BottomNavigation from "@/components/game/BottomNavigation";
 import GardenBackground from "@/components/game/GardenBackground";
 import HarvestPopup from "@/components/game/HarvestPopup";
 import GrowingPopup from "@/components/game/GrowingPopup";
+import SeedPopup from "@/components/game/SeedPopup";
 import { toast } from "@/hooks/use-toast";
 
 type NavItem = "garden" | "market" | "barn";
@@ -23,17 +24,15 @@ const Index = () => {
   const [harvestFlower, setHarvestFlower] = useState("🌺");
   const [isGrowingOpen, setIsGrowingOpen] = useState(false);
   const [growingPlant, setGrowingPlant] = useState<PlotData | null>(null);
+  const [isSeedOpen, setIsSeedOpen] = useState(false);
 
   const handlePlotClick = (state: string, emoji?: string, timeLeft?: string) => {
     if (state === "ready") {
       setHarvestFlower(emoji || "🌺");
       setIsHarvestOpen(true);
-    } else if (state === "empty") {
-      toast({
-        title: "Planting seed...",
-        description: "This feature is coming soon! 🌱",
-      });
-    } else if (["seeded", "sprout", "growing", "flowering"].includes(state)) {
+    } else if (state === "empty" || state === "seeded") {
+      setIsSeedOpen(true);
+    } else if (["sprout", "growing", "flowering"].includes(state)) {
       setGrowingPlant({ state: state as PlotData["state"], emoji, timeLeft });
       setIsGrowingOpen(true);
     }
@@ -61,6 +60,14 @@ const Index = () => {
     toast({
       title: "Fertilizer added! ✨",
       description: "5 Diamonds spent. Growth speed doubled!",
+    });
+  };
+
+  const handleSelectSeed = (seed: { emoji: string; name: string; reward: number }) => {
+    setIsSeedOpen(false);
+    toast({
+      title: `${seed.emoji} ${seed.name} planted!`,
+      description: `Will earn ${seed.reward} B&G Coins when harvested!`,
     });
   };
 
@@ -127,6 +134,7 @@ const Index = () => {
       />
 
       {/* Growing Popup */}
+      {/* Growing Popup */}
       <GrowingPopup
         isOpen={isGrowingOpen}
         onClose={() => setIsGrowingOpen(false)}
@@ -134,6 +142,13 @@ const Index = () => {
         onFertilize={handleFertilize}
         plantEmoji={growingPlant?.emoji || "🌱"}
         timeLeft={growingPlant?.timeLeft}
+      />
+
+      {/* Seed Selection Popup */}
+      <SeedPopup
+        isOpen={isSeedOpen}
+        onClose={() => setIsSeedOpen(false)}
+        onSelectSeed={handleSelectSeed}
       />
     </div>
   );
