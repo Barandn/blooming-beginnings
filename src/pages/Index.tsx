@@ -20,11 +20,14 @@ const Index = () => {
 
   const plots = [
     { state: "empty" as const },
-    { state: "seeded" as const, timeLeft: "04:59:00" },
-    { state: "sprout" as const, timeLeft: "03:30:00", isWatering: true },
-    { state: "growing" as const, timeLeft: "02:00:00" },
-    { state: "flowering" as const, timeLeft: "00:30:00", isWatering: true },
+    { state: "seeded" as const, timeLeft: "04:59" },
+    { state: "sprout" as const, timeLeft: "03:30", isWatering: true },
+    { state: "growing" as const, timeLeft: "02:00" },
+    { state: "flowering" as const, timeLeft: "00:30", isWatering: true },
     { state: "ready" as const },
+    { state: "growing" as const, timeLeft: "01:45" },
+    { state: "empty" as const },
+    { state: "sprout" as const, timeLeft: "02:15" },
   ];
 
   return (
@@ -38,8 +41,8 @@ const Index = () => {
         <GameHeader coins={coins} />
         
         {/* Garden Grid */}
-        <div className="flex flex-col items-center justify-center px-4 pt-8 pb-40">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-8">
+        <div className="flex flex-col items-center justify-center px-4 pt-6 pb-28">
+          <div className="grid grid-cols-3 gap-3">
             {plots.map((plot, index) => (
               <GardenPlot
                 key={index}

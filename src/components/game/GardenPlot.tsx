@@ -34,43 +34,10 @@ const GardenPlot = ({ state, timeLeft, isWatering = false, onClick }: GardenPlot
     }
   };
 
-  const getActionButton = () => {
-    switch (state) {
-      case "empty":
-        return (
-          <button 
-            onClick={onClick}
-            className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all whitespace-nowrap z-10"
-          >
-            Plant Seed
-          </button>
-        );
-      case "ready":
-        return (
-          <button 
-            onClick={onClick}
-            className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-secondary text-secondary-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all whitespace-nowrap z-10"
-          >
-            Harvest
-          </button>
-        );
-      default:
-        return isWatering ? (
-          <button 
-            onClick={onClick}
-            className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-1 whitespace-nowrap z-10"
-          >
-            <Droplets className="w-3 h-3" />
-            Water
-          </button>
-        ) : null;
-    }
-  };
-
   const plantEmoji = getPlantEmoji();
 
   return (
-    <div className="relative w-28 h-28 cursor-pointer" onClick={onClick}>
+    <div className="relative w-24 h-24 cursor-pointer hover:scale-105 active:scale-95 transition-transform" onClick={onClick}>
       {/* Plot Image */}
       <img 
         src={gardenPlot} 
@@ -79,7 +46,7 @@ const GardenPlot = ({ state, timeLeft, isWatering = false, onClick }: GardenPlot
       />
       
       {/* Plant Container */}
-      <div className="absolute inset-0 flex items-center justify-center -mt-4">
+      <div className="absolute inset-0 flex items-center justify-center -mt-2">
         {state === "empty" ? (
           <div className="text-3xl opacity-30">+</div>
         ) : (
@@ -119,13 +86,10 @@ const GardenPlot = ({ state, timeLeft, isWatering = false, onClick }: GardenPlot
 
       {/* Time Left Badge */}
       {timeLeft && state !== "empty" && state !== "ready" && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold text-foreground border border-border shadow-sm whitespace-nowrap">
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm px-1.5 py-0.5 rounded-full text-[8px] font-bold text-foreground border border-border shadow-sm whitespace-nowrap">
           {timeLeft}
         </div>
       )}
-
-      {/* Action Button */}
-      {getActionButton()}
     </div>
   );
 };
