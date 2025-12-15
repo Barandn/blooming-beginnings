@@ -11,61 +11,64 @@ interface HarvestPopupProps {
 const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji = "🌺" }: HarvestPopupProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-card/95 backdrop-blur-xl border-2 border-gold/30 rounded-3xl max-w-xs mx-auto p-0 overflow-hidden">
-        {/* Background glow */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gold/20 via-transparent to-primary/10 pointer-events-none" />
-        
-        {/* Content */}
+      <DialogContent className="bg-gradient-to-b from-white/80 via-white/60 to-emerald-50/80 backdrop-blur-2xl border border-white/50 shadow-[0_28px_60px_rgba(16,185,129,0.25)] rounded-3xl max-w-xs mx-auto p-0 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,197,94,0.15),transparent_40%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.12),transparent_35%),radial-gradient(circle_at_50%_90%,rgba(245,158,11,0.16),transparent_45%)]" />
+
         <div className="relative flex flex-col items-center py-8 px-6">
-          {/* Title */}
-          <h2 className="text-xl font-bold text-foreground mb-4">Harvest Complete!</h2>
-          
+          <div className="flex items-center gap-2 rounded-full bg-white/70 border border-white/60 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-700 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            Harvested
+          </div>
+
+          <h2 className="text-2xl font-extrabold text-foreground mt-4 mb-2">Rewards ready</h2>
+          <p className="text-sm text-muted-foreground">Your garden is thriving beautifully.</p>
+
           {/* Flower with sparkles */}
-          <div className="relative mb-6">
-            {/* Glow background */}
-            <div className="absolute inset-0 bg-gold/30 rounded-full blur-3xl scale-150" />
-            
-            {/* Sparkles around */}
-            <Sparkles className="absolute -top-4 -left-2 w-6 h-6 text-gold animate-sparkle" />
-            <Sparkles className="absolute -top-2 -right-4 w-5 h-5 text-gold animate-sparkle" style={{ animationDelay: "0.3s" }} />
-            <Sparkles className="absolute -bottom-2 -left-4 w-5 h-5 text-gold animate-sparkle" style={{ animationDelay: "0.6s" }} />
-            <Sparkles className="absolute -bottom-4 right-0 w-6 h-6 text-gold animate-sparkle" style={{ animationDelay: "0.9s" }} />
-            <Sparkles className="absolute top-1/2 -right-6 w-4 h-4 text-gold animate-sparkle" style={{ animationDelay: "0.5s" }} />
-            <Sparkles className="absolute top-1/2 -left-6 w-4 h-4 text-gold animate-sparkle" style={{ animationDelay: "0.8s" }} />
-            
-            {/* Main flower */}
-            <div className="relative text-8xl animate-bounce-soft">
+          <div className="relative my-6">
+            <div className="absolute inset-0 bg-amber-300/40 rounded-full blur-3xl scale-150" />
+            <Sparkles className="absolute -top-3 -left-2 w-6 h-6 text-amber-400 animate-sparkle" />
+            <Sparkles className="absolute -bottom-2 -right-3 w-5 h-5 text-emerald-400 animate-sparkle" style={{ animationDelay: "0.4s" }} />
+            <Sparkles className="absolute top-1/2 -left-6 w-4 h-4 text-sky-400 animate-sparkle" style={{ animationDelay: "0.8s" }} />
+            <div className="relative text-8xl animate-bounce-soft drop-shadow-[0_12px_30px_rgba(251,191,36,0.35)]">
               {flowerEmoji}
             </div>
           </div>
-          
-          {/* Rewards */}
-          <div className="w-full space-y-3 mb-6">
-            <p className="text-center text-sm text-muted-foreground mb-3">You earned:</p>
-            
-            {/* Coins reward */}
-            <div className="flex items-center justify-center gap-3 bg-gold/10 rounded-2xl py-3 px-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-gold/20 rounded-full">
-                <Coins className="w-6 h-6 text-gold" />
+
+          <div className="w-full grid grid-cols-2 gap-3 mb-6">
+            <div className="rounded-2xl bg-gradient-to-br from-amber-100/80 to-amber-50/70 border border-amber-200/70 shadow-md p-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs text-amber-700 font-semibold">
+                <span>Garden Coins</span>
+                <Sparkles className="w-4 h-4 text-amber-400" />
               </div>
-              <span className="text-lg font-bold text-foreground">+20 B&G Coins</span>
+              <div className="flex items-center gap-2 text-amber-800 font-extrabold text-xl">
+                <div className="w-10 h-10 rounded-full bg-amber-300/40 flex items-center justify-center">
+                  <Coins className="w-6 h-6" />
+                </div>
+                +20 B&G
+              </div>
+              <p className="text-[10px] text-amber-700/70">Deposited instantly</p>
             </div>
-            
-            {/* Diamond reward */}
-            <div className="flex items-center justify-center gap-3 bg-accent/10 rounded-2xl py-3 px-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-accent/20 rounded-full">
-                <Gem className="w-6 h-6 text-accent" />
+
+            <div className="rounded-2xl bg-gradient-to-br from-cyan-100/80 to-emerald-50/80 border border-cyan-200/70 shadow-md p-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs text-cyan-700 font-semibold">
+                <span>Diamonds</span>
+                <Sparkles className="w-4 h-4 text-cyan-400" />
               </div>
-              <span className="text-lg font-bold text-foreground">+10 Diamonds</span>
+              <div className="flex items-center gap-2 text-cyan-900 font-extrabold text-xl">
+                <div className="w-10 h-10 rounded-full bg-cyan-300/40 flex items-center justify-center">
+                  <Gem className="w-6 h-6" />
+                </div>
+                +10 💎
+              </div>
+              <p className="text-[10px] text-cyan-700/70">Boost your upgrades</p>
             </div>
           </div>
-          
-          {/* Claim button */}
+
           <button
             onClick={onClaim}
-            className="w-full bg-gradient-to-r from-primary to-secondary text-primary-foreground py-4 rounded-2xl font-bold text-lg shadow-lg hover:scale-105 active:scale-95 transition-all"
+            className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition-all"
           >
-            Claim Rewards
+            Claim & celebrate
           </button>
         </div>
       </DialogContent>
