@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import GardenPlot from "@/components/game/GardenPlot";
 import GameHeader from "@/components/game/GameHeader";
 import BottomNavigation from "@/components/game/BottomNavigation";
@@ -25,6 +26,16 @@ const Index = () => {
   const [isGrowingOpen, setIsGrowingOpen] = useState(false);
   const [growingPlant, setGrowingPlant] = useState<PlotData | null>(null);
   const [isSeedOpen, setIsSeedOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleNavClick = (item: NavItem) => {
+    setActiveNav(item);
+    if (item === "market") {
+      navigate("/market");
+    } else if (item === "barn") {
+      navigate("/barn");
+    }
+  };
 
   const handlePlotClick = (state: string, emoji?: string, timeLeft?: string) => {
     if (state === "ready") {
@@ -122,7 +133,7 @@ const Index = () => {
       {/* Bottom Navigation */}
       <BottomNavigation 
         activeItem={activeNav} 
-        onItemClick={setActiveNav}
+        onItemClick={handleNavClick}
       />
 
       {/* Harvest Popup */}
