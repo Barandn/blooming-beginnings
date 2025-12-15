@@ -4,17 +4,27 @@ import GameHeader from "@/components/game/GameHeader";
 import BottomNavigation from "@/components/game/BottomNavigation";
 import GardenBackground from "@/components/game/GardenBackground";
 import HarvestPopup from "@/components/game/HarvestPopup";
+import GrowingPopup from "@/components/game/GrowingPopup";
 import { toast } from "@/hooks/use-toast";
 
 type NavItem = "garden" | "market" | "barn";
+
+interface PlotData {
+  state: "empty" | "seeded" | "sprout" | "growing" | "flowering" | "ready";
+  timeLeft?: string;
+  isWatering?: boolean;
+  emoji?: string;
+}
 
 const Index = () => {
   const [activeNav, setActiveNav] = useState<NavItem>("garden");
   const [coins, setCoins] = useState(1250);
   const [isHarvestOpen, setIsHarvestOpen] = useState(false);
   const [harvestFlower, setHarvestFlower] = useState("🌺");
+  const [isGrowingOpen, setIsGrowingOpen] = useState(false);
+  const [growingPlant, setGrowingPlant] = useState<PlotData | null>(null);
 
-  const handlePlotClick = (state: string, emoji?: string) => {
+  const handlePlotClick = (state: string, emoji?: string, timeLeft?: string) => {
     if (state === "ready") {
       setHarvestFlower(emoji || "🌺");
       setIsHarvestOpen(true);
@@ -23,11 +33,9 @@ const Index = () => {
         title: "Planting seed...",
         description: "This feature is coming soon! 🌱",
       });
-    } else {
-      toast({
-        title: "Growing...",
-        description: "This feature is coming soon! 🌱",
-      });
+    } else if (["seeded", "sprout", "growing", "flowering"].includes(state)) {
+      setGrowingPlant({ state: state as PlotData["state"], emoji, timeLeft });
+      setIsGrowingOpen(true);
     }
   };
 
@@ -37,6 +45,22 @@ const Index = () => {
     toast({
       title: "Rewards claimed!",
       description: "You received 20 B&G Coins and 10 Diamonds! 💎",
+    });
+  };
+
+  const handleWater = () => {
+    setIsGrowingOpen(false);
+    toast({
+      title: "Plant watered! 💧",
+      description: "Your plant is growing faster now!",
+    });
+  };
+
+  const handleFertilize = () => {
+    setIsGrowingOpen(false);
+    toast({
+      title: "Fertilizer added! ✨",
+      description: "5 Diamonds spent. Growth speed doubled!",
     });
   };
 
@@ -79,7 +103,7 @@ const Index = () => {
                     state={plot.state}
                     timeLeft={plot.timeLeft}
                     isWatering={plot.isWatering}
-                    onClick={() => handlePlotClick(plot.state, plot.emoji)}
+                    onClick={() => handlePlotClick(plot.state, plot.emoji, plot.timeLeft)}
                   />
                 </div>
               ))}
@@ -100,6 +124,16 @@ const Index = () => {
         onClose={() => setIsHarvestOpen(false)}
         onClaim={handleClaim}
         flowerEmoji={harvestFlower}
+      />
+
+      {/* Growing Popup */}
+      <GrowingPopup
+        isOpen={isGrowingOpen}
+        onClose={() => setIsGrowingOpen(false)}
+        onWater={handleWater}
+        onFertilize={handleFertilize}
+        plantEmoji={growingPlant?.emoji || "🌱"}
+        timeLeft={growingPlant?.timeLeft}
       />
     </div>
   );
