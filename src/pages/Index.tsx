@@ -106,37 +106,25 @@ const Index = () => {
         <GameHeader coins={coins} />
         
         {/* Garden Plots - Natural scattered layout */}
-        <div className="flex flex-col items-center px-5 pt-24 pb-28">
-          <div className="relative w-full max-w-md">
-            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-b from-white/60 via-white/30 to-emerald-50/60 blur-2xl" />
-            <div className="relative rounded-[28px] border border-white/40 bg-white/70 shadow-[0_25px_60px_rgba(15,118,110,0.18)] backdrop-blur-md overflow-hidden">
-              <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, rgba(16,185,129,0.15) 0, transparent 35%), radial-gradient(circle at 80% 0%, rgba(59,130,246,0.15) 0, transparent 30%), radial-gradient(circle at 50% 90%, rgba(245,158,11,0.14) 0, transparent 45%)" }} />
-              <div className="absolute top-4 left-4 right-4 h-12 rounded-2xl bg-white/60 border border-white/50 shadow-inner flex items-center px-4 gap-2 text-sm text-emerald-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Modern Garden Grid • Drag & grow your blooms
-              </div>
-
-              <div className="relative grid grid-cols-3 gap-4 px-4 pb-6 pt-16">
-                {allPlots.map((plot, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-center drop-shadow-sm"
-                    style={{
-                      transform: `translateY(${index % 2 === 0 ? '0px' : '6px'}) rotate(${(index - 4) * 1.2}deg)`
-                    }}
-                  >
-                    <GardenPlot
-                      state={plot.state}
-                      timeLeft={plot.timeLeft}
-                      isWatering={plot.isWatering}
-                      onClick={() => handlePlotClick(plot.state, plot.emoji, plot.timeLeft)}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="absolute -left-6 bottom-6 h-16 w-16 bg-gradient-to-br from-primary/30 to-accent/30 rounded-full blur-3xl" />
-              <div className="absolute -right-10 -top-10 h-24 w-24 bg-gradient-to-br from-amber-200/50 to-primary/30 rounded-full blur-3xl" />
+        <div className="flex flex-col items-center px-4 pt-24 pb-28">
+          <div className="w-full max-w-sm">
+            <div className="grid grid-cols-3 gap-3">
+              {allPlots.map((plot, index) => (
+                <div 
+                  key={index} 
+                  className="flex justify-center"
+                  style={{ 
+                    transform: `translateY(${index % 2 === 0 ? '0px' : '8px'}) rotate(${(index - 4) * 1.5}deg)` 
+                  }}
+                >
+                  <GardenPlot
+                    state={plot.state}
+                    timeLeft={plot.timeLeft}
+                    isWatering={plot.isWatering}
+                    onClick={() => handlePlotClick(plot.state, plot.emoji, plot.timeLeft)}
+                  />
+                </div>
+              ))}
             </div>
           </div>
         </div>

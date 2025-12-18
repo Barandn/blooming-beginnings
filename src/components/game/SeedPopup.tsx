@@ -33,67 +33,75 @@ const seeds: Seed[] = [
 const SeedPopup = ({ isOpen, onClose, onSelectSeed }: SeedPopupProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[360px] bg-gradient-to-br from-white/85 via-amber-50/80 to-emerald-50/85 border border-white/60 rounded-3xl p-0 overflow-hidden shadow-[0_22px_55px_rgba(180,83,9,0.18)]">
+      <DialogContent className="sm:max-w-[340px] bg-gradient-to-b from-amber-800/95 to-amber-950/95 border-2 border-amber-400/40 rounded-3xl p-0 overflow-hidden">
         {/* Header */}
-        <div className="relative px-6 py-5 border-b border-amber-200/80 bg-gradient-to-r from-amber-100/80 via-white/80 to-emerald-50/70 backdrop-blur-sm">
-          <div className="absolute -right-10 -top-10 w-28 h-28 bg-amber-200/60 blur-3xl rounded-full" />
-          <h2 className="relative text-xl font-extrabold text-amber-900 text-center flex items-center justify-center gap-2">
+        <div className="bg-gradient-to-r from-amber-700/80 to-orange-700/80 px-6 py-4 border-b border-amber-500/30">
+          <h2 className="text-xl font-bold text-amber-100 text-center flex items-center justify-center gap-2">
             <span>🌱</span>
             My Seeds
             <span>🌱</span>
           </h2>
-          <p className="relative text-amber-700/80 text-xs text-center mt-1">Select a premium seed to plant.</p>
+          <p className="text-amber-300/80 text-xs text-center mt-1">Choose a seed to plant</p>
         </div>
 
         {/* Shelf background with seeds */}
-        <ScrollArea className="h-[340px]">
-          <div className="p-4 space-y-3">
+        <ScrollArea className="h-[320px]">
+          <div className="p-4 space-y-2">
+            {/* Shelf rows */}
             {seeds.map((seed, index) => (
-              <Button
+              <div
                 key={index}
-                onClick={() => onSelectSeed(seed)}
-                variant="ghost"
-                className="w-full h-auto p-3 bg-white/75 hover:bg-white/90 border border-amber-100 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(249,115,22,0.2)] active:scale-95 backdrop-blur-md"
+                className="relative"
               >
-                <div className="flex items-center w-full gap-3">
-                  {/* Seed emoji with glow */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-amber-300/40 rounded-full blur-lg" />
-                    <span className="relative text-4xl filter drop-shadow-lg">{seed.emoji}</span>
-                  </div>
-
-                  {/* Seed info */}
-                  <div className="flex-1 text-left">
-                    <h3 className="text-amber-900 font-extrabold text-sm">{seed.name}</h3>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-amber-700/80">
-                      <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Owned {seed.owned}</span>
-                      <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">Fast growth</span>
+                {/* Shelf plank */}
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-700 to-amber-900 rounded-b-lg shadow-lg"
+                  style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.4)' }}
+                />
+                
+                {/* Seed item on shelf */}
+                <Button
+                  onClick={() => onSelectSeed(seed)}
+                  variant="ghost"
+                  className="w-full h-auto p-3 mb-2 bg-gradient-to-r from-amber-900/60 to-amber-800/40 hover:from-amber-700/70 hover:to-amber-600/50 border border-amber-500/20 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-amber-500/20 active:scale-95"
+                >
+                  <div className="flex items-center w-full gap-3">
+                    {/* Seed emoji with glow */}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-amber-400/20 rounded-full blur-md" />
+                      <span className="relative text-4xl filter drop-shadow-lg">{seed.emoji}</span>
+                    </div>
+                    
+                    {/* Seed info */}
+                    <div className="flex-1 text-left">
+                      <h3 className="text-amber-100 font-bold text-sm">{seed.name}</h3>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-amber-400/80 text-xs">Owned:</span>
+                        <span className="text-amber-200 font-semibold text-xs">{seed.owned}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Reward display */}
+                    <div className="flex flex-col items-center bg-gradient-to-br from-yellow-500/30 to-amber-600/30 px-3 py-1.5 rounded-xl border border-yellow-500/30">
+                      <div className="flex items-center gap-1">
+                        <Coins className="w-4 h-4 text-yellow-400" />
+                        <span className="text-yellow-300 font-bold text-sm">+{seed.reward}</span>
+                      </div>
+                      <span className="text-yellow-400/70 text-[10px]">B&G Coins</span>
                     </div>
                   </div>
-
-                  {/* Reward display */}
-                  <div className="flex flex-col items-center bg-gradient-to-br from-amber-100 to-yellow-50 px-3 py-2 rounded-xl border border-amber-200 shadow-inner">
-                    <div className="flex items-center gap-1">
-                      <Coins className="w-4 h-4 text-amber-500" />
-                      <span className="text-amber-700 font-extrabold text-sm">+{seed.reward}</span>
-                    </div>
-                    <span className="text-amber-500/70 text-[10px]">B&G Coins</span>
-                  </div>
-                </div>
-              </Button>
+                </Button>
+              </div>
             ))}
           </div>
         </ScrollArea>
 
         {/* Footer decoration */}
-        <div className="bg-gradient-to-r from-amber-100/80 to-emerald-50/80 px-4 py-3 border-t border-amber-200/60 flex items-center justify-between text-amber-700/80 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Curated for a modern barn</span>
-          </div>
-          <div className="flex items-center gap-1 font-semibold">
+        <div className="bg-gradient-to-r from-amber-900/80 to-amber-800/80 px-4 py-3 border-t border-amber-500/20">
+          <div className="flex items-center justify-center gap-2 text-amber-400/60 text-xs">
             <span>🏪</span>
-            Visit Market
+            <span>Visit Market for more seeds!</span>
+            <span>🏪</span>
           </div>
         </div>
       </DialogContent>
