@@ -3,48 +3,27 @@ import GameHeader from "@/components/game/GameHeader";
 import BottomNavigation from "@/components/game/BottomNavigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Diamond } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { Diamond, Droplets, Sparkles, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useGame } from "@/context/GameContext";
+import { PLANT_TYPES, GAME_CONFIG } from "@/config/gameConfig";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/hooks/use-toast";
+import { useEffect } from "react";
+import TutorialOverlay from "@/components/game/TutorialOverlay";
 
 type NavItem = "garden" | "market" | "barn";
 
-interface Seed {
-  emoji: string;
-  name: string;
-  price: number;
-  growTime: string;
-  reward: number;
-}
-
-const allSeeds: Seed[] = [
-  { emoji: "🌺", name: "Hibiscus", price: 5, growTime: "2h", reward: 20 },
-  { emoji: "🌻", name: "Sunflower", price: 8, growTime: "3h", reward: 25 },
-  { emoji: "🌷", name: "Tulip", price: 3, growTime: "1h", reward: 15 },
-  { emoji: "🌹", name: "Rose", price: 15, growTime: "4h", reward: 35 },
-  { emoji: "🌸", name: "Cherry Blossom", price: 12, growTime: "3h", reward: 30 },
-  { emoji: "💐", name: "Bouquet", price: 25, growTime: "6h", reward: 50 },
-  { emoji: "🪻", name: "Hyacinth", price: 6, growTime: "2h", reward: 18 },
-  { emoji: "🌼", name: "Daisy", price: 2, growTime: "45m", reward: 12 },
-  { emoji: "🪷", name: "Lotus", price: 20, growTime: "5h", reward: 45 },
-  { emoji: "🌵", name: "Cactus Flower", price: 10, growTime: "8h", reward: 40 },
-  { emoji: "🍀", name: "Lucky Clover", price: 30, growTime: "12h", reward: 70 },
-  { emoji: "🌾", name: "Wheat", price: 4, growTime: "1h", reward: 14 },
-];
-
-// Group seeds into rows of 3
-const seedRows = allSeeds.reduce((acc, seed, index) => {
-  const rowIndex = Math.floor(index / 3);
-  if (!acc[rowIndex]) acc[rowIndex] = [];
-  acc[rowIndex].push(seed);
-  return acc;
-}, [] as Seed[][]);
-
 const Market = () => {
+  const { state, buySeed, setTutorialStep } = useGame();
   const [activeNav, setActiveNav] = useState<NavItem>("market");
-  const [coins] = useState(1250);
-  const [diamonds, setDiamonds] = useState(50);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (state.tutorialStep === 1) {
+      setTutorialStep(2);
+    }
+  }, [state.tutorialStep, setTutorialStep]);
 
   const handleNavClick = (item: NavItem) => {
     setActiveNav(item);
@@ -55,25 +34,56 @@ const Market = () => {
     }
   };
 
-  const handleBuySeed = (seed: Seed) => {
-    if (diamonds >= seed.price) {
-      setDiamonds(prev => prev - seed.price);
+  const handleBuySeed = (plantId: string) => {
+      buySeed(plantId);
+  };
+
+  // NOTE: In this game logic, Water is bought ON DEMAND when clicking the plant, not stored in inventory.
+  // Same for Fertilizer? Or should Fertilizer be an inventory item?
+  // Spec says: "Uses: Buying Seeds AND Buying Water."
+  // "Action - Fertilizing... User taps 'Add Fertilizer (Cost: 500 B&G)'".
+  // This implies direct spend.
+  // However, "Market Layout... Tab 1 (Essentials): Water (Price: 💎), Fertilizer (Price: B&G). Big Buttons."
+  // This implies we CAN buy them here.
+  // If we buy here, they must be stored in Inventory?
+  // But the Context `waterPlant` function deducts Diamonds directly.
+  // If I add "Buy Water" here, does it add a "Water Token"?
+  // Re-reading Spec: "Pricing & ROI Logic: Water Price: Fixed at 1 Diamond per unit."
+  // "Action - Watering: ... Popup: 'Water needed! Cost: 1 💎'".
+  // This strongly suggests Direct Debit.
+  // Maybe the Market "Essentials" tab is just informational? Or maybe it allows buying "Stock"?
+  // But `waterPlant` checks `state.diamonds`.
+  // If I implement stock, I need to change `waterPlant`.
+  // Spec: "Tab 1 (Essentials): Water (Price: 💎), Fertilizer (Price: B&G). Big Buttons."
+  // Let's assume these buttons are just Shortcuts to "Buy a pack" or maybe they are just listing the prices?
+  // Or maybe "Buy Water" here means "Buy 10 Water Units" for 10 Diamonds?
+  // But if the price is 1:1, there is no benefit.
+  // I will make them "Informational" or "Bulk Buy" buttons?
+  // Actually, let's keep it simple. If I click "Buy Water" here, maybe it just explains how it works?
+  // OR, maybe I should change `GameContext` to support "Water Inventory"?
+  // Spec says: "Uses: Buying Seeds AND Buying Water." (Diamonds use).
+  // "User taps Pot B -> Popup: 'Water needed! Cost: 1 💎'". -> This is direct debit.
+  // So the Market entry for Water might be redundant or just a visual "This is where you see the price".
+  // I'll make the buttons disabled or just show info toast "Water is purchased directly when watering plants!".
+
+  const handleBuyWaterInfo = () => {
       toast({
-        title: `${seed.emoji} ${seed.name} purchased!`,
-        description: `Seed added to your inventory. -${seed.price} 💎`,
+          title: "Water Info",
+          description: "Water costs 1 Diamond per use. Buy it directly when your plants are thirsty!",
       });
-    } else {
+  };
+
+  const handleBuyFertilizerInfo = () => {
       toast({
-        title: "Not enough diamonds!",
-        description: `You need ${seed.price - diamonds} more diamonds.`,
-        variant: "destructive",
+          title: "Fertilizer Info",
+          description: "Fertilizer costs 500 B&G. Apply it directly to growing plants to speed them up!",
       });
-    }
   };
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-amber-100 to-amber-200">
-      {/* Flower shop wallpaper background */}
+      <TutorialOverlay />
+      {/* Background Pattern */}
       <div 
         className="absolute inset-0 opacity-20"
         style={{
@@ -83,116 +93,104 @@ const Market = () => {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Header with diamonds */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-amber-800/95 to-amber-900/90 backdrop-blur-sm border-b-2 border-amber-600/50 shadow-lg">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🏪</span>
-              <h1 className="text-xl font-bold text-amber-100">Flower Market</h1>
+        <GameHeader />
+
+        <div className="pt-20 pb-24 px-4 h-screen flex flex-col">
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl flex-1 overflow-hidden flex flex-col">
+                <div className="p-4 bg-amber-800/10 border-b border-amber-200">
+                    <h1 className="text-2xl font-bold text-amber-900 text-center">Marketplace</h1>
+                </div>
+
+                <Tabs defaultValue="seeds" className="flex-1 flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2 p-1 bg-amber-100/50">
+                        <TabsTrigger value="essentials" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Essentials</TabsTrigger>
+                        <TabsTrigger value="seeds" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Seeds</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="essentials" className="flex-1 p-4 space-y-4">
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col items-center text-center space-y-2">
+                            <div className="p-3 bg-blue-100 rounded-full">
+                                <Droplets className="w-8 h-8 text-blue-500" />
+                            </div>
+                            <h3 className="font-bold text-lg text-blue-900">Water</h3>
+                            <p className="text-sm text-blue-700">Essential for plant survival.</p>
+                            <div className="flex items-center gap-1 font-bold text-blue-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                                <span>Price: {GAME_CONFIG.waterCost}</span>
+                                <Diamond className="w-3 h-3" />
+                            </div>
+                            <Button className="w-full bg-blue-500 hover:bg-blue-600" onClick={handleBuyWaterInfo}>
+                                Info
+                            </Button>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col items-center text-center space-y-2">
+                            <div className="p-3 bg-amber-100 rounded-full">
+                                <Sparkles className="w-8 h-8 text-amber-500" />
+                            </div>
+                            <h3 className="font-bold text-lg text-amber-900">Fertilizer</h3>
+                            <p className="text-sm text-amber-700">Reduces growth time by 25%.</p>
+                            <div className="flex items-center gap-1 font-bold text-amber-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                                <span>Price: {GAME_CONFIG.fertilizerCost}</span>
+                                <Coins className="w-3 h-3 text-yellow-500" />
+                            </div>
+                            <Button className="w-full bg-amber-500 hover:bg-amber-600" onClick={handleBuyFertilizerInfo}>
+                                Info
+                            </Button>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="seeds" className="flex-1 p-0">
+                        <ScrollArea className="h-full">
+                            <div className="grid grid-cols-1 gap-3 p-4 pb-20">
+                                {Object.values(PLANT_TYPES).map((plant) => (
+                                    <div key={plant.id} className="bg-white border border-amber-200 rounded-xl p-3 flex items-center gap-4 shadow-sm relative overflow-hidden">
+                                        {/* Background Decoration */}
+                                        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-amber-50 to-transparent pointer-events-none" />
+
+                                        <div className="w-16 h-16 bg-amber-100 rounded-lg flex items-center justify-center text-4xl shadow-inner border border-amber-200 flex-shrink-0">
+                                            {plant.emoji}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0 z-10">
+                                            <div className="flex justify-between items-start">
+                                                <h3 className="font-bold text-amber-900 truncate">{plant.name}</h3>
+                                                <div className="flex items-center gap-1 bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full text-xs font-bold border border-cyan-200">
+                                                    {plant.seedCost} <Diamond className="w-3 h-3" />
+                                                </div>
+                                            </div>
+
+                                            <p className="text-xs text-amber-700 mt-1 line-clamp-2">{plant.description}</p>
+
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                                    plant.difficulty === "Easy" ? "bg-green-100 text-green-700 border-green-200" :
+                                                    plant.difficulty === "Medium" ? "bg-yellow-100 text-yellow-700 border-yellow-200" :
+                                                    "bg-red-100 text-red-700 border-red-200"
+                                                }`}>
+                                                    {plant.difficulty}
+                                                </span>
+                                                <span className="text-[10px] bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">
+                                                    {plant.totalWaterCycles} Cycles
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            size="sm"
+                                            className="h-full px-4 bg-green-600 hover:bg-green-700 z-10"
+                                            onClick={() => handleBuySeed(plant.id)}
+                                        >
+                                            Buy
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </TabsContent>
+                </Tabs>
             </div>
-            <div className="flex items-center gap-2 bg-amber-950/50 px-3 py-1.5 rounded-full border border-amber-500/30">
-              <Diamond className="w-5 h-5 text-cyan-400" />
-              <span className="text-cyan-300 font-bold">{diamonds}</span>
-            </div>
-          </div>
         </div>
 
-        {/* Shelf area */}
-        <ScrollArea className="h-screen pt-16 pb-24">
-          <div className="px-4 py-4">
-            {/* Shop welcome */}
-            <div className="text-center mb-4 bg-amber-800/20 rounded-2xl p-3 border border-amber-600/30">
-              <p className="text-amber-900 font-medium text-sm">🌸 Welcome to the Flower Shop! 🌸</p>
-              <p className="text-amber-700 text-xs mt-1">Buy seeds with diamonds and grow beautiful flowers</p>
-            </div>
-
-            {/* Shelf rows */}
-            <div className="space-y-1">
-              {seedRows.map((row, rowIndex) => (
-                <div key={rowIndex} className="relative">
-                  {/* Shelf with seeds */}
-                  <div className="relative bg-gradient-to-b from-amber-700/90 to-amber-800/95 rounded-t-xl pt-3 px-2 pb-1">
-                    {/* Wood grain texture overlay */}
-                    <div 
-                      className="absolute inset-0 opacity-30 rounded-t-xl"
-                      style={{
-                        backgroundImage: `repeating-linear-gradient(
-                          90deg,
-                          transparent,
-                          transparent 2px,
-                          rgba(139, 69, 19, 0.3) 2px,
-                          rgba(139, 69, 19, 0.3) 4px
-                        )`,
-                      }}
-                    />
-                    
-                    {/* Seeds on shelf */}
-                    <div className="relative grid grid-cols-3 gap-2">
-                      {row.map((seed, seedIndex) => (
-                        <Button
-                          key={seedIndex}
-                          onClick={() => handleBuySeed(seed)}
-                          variant="ghost"
-                          className="h-auto flex flex-col items-center p-2 bg-gradient-to-b from-amber-100/90 to-amber-200/90 hover:from-amber-50 hover:to-amber-100 rounded-xl border-2 border-amber-400/50 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
-                        >
-                          {/* Seed packet design */}
-                          <div className="relative">
-                            <div className="w-14 h-16 bg-gradient-to-b from-amber-50 to-amber-100 rounded-lg border-2 border-amber-300 shadow-inner flex flex-col items-center justify-center overflow-hidden">
-                              {/* Packet top fold */}
-                              <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-300 to-amber-200 border-b border-amber-400" />
-                              
-                              {/* Flower emoji */}
-                              <span className="text-3xl mt-2 filter drop-shadow-sm">{seed.emoji}</span>
-                            </div>
-                            
-                            {/* Price tag */}
-                            <div className="absolute -top-1 -right-1 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full px-1.5 py-0.5 flex items-center gap-0.5 shadow-md border border-cyan-300">
-                              <Diamond className="w-3 h-3 text-white" />
-                              <span className="text-white text-[10px] font-bold">{seed.price}</span>
-                            </div>
-                          </div>
-                          
-                          {/* Seed name */}
-                          <span className="text-amber-900 font-bold text-[10px] mt-1.5 text-center leading-tight">{seed.name}</span>
-                          
-                          {/* Info badges */}
-                          <div className="flex gap-1 mt-1">
-                            <span className="text-[8px] bg-amber-300/50 text-amber-800 px-1.5 py-0.5 rounded-full">⏱️{seed.growTime}</span>
-                            <span className="text-[8px] bg-yellow-300/50 text-amber-800 px-1.5 py-0.5 rounded-full">🪙+{seed.reward}</span>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Shelf plank (3D effect) */}
-                  <div className="relative">
-                    {/* Main plank */}
-                    <div 
-                      className="h-4 bg-gradient-to-b from-amber-600 via-amber-700 to-amber-800 rounded-b-lg"
-                      style={{
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.1)',
-                      }}
-                    />
-                    {/* Plank edge highlight */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500/50 via-amber-400/70 to-amber-500/50 rounded-t" />
-                    {/* Plank bottom shadow */}
-                    <div className="h-2 bg-gradient-to-b from-amber-900/40 to-transparent" />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Bottom decoration */}
-            <div className="mt-6 text-center">
-              <div className="inline-flex items-center gap-2 bg-amber-800/30 px-4 py-2 rounded-full border border-amber-600/40">
-                <span>🌱</span>
-                <span className="text-amber-800 text-sm font-medium">More seeds coming soon!</span>
-                <span>🌱</span>
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
       </div>
 
       {/* Bottom Navigation */}

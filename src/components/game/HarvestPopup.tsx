@@ -1,72 +1,75 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Sparkles, Coins, Gem } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Diamond, Coins } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface HarvestPopupProps {
   isOpen: boolean;
   onClose: () => void;
   onClaim: () => void;
-  flowerEmoji?: string;
+  flowerEmoji: string;
+  seedCost: number; // To calculate reward
 }
 
-const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji = "🌺" }: HarvestPopupProps) => {
+const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: HarvestPopupProps) => {
+  const [bngReward, setBngReward] = useState(0);
+  const diamondReward = seedCost * 2;
+
+  // Simulate the random reward calculation for display purposes
+  // Actual reward is calculated in context
+  useEffect(() => {
+      if (isOpen) {
+          setBngReward(Math.floor(seedCost * 3.5)); // Average display
+      }
+  }, [isOpen, seedCost]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-card/95 backdrop-blur-xl border-2 border-gold/30 rounded-3xl max-w-xs mx-auto p-0 overflow-hidden">
-        {/* Background glow */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gold/20 via-transparent to-primary/10 pointer-events-none" />
-        
-        {/* Content */}
-        <div className="relative flex flex-col items-center py-8 px-6">
-          {/* Title */}
-          <h2 className="text-xl font-bold text-foreground mb-4">Harvest Complete!</h2>
-          
-          {/* Flower with sparkles */}
-          <div className="relative mb-6">
-            {/* Glow background */}
-            <div className="absolute inset-0 bg-gold/30 rounded-full blur-3xl scale-150" />
-            
-            {/* Sparkles around */}
-            <Sparkles className="absolute -top-4 -left-2 w-6 h-6 text-gold animate-sparkle" />
-            <Sparkles className="absolute -top-2 -right-4 w-5 h-5 text-gold animate-sparkle" style={{ animationDelay: "0.3s" }} />
-            <Sparkles className="absolute -bottom-2 -left-4 w-5 h-5 text-gold animate-sparkle" style={{ animationDelay: "0.6s" }} />
-            <Sparkles className="absolute -bottom-4 right-0 w-6 h-6 text-gold animate-sparkle" style={{ animationDelay: "0.9s" }} />
-            <Sparkles className="absolute top-1/2 -right-6 w-4 h-4 text-gold animate-sparkle" style={{ animationDelay: "0.5s" }} />
-            <Sparkles className="absolute top-1/2 -left-6 w-4 h-4 text-gold animate-sparkle" style={{ animationDelay: "0.8s" }} />
-            
-            {/* Main flower */}
-            <div className="relative text-8xl animate-bounce-soft">
-              {flowerEmoji}
-            </div>
+      <DialogContent className="sm:max-w-md bg-gradient-to-b from-green-50 to-green-100 border-green-200">
+        <DialogHeader>
+          <DialogTitle className="text-center text-2xl text-green-800">Harvest Ready!</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center gap-6 py-6">
+          <div className="relative">
+            <div className="absolute inset-0 bg-yellow-200 blur-xl opacity-50 animate-pulse rounded-full" />
+            <div className="text-8xl relative animate-bounce-soft">{flowerEmoji}</div>
           </div>
           
-          {/* Rewards */}
-          <div className="w-full space-y-3 mb-6">
-            <p className="text-center text-sm text-muted-foreground mb-3">You earned:</p>
-            
-            {/* Coins reward */}
-            <div className="flex items-center justify-center gap-3 bg-gold/10 rounded-2xl py-3 px-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-gold/20 rounded-full">
-                <Coins className="w-6 h-6 text-gold" />
+          <div className="text-center space-y-1">
+            <h3 className="text-xl font-bold text-green-900">Beautiful Flower!</h3>
+            <p className="text-green-700">Great job taking care of it.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 w-full">
+            <div className="bg-white/50 p-4 rounded-xl border border-green-200 flex flex-col items-center gap-2">
+              <Diamond className="w-8 h-8 text-cyan-400 fill-cyan-400" />
+              <div className="text-center">
+                <p className="text-xs font-bold text-green-600 uppercase">Diamonds</p>
+                <p className="text-2xl font-black text-green-800">+{diamondReward}</p>
               </div>
-              <span className="text-lg font-bold text-foreground">+20 B&G Coins</span>
             </div>
             
-            {/* Diamond reward */}
-            <div className="flex items-center justify-center gap-3 bg-accent/10 rounded-2xl py-3 px-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-accent/20 rounded-full">
-                <Gem className="w-6 h-6 text-accent" />
+            <div className="bg-white/50 p-4 rounded-xl border border-green-200 flex flex-col items-center gap-2">
+              <Coins className="w-8 h-8 text-yellow-500 fill-yellow-500" />
+              <div className="text-center">
+                <p className="text-xs font-bold text-green-600 uppercase">B&G Coins</p>
+                <p className="text-2xl font-black text-green-800">Random</p>
               </div>
-              <span className="text-lg font-bold text-foreground">+10 Diamonds</span>
             </div>
           </div>
-          
-          {/* Claim button */}
-          <button
+
+          <Button
+            className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20 animate-pulse"
             onClick={onClaim}
-            className="w-full bg-gradient-to-r from-primary to-secondary text-primary-foreground py-4 rounded-2xl font-bold text-lg shadow-lg hover:scale-105 active:scale-95 transition-all"
           >
             Claim Rewards
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
