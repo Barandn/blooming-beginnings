@@ -1,3 +1,4 @@
+
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Sparkles, Coins, Gem } from "lucide-react";
 
@@ -18,7 +19,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji = "🌺" }: Harves
         {/* Content */}
         <div className="relative flex flex-col items-center py-8 px-6">
           {/* Title */}
-          <h2 className="text-xl font-bold text-foreground mb-4">Harvest Complete!</h2>
+          <h2 className="text-xl font-bold text-foreground mb-4">Harvest Ready!</h2>
           
           {/* Flower with sparkles */}
           <div className="relative mb-6">
@@ -41,14 +42,14 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji = "🌺" }: Harves
           
           {/* Rewards */}
           <div className="w-full space-y-3 mb-6">
-            <p className="text-center text-sm text-muted-foreground mb-3">You earned:</p>
+            <p className="text-center text-sm text-muted-foreground mb-3">Rewards available:</p>
             
             {/* Coins reward */}
             <div className="flex items-center justify-center gap-3 bg-gold/10 rounded-2xl py-3 px-4">
               <div className="flex items-center justify-center w-10 h-10 bg-gold/20 rounded-full">
                 <Coins className="w-6 h-6 text-gold" />
               </div>
-              <span className="text-lg font-bold text-foreground">+20 B&G Coins</span>
+              <span className="text-lg font-bold text-foreground">B&G Coins</span>
             </div>
             
             {/* Diamond reward */}
@@ -56,7 +57,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji = "🌺" }: Harves
               <div className="flex items-center justify-center w-10 h-10 bg-accent/20 rounded-full">
                 <Gem className="w-6 h-6 text-accent" />
               </div>
-              <span className="text-lg font-bold text-foreground">+10 Diamonds</span>
+              <span className="text-lg font-bold text-foreground">Diamonds</span>
             </div>
           </div>
           
@@ -65,7 +66,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji = "🌺" }: Harves
             onClick={onClaim}
             className="w-full bg-gradient-to-r from-primary to-secondary text-primary-foreground py-4 rounded-2xl font-bold text-lg shadow-lg hover:scale-105 active:scale-95 transition-all"
           >
-            Claim Rewards
+            Harvest & Claim
           </button>
         </div>
       </DialogContent>

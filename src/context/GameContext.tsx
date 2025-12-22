@@ -43,7 +43,8 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-const INITIAL_PLOTS = Array.from({ length: 4 }, (_, i) => ({ id: `plot-${i}`, plant: null }));
+// Increased to 9 plots to match existing design grid
+const INITIAL_PLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `plot-${i}`, plant: null }));
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<GameState>(() => {
