@@ -95,7 +95,7 @@ const Index = () => {
         <GameHeader />
         
         {/* Garden Plots - Natural scattered layout */}
-        <div className="flex flex-col items-center justify-center px-4 pt-8 pb-28 min-h-[calc(100vh-180px)]">
+        <div className="flex flex-col items-center justify-center px-4 pt-24 pb-28 min-h-[calc(100vh-180px)]">
           <div className="w-full max-w-sm">
             <div className="grid grid-cols-3 gap-3">
               {state.plots.map((plot, index) => {
