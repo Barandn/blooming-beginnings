@@ -1,8 +1,27 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { GAME_CONFIG, PLANT_TYPES, PlantType } from "@/config/gameConfig";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { GAME_CONFIG, PLANT_TYPES, PlantType, BARN_ANIMALS, BARN_CONFIG } from "@/config/gameConfig";
 import { toast } from "@/hooks/use-toast";
 
 export type PlotState = "empty" | "growing" | "thirsty" | "dead" | "ready";
+
+// Barn Card Game Types
+export interface BarnCard {
+  id: number;
+  animalId: string;
+  emoji: string;
+  isFlipped: boolean;
+  isMatched: boolean;
+}
+
+export interface BarnGameState {
+  cards: BarnCard[];
+  flippedCards: number[]; // IDs of currently flipped cards (max 2)
+  matchedPairs: number;
+  attemptsUsed: number;
+  lastPlayedDate: string; // ISO date string (YYYY-MM-DD)
+  hasPlayedToday: boolean;
+  totalCoinsWon: number;
+}
 
 export interface PlotData {
   id: number;
@@ -24,6 +43,7 @@ interface GameState {
   lastDailyBonus: number; // Timestamp
   tutorialStep: number; // 0: Finished, 1: Market, 2: Buy Seed, 3: Plant
   monthlyProfit: number; // Tracked for leaderboard
+  barnGame: BarnGameState; // Card matching game state
 }
 
 interface GameContextType {
@@ -36,11 +56,65 @@ interface GameContextType {
   clearDeadPlant: (plotId: number) => void;
   claimDailyBonus: () => void;
   setTutorialStep: (step: number) => void;
+  // Barn game actions
+  flipBarnCard: (cardId: number) => void;
+  startBarnGame: () => void;
+  checkBarnDailyReset: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const STORAGE_KEY = "grand_master_farm_save_v1";
+
+// Helper function to get today's date as YYYY-MM-DD
+const getTodayDateString = (): string => {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
+};
+
+// Helper function to create shuffled barn cards
+const createBarnCards = (): BarnCard[] => {
+  const cards: BarnCard[] = [];
+
+  // Create pairs for each animal
+  BARN_ANIMALS.forEach((animal, index) => {
+    // First card of pair
+    cards.push({
+      id: index * 2,
+      animalId: animal.id,
+      emoji: animal.emoji,
+      isFlipped: false,
+      isMatched: false,
+    });
+    // Second card of pair
+    cards.push({
+      id: index * 2 + 1,
+      animalId: animal.id,
+      emoji: animal.emoji,
+      isFlipped: false,
+      isMatched: false,
+    });
+  });
+
+  // Shuffle using Fisher-Yates algorithm
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+
+  // Reassign IDs after shuffle to maintain uniqueness
+  return cards.map((card, index) => ({ ...card, id: index }));
+};
+
+const INITIAL_BARN_STATE: BarnGameState = {
+  cards: createBarnCards(),
+  flippedCards: [],
+  matchedPairs: 0,
+  attemptsUsed: 0,
+  lastPlayedDate: "",
+  hasPlayedToday: false,
+  totalCoinsWon: 0,
+};
 
 const INITIAL_STATE: GameState = {
   diamonds: GAME_CONFIG.startingDiamonds,
@@ -59,6 +133,7 @@ const INITIAL_STATE: GameState = {
   lastDailyBonus: 0,
   tutorialStep: 1, // Start with tutorial
   monthlyProfit: 0,
+  barnGame: INITIAL_BARN_STATE,
 };
 
 export const GameProvider = ({ children }: { children: ReactNode }) => {
@@ -310,6 +385,183 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       setState(prev => ({ ...prev, tutorialStep: step }));
   };
 
+  // Barn Game Actions
+  const checkBarnDailyReset = useCallback(() => {
+    const today = getTodayDateString();
+    setState((prev) => {
+      // If the saved date is different from today, reset the game
+      if (prev.barnGame.lastPlayedDate !== today) {
+        return {
+          ...prev,
+          barnGame: {
+            ...INITIAL_BARN_STATE,
+            cards: createBarnCards(), // Fresh shuffle
+            lastPlayedDate: "", // Will be set when game starts
+            hasPlayedToday: false,
+            totalCoinsWon: 0,
+          },
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  const startBarnGame = () => {
+    const today = getTodayDateString();
+    setState((prev) => {
+      // Check if already played today
+      if (prev.barnGame.lastPlayedDate === today && prev.barnGame.hasPlayedToday) {
+        return prev; // Already played
+      }
+
+      return {
+        ...prev,
+        barnGame: {
+          cards: createBarnCards(), // Fresh shuffle for new game
+          flippedCards: [],
+          matchedPairs: 0,
+          attemptsUsed: 0,
+          lastPlayedDate: today,
+          hasPlayedToday: false, // Will be set to true when game ends
+          totalCoinsWon: 0,
+        },
+      };
+    });
+  };
+
+  const flipBarnCard = (cardId: number) => {
+    setState((prev) => {
+      const { barnGame } = prev;
+
+      // Check if game is over (all attempts used or all matched)
+      if (barnGame.attemptsUsed >= BARN_CONFIG.totalAttempts || barnGame.matchedPairs >= BARN_CONFIG.totalPairs) {
+        return prev;
+      }
+
+      // Check if this card is already flipped or matched
+      const card = barnGame.cards.find((c) => c.id === cardId);
+      if (!card || card.isFlipped || card.isMatched) {
+        return prev;
+      }
+
+      // Check if already have 2 cards flipped
+      if (barnGame.flippedCards.length >= 2) {
+        return prev;
+      }
+
+      // Flip the card
+      const newCards = barnGame.cards.map((c) =>
+        c.id === cardId ? { ...c, isFlipped: true } : c
+      );
+
+      const newFlippedCards = [...barnGame.flippedCards, cardId];
+
+      // If this is the second card flipped, check for match
+      if (newFlippedCards.length === 2) {
+        const [firstId, secondId] = newFlippedCards;
+        const firstCard = newCards.find((c) => c.id === firstId)!;
+        const secondCard = newCards.find((c) => c.id === secondId)!;
+
+        const isMatch = firstCard.animalId === secondCard.animalId;
+
+        if (isMatch) {
+          // Mark cards as matched
+          const matchedCards = newCards.map((c) =>
+            c.id === firstId || c.id === secondId ? { ...c, isMatched: true } : c
+          );
+
+          const newMatchedPairs = barnGame.matchedPairs + 1;
+          const newAttemptsUsed = barnGame.attemptsUsed + 1;
+          const newTotalCoinsWon = barnGame.totalCoinsWon + BARN_CONFIG.matchReward;
+          const isGameComplete = newMatchedPairs >= BARN_CONFIG.totalPairs || newAttemptsUsed >= BARN_CONFIG.totalAttempts;
+
+          // Add reward
+          toast({
+            title: "Eşleşme!",
+            description: `+${BARN_CONFIG.matchReward} B&G Coin kazandın!`,
+          });
+
+          return {
+            ...prev,
+            bng: prev.bng + BARN_CONFIG.matchReward,
+            barnGame: {
+              ...barnGame,
+              cards: matchedCards,
+              flippedCards: [],
+              matchedPairs: newMatchedPairs,
+              attemptsUsed: newAttemptsUsed,
+              hasPlayedToday: isGameComplete,
+              totalCoinsWon: newTotalCoinsWon,
+            },
+          };
+        } else {
+          // No match - cards will flip back (handled by setTimeout in component)
+          const newAttemptsUsed = barnGame.attemptsUsed + 1;
+          const isGameComplete = newAttemptsUsed >= BARN_CONFIG.totalAttempts;
+
+          // We'll flip back in the component after a delay
+          return {
+            ...prev,
+            barnGame: {
+              ...barnGame,
+              cards: newCards,
+              flippedCards: newFlippedCards,
+              attemptsUsed: newAttemptsUsed,
+              hasPlayedToday: isGameComplete,
+            },
+          };
+        }
+      }
+
+      // First card flipped
+      return {
+        ...prev,
+        barnGame: {
+          ...barnGame,
+          cards: newCards,
+          flippedCards: newFlippedCards,
+        },
+      };
+    });
+  };
+
+  // Helper to flip cards back after a mismatch (called from component)
+  const flipCardsBack = useCallback(() => {
+    setState((prev) => {
+      const { barnGame } = prev;
+      const newCards = barnGame.cards.map((c) =>
+        barnGame.flippedCards.includes(c.id) && !c.isMatched
+          ? { ...c, isFlipped: false }
+          : c
+      );
+
+      return {
+        ...prev,
+        barnGame: {
+          ...barnGame,
+          cards: newCards,
+          flippedCards: [],
+        },
+      };
+    });
+  }, []);
+
+  // Effect to flip cards back after mismatch
+  useEffect(() => {
+    const { flippedCards, cards } = state.barnGame;
+    if (flippedCards.length === 2) {
+      const [firstId, secondId] = flippedCards;
+      const firstCard = cards.find((c) => c.id === firstId);
+      const secondCard = cards.find((c) => c.id === secondId);
+
+      // If not matched, flip back after delay
+      if (firstCard && secondCard && firstCard.animalId !== secondCard.animalId) {
+        const timer = setTimeout(flipCardsBack, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [state.barnGame.flippedCards, flipCardsBack]);
+
   return (
     <GameContext.Provider
       value={{
@@ -321,7 +573,10 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         harvestPlant,
         clearDeadPlant,
         claimDailyBonus,
-        setTutorialStep
+        setTutorialStep,
+        flipBarnCard,
+        startBarnGame,
+        checkBarnDailyReset,
       }}
     >
       {children}

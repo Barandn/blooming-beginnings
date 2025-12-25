@@ -126,3 +126,29 @@ export const GAME_CONFIG = {
   dailyBonusBnG: 200,
   plotsCount: 9,
 };
+
+// Barn Card Game Configuration
+export interface BarnAnimal {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
+export const BARN_ANIMALS: BarnAnimal[] = [
+  { id: "cow", name: "İnek", emoji: "🐄" },
+  { id: "pig", name: "Domuz", emoji: "🐷" },
+  { id: "chicken", name: "Tavuk", emoji: "🐔" },
+  { id: "sheep", name: "Koyun", emoji: "🐑" },
+  { id: "horse", name: "At", emoji: "🐴" },
+  { id: "duck", name: "Ördek", emoji: "🦆" },
+  { id: "goat", name: "Keçi", emoji: "🐐" },
+  { id: "rabbit", name: "Tavşan", emoji: "🐰" },
+  { id: "rooster", name: "Horoz", emoji: "🐓" },
+  { id: "turkey", name: "Hindi", emoji: "🦃" },
+];
+
+export const BARN_CONFIG = {
+  matchReward: 500, // B&G coins per successful match
+  totalAttempts: 10, // Number of pair flip attempts allowed
+  totalPairs: 10, // Number of animal pairs (20 cards total)
+};
