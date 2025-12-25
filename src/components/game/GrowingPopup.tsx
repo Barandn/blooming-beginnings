@@ -35,7 +35,7 @@ const GrowingPopup = ({
         <DialogHeader>
           <DialogTitle className="text-center text-2xl flex items-center justify-center gap-2">
             <span>{plantEmoji}</span>
-            <span>Plant Care</span>
+            <span>Mahsul Bakımı</span>
             <span>{plantEmoji}</span>
           </DialogTitle>
         </DialogHeader>
@@ -44,10 +44,10 @@ const GrowingPopup = ({
           <div className="text-center space-y-2">
             <div className="text-6xl animate-bounce-soft">{plantEmoji}</div>
             <p className="text-muted-foreground">
-                {isThirsty ? "I'm thirsty! Help!" : "Growing nicely..."}
+                {isThirsty ? "Susadım! Yardım et!" : "Güzelce büyüyorum..."}
             </p>
             <p className="text-sm font-medium">
-               Cycles Remaining: {cyclesRemaining} / {totalCycles}
+               Kalan Döngü: {cyclesRemaining} / {totalCycles}
             </p>
           </div>
 
@@ -58,7 +58,7 @@ const GrowingPopup = ({
               disabled={!isThirsty}
             >
               <Droplets className="w-5 h-5" />
-              Water (1 💎)
+              Sula (1 💎)
             </Button>
 
             <Button
@@ -67,10 +67,10 @@ const GrowingPopup = ({
               onClick={onFertilize}
             >
               <Sparkles className="w-5 h-5 text-amber-600" />
-              Add Fertilizer (500 B&G)
+              Gübrele (500 B&G)
             </Button>
             <p className="text-xs text-center text-muted-foreground">
-                Reduces growth cycles by 25% (Save Diamonds!)
+                Büyüme döngüsünü %25 azaltır (Elmas tasarrufu!)
             </p>
           </div>
         </div>

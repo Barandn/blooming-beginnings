@@ -32,7 +32,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md bg-gradient-to-b from-green-50 to-green-100 border-green-200">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl text-green-800">Harvest Ready!</DialogTitle>
+          <DialogTitle className="text-center text-2xl text-green-800">Hasat Zamanı!</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-6 py-6">
@@ -42,24 +42,24 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
           </div>
           
           <div className="text-center space-y-1">
-            <h3 className="text-xl font-bold text-green-900">Beautiful Flower!</h3>
-            <p className="text-green-700">Great job taking care of it.</p>
+            <h3 className="text-xl font-bold text-green-900">Muhteşem Hasat!</h3>
+            <p className="text-green-700">Mahsulünle harika ilgilendin.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 w-full">
             <div className="bg-white/50 p-4 rounded-xl border border-green-200 flex flex-col items-center gap-2">
               <Diamond className="w-8 h-8 text-cyan-400 fill-cyan-400" />
               <div className="text-center">
-                <p className="text-xs font-bold text-green-600 uppercase">Diamonds</p>
+                <p className="text-xs font-bold text-green-600 uppercase">Elmas</p>
                 <p className="text-2xl font-black text-green-800">+{diamondReward}</p>
               </div>
             </div>
-            
+
             <div className="bg-white/50 p-4 rounded-xl border border-green-200 flex flex-col items-center gap-2">
               <Coins className="w-8 h-8 text-yellow-500 fill-yellow-500" />
               <div className="text-center">
-                <p className="text-xs font-bold text-green-600 uppercase">B&G Coins</p>
-                <p className="text-2xl font-black text-green-800">Random</p>
+                <p className="text-xs font-bold text-green-600 uppercase">B&G Coin</p>
+                <p className="text-2xl font-black text-green-800">Rastgele</p>
               </div>
             </div>
           </div>
@@ -68,7 +68,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
             className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/20 animate-pulse"
             onClick={onClaim}
           >
-            Claim Rewards
+            Ödülleri Al
           </Button>
         </div>
       </DialogContent>

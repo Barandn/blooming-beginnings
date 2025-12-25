@@ -34,14 +34,14 @@ const SeedPopup = ({ isOpen, onClose, selectedPlotId }: SeedPopupProps) => {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md bg-[#fff9ea] border-amber-200">
         <DialogHeader>
-          <DialogTitle className="text-center text-amber-900">Choose a Seed</DialogTitle>
+          <DialogTitle className="text-center text-amber-900">Tohum Seç</DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="h-[300px] p-2">
             {inventorySeeds.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 py-8">
-                    <p className="text-amber-800 text-center">You don't have any seeds!</p>
-                    <Button onClick={() => navigate("/market")}>Go to Market</Button>
+                    <p className="text-amber-800 text-center">Hiç tohumun yok!</p>
+                    <Button onClick={() => navigate("/market")}>Pazara Git</Button>
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-3">
@@ -57,7 +57,7 @@ const SeedPopup = ({ isOpen, onClose, selectedPlotId }: SeedPopupProps) => {
                                 <span className="text-4xl">{plant.emoji}</span>
                                 <div className="text-center">
                                     <div className="font-bold text-amber-900">{plant.name}</div>
-                                    <div className="text-xs text-amber-700">Owned: {count}</div>
+                                    <div className="text-xs text-amber-700">Stok: {count}</div>
                                 </div>
                             </Button>
                         );

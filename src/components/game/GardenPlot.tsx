@@ -49,7 +49,7 @@ const GardenPlot = ({ state, plantType, timeLeft, isWatering = false, onClick }:
       {/* Plot Image */}
       <img 
         src={gardenPlot} 
-        alt="Garden plot" 
+        alt="Tarla" 
         className="w-full h-full object-contain drop-shadow-lg"
       />
       
