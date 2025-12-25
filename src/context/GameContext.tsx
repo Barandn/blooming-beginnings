@@ -139,7 +139,24 @@ const INITIAL_STATE: GameState = {
 export const GameProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<GameState>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_STATE;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Ensure barnGame exists with all required properties for backwards compatibility
+      return {
+        ...INITIAL_STATE,
+        ...parsed,
+        barnGame: {
+          ...INITIAL_BARN_STATE,
+          ...parsed.barnGame,
+        },
+        // Ensure plots have correct PlotState type
+        plots: (parsed.plots || INITIAL_STATE.plots).map((plot: PlotData) => ({
+          ...plot,
+          state: plot.state as PlotState,
+        })),
+      };
+    }
+    return INITIAL_STATE;
   });
 
   // Persistence
@@ -152,7 +169,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     const interval = setInterval(() => {
       setState((prev) => {
         const now = Date.now();
-        const newPlots = prev.plots.map((plot) => {
+        const newPlots: PlotData[] = prev.plots.map((plot) => {
           if (plot.state === "empty" || plot.state === "dead" || plot.state === "ready") {
             return plot;
           }
@@ -166,7 +183,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           // Check if it should become thirsty
           // It becomes thirsty after 'wateringInterval'
           if (plot.state === "growing" && timeSinceWater >= plantType.wateringInterval) {
-            return { ...plot, state: "thirsty" };
+            return { ...plot, state: "thirsty" as PlotState };
           }
 
           // Check if it died
@@ -175,7 +192,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           if (plot.state === "thirsty") {
             const timeThirsty = timeSinceWater - plantType.wateringInterval;
             if (timeThirsty >= plot.currentGracePeriod) {
-              return { ...plot, state: "dead" };
+              return { ...plot, state: "dead" as PlotState };
             }
           }
 
