@@ -85,14 +85,12 @@ const Barn = () => {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Background - Barn themed gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-100 via-orange-50 to-amber-200">
-        {/* Decorative barn elements */}
-        <div className="absolute top-16 left-4 text-6xl opacity-20 rotate-12">🏠</div>
-        <div className="absolute top-32 right-4 text-5xl opacity-20 -rotate-12">🌾</div>
-        <div className="absolute bottom-32 left-8 text-4xl opacity-20">🐔</div>
-        <div className="absolute bottom-40 right-8 text-4xl opacity-20">🐄</div>
-        <div className="absolute top-1/2 left-2 text-3xl opacity-15">🐑</div>
-        <div className="absolute top-1/3 right-2 text-3xl opacity-15">🐷</div>
+      <div className="absolute inset-0 bg-gradient-to-b from-amber-50 via-orange-50 to-amber-100">
+        {/* Subtle decorative pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-20 left-8 text-8xl">🌾</div>
+          <div className="absolute bottom-32 right-8 text-8xl">🌾</div>
+        </div>
       </div>
 
       {/* Content */}
@@ -102,83 +100,74 @@ const Barn = () => {
 
         {/* Main Content */}
         <div className="flex flex-col items-center px-4 pt-20 pb-28">
-          {/* Title & Info */}
-          <div className="w-full max-w-md mb-4">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-amber-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl">🐮</span>
-                  <div>
-                    <h1 className="text-xl font-bold text-amber-800">Ahır Oyunu</h1>
-                    <p className="text-xs text-amber-600">Hayvanları eşleştir, coin kazan!</p>
+          {/* Title & Stats Card */}
+          <div className="w-full max-w-sm mb-4">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-md border border-amber-100">
+              {/* Title Row */}
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <span className="text-2xl">🐮</span>
+                <h1 className="text-lg font-bold text-amber-800">Günlük Eşleştirme</h1>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-amber-50 rounded-lg py-2 px-1">
+                  <div className="flex items-center justify-center gap-1">
+                    <RefreshCw className="w-3 h-3 text-amber-600" />
+                    <span className="text-xs text-amber-600">Hak</span>
                   </div>
+                  <span className="text-sm font-bold text-amber-800">{attemptsRemaining}/{BARN_CONFIG.totalAttempts}</span>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <div className="flex items-center gap-1 text-sm text-amber-700">
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Kalan: {attemptsRemaining}/{BARN_CONFIG.totalAttempts}</span>
+                <div className="bg-green-50 rounded-lg py-2 px-1">
+                  <div className="flex items-center justify-center gap-1">
+                    <Trophy className="w-3 h-3 text-green-600" />
+                    <span className="text-xs text-green-600">Eşleşme</span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-amber-600">
-                    <Clock className="w-3 h-3" />
-                    <span>Yenileme: {timeUntilReset}</span>
+                  <span className="text-sm font-bold text-green-700">{barnGame.matchedPairs}/{BARN_CONFIG.totalPairs}</span>
+                </div>
+                <div className="bg-yellow-50 rounded-lg py-2 px-1">
+                  <div className="flex items-center justify-center gap-1">
+                    <Coins className="w-3 h-3 text-yellow-600" />
+                    <span className="text-xs text-yellow-600">Kazanç</span>
                   </div>
+                  <span className="text-sm font-bold text-yellow-700">+{barnGame.totalCoinsWon}</span>
                 </div>
               </div>
 
-              {/* Stats Row */}
-              <div className="flex justify-between items-center bg-amber-50 rounded-xl px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-medium text-amber-700">
-                    Eşleşme: {barnGame.matchedPairs}/{BARN_CONFIG.totalPairs}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm font-bold text-amber-700">
-                    +{barnGame.totalCoinsWon} B&G
-                  </span>
-                </div>
+              {/* Reset Timer */}
+              <div className="flex items-center justify-center gap-1 mt-3 text-xs text-amber-500">
+                <Clock className="w-3 h-3" />
+                <span>Yenileme: {timeUntilReset}</span>
               </div>
             </div>
           </div>
 
           {/* Already Played Today Message */}
           {barnGame.hasPlayedToday && barnGame.lastPlayedDate && (
-            <div className="w-full max-w-md mb-4">
-              <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-2xl p-4 shadow-lg border border-green-200">
-                <div className="flex items-center gap-3">
-                  <div className="text-4xl animate-bounce-soft">🎉</div>
-                  <div>
-                    <h2 className="text-lg font-bold text-green-800">Bugünlük Oynadın!</h2>
-                    <p className="text-sm text-green-600">
-                      Toplam {barnGame.totalCoinsWon} B&G Coin kazandın.
-                    </p>
-                    <p className="text-xs text-green-500 mt-1">
-                      Yarın tekrar gel!
-                    </p>
-                  </div>
-                </div>
+            <div className="w-full max-w-sm mb-4">
+              <div className="bg-green-50 rounded-xl p-3 border border-green-200 text-center">
+                <p className="text-sm font-medium text-green-700">
+                  Bugün oynadın! Yarın tekrar gel.
+                </p>
               </div>
             </div>
           )}
 
           {/* Start Game Button - Show if haven't started today */}
           {canPlay && !barnGame.lastPlayedDate && (
-            <div className="w-full max-w-md mb-4">
+            <div className="w-full max-w-sm mb-4">
               <button
                 onClick={handleStartGame}
-                className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
+                className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
               >
-                <span className="text-2xl">🎮</span>
-                <span className="text-lg">Günlük Oyunu Başlat!</span>
-                <span className="text-2xl">🎮</span>
+                <span className="text-xl">🎮</span>
+                <span className="text-base">Oyunu Başlat</span>
               </button>
             </div>
           )}
 
           {/* Card Grid */}
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-sm">
             <div className="grid grid-cols-4 gap-2 sm:gap-3">
               {barnGame.cards.map((card) => {
                 const isFlipped = card.isFlipped || card.isMatched;
@@ -236,12 +225,10 @@ const Barn = () => {
           </div>
 
           {/* Reward Info */}
-          <div className="w-full max-w-md mt-4">
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-amber-200">
-              <p className="text-center text-sm text-amber-700">
-                Her eşleşme = <strong className="text-amber-800">{BARN_CONFIG.matchReward} B&G Coin</strong>
-              </p>
-            </div>
+          <div className="w-full max-w-sm mt-3">
+            <p className="text-center text-xs text-amber-600">
+              Her eşleşme = <strong>{BARN_CONFIG.matchReward} B&G Coin</strong>
+            </p>
           </div>
         </div>
       </div>
