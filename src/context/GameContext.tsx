@@ -128,9 +128,9 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         },
         tutorialStep: prev.tutorialStep === 2 ? 3 : prev.tutorialStep,
       }));
-      toast({ title: "Purchase Successful", description: `Bought ${plant.name} seed!` });
+      toast({ title: "Satın Alma Başarılı!", description: `${plant.name} tohumu alındı!` });
     } else {
-      toast({ title: "Insufficient Funds", description: "Need more Diamonds!", variant: "destructive" });
+      toast({ title: "Yetersiz Bakiye", description: "Daha fazla Elmas gerekli!", variant: "destructive" });
     }
   };
 
@@ -166,13 +166,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           plots: newPlots,
         };
       });
-      toast({ title: "Planted!", description: `${plant.name} is now growing.` });
+      toast({ title: "Ekildi!", description: `${plant.name} şimdi büyüyor.` });
     }
   };
 
   const waterPlant = (plotId: number) => {
     if (state.diamonds < GAME_CONFIG.waterCost) {
-      toast({ title: "No Water!", description: "You need 1 Diamond to water.", variant: "destructive" });
+      toast({ title: "Su Yok!", description: "Sulamak için 1 Elmas gerekli.", variant: "destructive" });
       return;
     }
 
@@ -197,12 +197,12 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Watered!", description: "Plant is healthy again." });
+    toast({ title: "Sulandı!", description: "Mahsul tekrar sağlıklı." });
   };
 
   const fertilizePlant = (plotId: number) => {
     if (state.bng < GAME_CONFIG.fertilizerCost) {
-      toast({ title: "Not enough B&G!", description: "Need 500 B&G for fertilizer.", variant: "destructive" });
+      toast({ title: "Yetersiz B&G!", description: "Gübre için 500 B&G gerekli.", variant: "destructive" });
       return;
     }
 
@@ -230,7 +230,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Fertilized!", description: "Growth cycles reduced!" });
+    toast({ title: "Gübrelendi!", description: "Büyüme süresi azaldı!" });
   };
 
   const harvestPlant = (plotId: number) => {
@@ -267,7 +267,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Harvested!", description: "Rewards added to wallet." });
+    toast({ title: "Hasat Edildi!", description: "Ödüller cüzdanına eklendi." });
   };
 
   const clearDeadPlant = (plotId: number) => {
@@ -289,7 +289,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Plant Cleared", description: `Refunded ${PLANT_TYPES[prev.plots[plotId].plantId!].seedCost} Diamonds.` });
+    toast({ title: "Mahsul Temizlendi", description: `${PLANT_TYPES[state.plots[plotId].plantId!].seedCost} Elmas iade edildi.` });
   };
 
   const claimDailyBonus = () => {
@@ -302,7 +302,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         bng: prev.bng + GAME_CONFIG.dailyBonusBnG,
         lastDailyBonus: now,
       }));
-      toast({ title: "Daily Bonus!", description: `Received ${GAME_CONFIG.dailyBonusBnG} B&G Coins.` });
+      toast({ title: "Günlük Bonus!", description: `${GAME_CONFIG.dailyBonusBnG} B&G Coin kazanıldı.` });
     }
   };
 

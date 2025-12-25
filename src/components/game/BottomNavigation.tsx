@@ -11,9 +11,9 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
   const [animatingItem, setAnimatingItem] = useState<NavItem | null>(null);
 
   const navItems = [
-    { id: "garden" as NavItem, label: "Garden", emoji: "🌻" },
-    { id: "market" as NavItem, label: "Market", emoji: "🛒" },
-    { id: "barn" as NavItem, label: "Barn", emoji: "🏡" },
+    { id: "garden" as NavItem, label: "Çiftlik", emoji: "🌾" },
+    { id: "market" as NavItem, label: "Pazar", emoji: "🛒" },
+    { id: "barn" as NavItem, label: "Ahır", emoji: "🏠" },
   ];
 
   const handleClick = (id: NavItem) => {

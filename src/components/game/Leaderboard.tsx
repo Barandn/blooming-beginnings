@@ -14,18 +14,18 @@ interface LeaderboardProps {
 }
 
 const MOCK_LEADERBOARD = [
-  { rank: 1, name: "FloraMaster99", profit: 12500 },
-  { rank: 2, name: "GreenThumb_X", profit: 9800 },
-  { rank: 3, name: "RoseQueen", profit: 8400 },
-  { rank: 4, name: "DaisyDuke", profit: 5200 },
-  { rank: 5, name: "PetalPusher", profit: 3100 },
+  { rank: 1, name: "CiftciAga99", profit: 12500 },
+  { rank: 2, name: "HasatKrali_X", profit: 9800 },
+  { rank: 3, name: "TarlaSultani", profit: 8400 },
+  { rank: 4, name: "MisirBey", profit: 5200 },
+  { rank: 5, name: "BugdayUstasi", profit: 3100 },
 ];
 
 const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
   const { state } = useGame();
 
   // Insert current user into the list for comparison (simple logic)
-  const userEntry = { rank: 99, name: "YOU", profit: state.monthlyProfit };
+  const userEntry = { rank: 99, name: "SEN", profit: state.monthlyProfit };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -33,13 +33,13 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
         <DialogHeader>
           <DialogTitle className="flex items-center justify-center gap-2 text-2xl text-amber-800">
             <Trophy className="w-6 h-6 text-yellow-500 fill-yellow-500" />
-            Top Farmers
+            En İyi Çiftçiler
           </DialogTitle>
         </DialogHeader>
 
         <div className="py-2">
             <div className="flex justify-between items-center px-4 py-2 bg-amber-50 rounded-lg mb-4 border border-amber-100">
-                <span className="font-bold text-amber-900">Your Monthly Profit:</span>
+                <span className="font-bold text-amber-900">Aylık Kazancın:</span>
                 <div className="flex items-center gap-1 font-mono text-lg font-bold text-green-600">
                     <TrendingUp className="w-4 h-4" />
                     {state.monthlyProfit} 💎
