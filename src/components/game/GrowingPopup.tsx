@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -5,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Droplets, Sparkles } from "lucide-react";
+import { Droplets, Sparkles, Leaf } from "lucide-react";
 
 interface GrowingPopupProps {
   isOpen: boolean;
@@ -29,48 +30,155 @@ const GrowingPopup = ({
   cyclesRemaining,
   totalCycles
 }: GrowingPopupProps) => {
+  const [isWatering, setIsWatering] = useState(false);
+  const [isFertilizing, setIsFertilizing] = useState(false);
+
+  const handleWater = useCallback(() => {
+    setIsWatering(true);
+    setTimeout(() => {
+      onWater();
+      setIsWatering(false);
+    }, 500);
+  }, [onWater]);
+
+  const handleFertilize = useCallback(() => {
+    setIsFertilizing(true);
+    setTimeout(() => {
+      onFertilize();
+      setIsFertilizing(false);
+    }, 400);
+  }, [onFertilize]);
+
+  const progressPercent = ((totalCycles - cyclesRemaining) / totalCycles) * 100;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={`sm:max-w-md animate-popup-enter overflow-hidden ${
+        isThirsty
+          ? "bg-gradient-to-b from-orange-50 to-red-50 border-red-200"
+          : "bg-gradient-to-b from-blue-50 to-green-50 border-green-200"
+      }`}>
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl flex items-center justify-center gap-2">
-            <span>{plantEmoji}</span>
-            <span>Mahsul Bakımı</span>
-            <span>{plantEmoji}</span>
+          <DialogTitle className="text-center text-xl flex items-center justify-center gap-2">
+            <Leaf className={`w-5 h-5 ${isThirsty ? "text-orange-500" : "text-green-500"}`} />
+            <span className={isThirsty ? "text-orange-800" : "text-green-800"}>
+              Mahsul Bakımı
+            </span>
+            <Leaf className={`w-5 h-5 scale-x-[-1] ${isThirsty ? "text-orange-500" : "text-green-500"}`} />
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col items-center gap-6 py-4">
-          <div className="text-center space-y-2">
-            <div className="text-6xl animate-bounce-soft">{plantEmoji}</div>
-            <p className="text-muted-foreground">
-                {isThirsty ? "Susadım! Yardım et!" : "Güzelce büyüyorum..."}
-            </p>
-            <p className="text-sm font-medium">
-               Kalan Döngü: {cyclesRemaining} / {totalCycles}
-            </p>
+        <div className="flex flex-col items-center gap-5 py-3">
+          {/* Mahsul görünümü */}
+          <div className="relative">
+            {/* Su damlası animasyonu */}
+            {isWatering && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-0 left-1/4 animate-water">
+                  <Droplets className="w-5 h-5 text-blue-400" />
+                </div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 animate-water" style={{ animationDelay: "0.15s" }}>
+                  <Droplets className="w-6 h-6 text-blue-500" />
+                </div>
+                <div className="absolute top-0 right-1/4 animate-water" style={{ animationDelay: "0.3s" }}>
+                  <Droplets className="w-5 h-5 text-blue-400" />
+                </div>
+              </div>
+            )}
+
+            {/* Gübre parıltısı */}
+            {isFertilizing && (
+              <div className="absolute inset-0 pointer-events-none">
+                <Sparkles className="absolute top-0 left-0 w-4 h-4 text-yellow-400 animate-star-burst" />
+                <Sparkles className="absolute top-0 right-0 w-4 h-4 text-amber-400 animate-star-burst" style={{ animationDelay: "0.1s" }} />
+                <Sparkles className="absolute bottom-0 left-1/4 w-3 h-3 text-yellow-500 animate-star-burst" style={{ animationDelay: "0.2s" }} />
+                <Sparkles className="absolute bottom-0 right-1/4 w-3 h-3 text-amber-500 animate-star-burst" style={{ animationDelay: "0.3s" }} />
+              </div>
+            )}
+
+            <div
+              className={`text-7xl transition-all duration-300 ${
+                isThirsty ? "animate-thirsty" : "animate-grow"
+              } ${isWatering ? "scale-110" : ""} ${isFertilizing ? "animate-sprout" : ""}`}
+            >
+              {plantEmoji}
+            </div>
           </div>
 
+          {/* Durum mesajı */}
+          <div className="text-center space-y-2">
+            <p className={`font-medium ${isThirsty ? "text-red-600 animate-pulse" : "text-green-700"}`}>
+              {isThirsty ? "💧 Susadım! Yardım et!" : "🌱 Güzelce büyüyorum..."}
+            </p>
+
+            {/* İlerleme çubuğu */}
+            <div className="w-48 mx-auto">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Büyüme</span>
+                <span className="font-medium">{Math.round(progressPercent)}%</span>
+              </div>
+              <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                Kalan: {cyclesRemaining} döngü
+              </p>
+            </div>
+          </div>
+
+          {/* Aksiyon butonları */}
           <div className="flex flex-col w-full gap-3">
             <Button
-              className="w-full h-14 text-lg gap-2 bg-blue-500 hover:bg-blue-600"
-              onClick={onWater}
-              disabled={!isThirsty}
+              className={`w-full h-14 text-lg gap-2 touch-feedback transition-all duration-200 ${
+                isThirsty
+                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-lg shadow-blue-500/30"
+                  : "bg-gray-300 cursor-not-allowed"
+              } ${isWatering ? "scale-95 opacity-80" : ""}`}
+              onClick={handleWater}
+              disabled={!isThirsty || isWatering}
             >
-              <Droplets className="w-5 h-5" />
-              Sula (1 💎)
+              {isWatering ? (
+                <span className="flex items-center gap-2">
+                  <Droplets className="w-5 h-5 animate-bounce" />
+                  Sulanıyor...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Droplets className="w-5 h-5" />
+                  Sula (1 💎)
+                </span>
+              )}
             </Button>
 
             <Button
               variant="secondary"
-              className="w-full h-14 text-lg gap-2 bg-amber-100 hover:bg-amber-200 text-amber-900 border-2 border-amber-300"
-              onClick={onFertilize}
+              className={`w-full h-12 text-base gap-2 touch-feedback transition-all duration-200
+                bg-gradient-to-r from-amber-100 to-yellow-100 hover:from-amber-200 hover:to-yellow-200
+                text-amber-900 border-2 border-amber-300 shadow-md shadow-amber-100/50
+                ${isFertilizing ? "scale-95 opacity-80" : ""}`}
+              onClick={handleFertilize}
+              disabled={isFertilizing}
             >
-              <Sparkles className="w-5 h-5 text-amber-600" />
-              Gübrele (500 B&G)
+              {isFertilizing ? (
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-600 animate-spin" />
+                  Gübre veriliyor...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-600" />
+                  Gübrele (500 B&G)
+                </span>
+              )}
             </Button>
-            <p className="text-xs text-center text-muted-foreground">
-                Büyüme döngüsünü %25 azaltır (Elmas tasarrufu!)
+
+            <p className="text-xs text-center text-gray-500 flex items-center justify-center gap-1">
+              <span>✨</span>
+              <span>Büyüme döngüsünü %25 azaltır</span>
+              <span>✨</span>
             </p>
           </div>
         </div>
