@@ -524,4 +524,89 @@
     animation: harvest-particle 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     will-change: transform, opacity;
   }
+
+  /* Barn Card Flip Animations */
+  @keyframes card-flip-in {
+    0% {
+      transform: rotateY(180deg);
+    }
+    100% {
+      transform: rotateY(0deg);
+    }
+  }
+
+  @keyframes card-flip-out {
+    0% {
+      transform: rotateY(0deg);
+    }
+    100% {
+      transform: rotateY(180deg);
+    }
+  }
+
+  @keyframes card-match-celebration {
+    0% {
+      transform: scale(1);
+    }
+    25% {
+      transform: scale(1.15) rotate(-3deg);
+    }
+    50% {
+      transform: scale(1.1) rotate(3deg);
+    }
+    75% {
+      transform: scale(1.05) rotate(-1deg);
+    }
+    100% {
+      transform: scale(0.95) rotate(0deg);
+    }
+  }
+
+  @keyframes card-shake {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+      transform: translateX(-3px);
+    }
+    20%, 40%, 60%, 80% {
+      transform: translateX(3px);
+    }
+  }
+
+  .barn-card-flip {
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .barn-card-front {
+    animation: card-flip-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: transform;
+  }
+
+  .barn-card-back {
+    transform: rotateY(0deg);
+  }
+
+  .animate-card-match {
+    animation: card-match-celebration 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    will-change: transform;
+  }
+
+  .animate-card-shake {
+    animation: card-shake 0.5s ease-in-out;
+    will-change: transform;
+  }
+
+  /* Backface visibility for card flip */
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Barn-specific glow effect */
+  .barn-glow {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
 }
