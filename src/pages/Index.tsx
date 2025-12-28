@@ -94,60 +94,74 @@ const Index = () => {
         {/* Header */}
         <GameHeader />
         
-        {/* Garden Plots - Natural scattered layout */}
-        <div className="flex flex-col items-center justify-center px-4 pt-24 pb-28 min-h-[calc(100vh-180px)]">
+        {/* Garden Plots - Modern 2025 Design */}
+        <div className="flex flex-col items-center justify-center px-4 pt-20 pb-28 min-h-[calc(100vh-180px)]">
+          {/* Garden Title */}
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-white/90 drop-shadow-md tracking-wide">
+              Bahçem
+            </h2>
+          </div>
+
+          {/* Modern Garden Container */}
           <div className="w-full max-w-sm">
-            <div className="grid grid-cols-3 gap-3">
-              {state.plots.map((plot, index) => {
-                  // Format Time Left
-                  let timeLeftStr = undefined;
-                  if (plot.state === "growing" || plot.state === "thirsty") {
-                      if (plot.plantId) {
-                           const plant = PLANT_TYPES[plot.plantId];
-                           const now = Date.now();
-                           const timeSinceWater = now - plot.lastWaterTime;
+            <div className="garden-container relative bg-gradient-to-b from-amber-900/20 to-amber-950/30 backdrop-blur-sm rounded-3xl p-4 border border-amber-800/20 shadow-2xl">
+              {/* Decorative corner elements */}
+              <div className="absolute top-2 left-2 w-3 h-3 border-l-2 border-t-2 border-amber-600/40 rounded-tl-lg"></div>
+              <div className="absolute top-2 right-2 w-3 h-3 border-r-2 border-t-2 border-amber-600/40 rounded-tr-lg"></div>
+              <div className="absolute bottom-2 left-2 w-3 h-3 border-l-2 border-b-2 border-amber-600/40 rounded-bl-lg"></div>
+              <div className="absolute bottom-2 right-2 w-3 h-3 border-r-2 border-b-2 border-amber-600/40 rounded-br-lg"></div>
 
-                           if (plot.state === "growing") {
-                               const msLeft = plant.wateringInterval - timeSinceWater;
-                               if (msLeft > 0) {
-                                   const h = Math.floor(msLeft / (1000 * 60 * 60));
-                                   const m = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
-                                   timeLeftStr = `${h}h ${m}m`;
-                               } else {
-                                   timeLeftStr = "0m";
-                               }
-                           } else { // Thirsty
-                               // Show grace period left?
-                               const timeThirsty = timeSinceWater - plant.wateringInterval;
-                               const msLeft = plot.currentGracePeriod - timeThirsty;
-                               if (msLeft > 0) {
-                                   const h = Math.floor(msLeft / (1000 * 60 * 60));
-                                   const m = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
-                                   timeLeftStr = `DIE: ${h}h ${m}m`;
-                               } else {
-                                   timeLeftStr = "DEAD";
-                               }
-                           }
-                      }
-                  }
+              {/* Grid Layout */}
+              <div className="grid grid-cols-3 gap-4">
+                {state.plots.map((plot) => {
+                    // Format Time Left
+                    let timeLeftStr = undefined;
+                    if (plot.state === "growing" || plot.state === "thirsty") {
+                        if (plot.plantId) {
+                             const plant = PLANT_TYPES[plot.plantId];
+                             const now = Date.now();
+                             const timeSinceWater = now - plot.lastWaterTime;
 
-                  return (
-                    <div
-                      key={plot.id}
-                      className="flex justify-center"
-                      style={{
-                        transform: `translateY(${index % 2 === 0 ? '0px' : '8px'}) rotate(${(index - 4) * 1.5}deg)`
-                      }}
-                    >
-                      <GardenPlot
-                        state={plot.state}
-                        plantType={plot.plantId ? PLANT_TYPES[plot.plantId] : undefined}
-                        timeLeft={timeLeftStr}
-                        onClick={() => handlePlotClick(plot)}
-                      />
-                    </div>
-                  );
-              })}
+                             if (plot.state === "growing") {
+                                 const msLeft = plant.wateringInterval - timeSinceWater;
+                                 if (msLeft > 0) {
+                                     const h = Math.floor(msLeft / (1000 * 60 * 60));
+                                     const m = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
+                                     timeLeftStr = `${h}h ${m}m`;
+                                 } else {
+                                     timeLeftStr = "0m";
+                                 }
+                             } else { // Thirsty
+                                 // Show grace period left?
+                                 const timeThirsty = timeSinceWater - plant.wateringInterval;
+                                 const msLeft = plot.currentGracePeriod - timeThirsty;
+                                 if (msLeft > 0) {
+                                     const h = Math.floor(msLeft / (1000 * 60 * 60));
+                                     const m = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
+                                     timeLeftStr = `DIE: ${h}h ${m}m`;
+                                 } else {
+                                     timeLeftStr = "DEAD";
+                                 }
+                             }
+                        }
+                    }
+
+                    return (
+                      <div
+                        key={plot.id}
+                        className="flex justify-center items-center"
+                      >
+                        <GardenPlot
+                          state={plot.state}
+                          plantType={plot.plantId ? PLANT_TYPES[plot.plantId] : undefined}
+                          timeLeft={timeLeftStr}
+                          onClick={() => handlePlotClick(plot)}
+                        />
+                      </div>
+                    );
+                })}
+              </div>
             </div>
           </div>
         </div>

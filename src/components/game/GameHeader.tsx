@@ -19,24 +19,30 @@ const GameHeader = ({ }: GameHeaderProps) => {
           {/* Resources */}
           <div className="flex gap-2">
             {/* Diamonds */}
-            <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-cyan-200 shadow-md">
-              <Diamond className="w-4 h-4 text-cyan-400 fill-cyan-400" />
-              <span className="font-bold text-slate-700">{state.diamonds}</span>
+            <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/30 shadow-lg smooth-hover">
+              <div className="w-5 h-5 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-lg flex items-center justify-center shadow-inner">
+                <Diamond className="w-3 h-3 text-white fill-white" />
+              </div>
+              <span className="font-bold text-slate-700 text-sm">{state.diamonds}</span>
             </div>
 
             {/* Coins (B&G) */}
-            <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-yellow-200 shadow-md">
-              <Coins className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-              <span className="font-bold text-slate-700">{state.bng}</span>
+            <div className="flex items-center gap-1.5 bg-white/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/30 shadow-lg smooth-hover">
+              <div className="w-5 h-5 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center shadow-inner">
+                <Coins className="w-3 h-3 text-white fill-white" />
+              </div>
+              <span className="font-bold text-slate-700 text-sm">{state.bng}</span>
             </div>
           </div>
 
           {/* Leaderboard Button */}
           <button
             onClick={() => setShowLeaderboard(true)}
-            className="bg-white/90 backdrop-blur-sm rounded-full w-10 h-10 flex items-center justify-center border border-amber-200 shadow-md hover:scale-105 transition-transform"
+            className="bg-white/80 backdrop-blur-md rounded-2xl w-11 h-11 flex items-center justify-center border border-white/30 shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
           >
-            <Trophy className="w-5 h-5 text-amber-500" />
+            <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center shadow-inner">
+              <Trophy className="w-4 h-4 text-white" />
+            </div>
           </button>
         </div>
       </div>
