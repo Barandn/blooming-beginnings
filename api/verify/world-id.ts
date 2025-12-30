@@ -113,7 +113,7 @@ export default async function handler(
           lastLoginAt: new Date(),
           merkleRoot: proof.merkle_root,
           updatedAt: new Date(),
-        })
+        } as Partial<typeof users.$inferInsert>)
         .where(eq(users.id, existingUser.id));
     } else {
       // Check if wallet is already registered with different nullifier
@@ -140,7 +140,7 @@ export default async function handler(
           verificationLevel: 'orb',
           merkleRoot: proof.merkle_root,
           lastLoginAt: new Date(),
-        })
+        } as typeof users.$inferInsert)
         .returning();
 
       existingUser = newUser;

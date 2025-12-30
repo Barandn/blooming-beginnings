@@ -188,7 +188,7 @@ export async function createSession(
       expiresAt,
       userAgent: metadata?.userAgent,
       ipAddress: metadata?.ipAddress,
-    })
+    } as typeof sessions.$inferInsert)
     .returning();
 
   return session;
@@ -220,7 +220,7 @@ export async function validateSession(token: string): Promise<Session | null> {
     // Update last used timestamp
     await db
       .update(sessions)
-      .set({ lastUsedAt: now })
+      .set({ lastUsedAt: now } as Partial<typeof sessions.$inferInsert>)
       .where(eq(sessions.id, session.id));
   }
 
@@ -237,7 +237,7 @@ export async function invalidateSession(token: string): Promise<void> {
 
   await db
     .update(sessions)
-    .set({ isActive: false })
+    .set({ isActive: false } as Partial<typeof sessions.$inferInsert>)
     .where(eq(sessions.tokenHash, tokenHash));
 }
 
@@ -249,7 +249,7 @@ export async function invalidateSession(token: string): Promise<void> {
 export async function invalidateAllSessions(userId: string): Promise<void> {
   await db
     .update(sessions)
-    .set({ isActive: false })
+    .set({ isActive: false } as Partial<typeof sessions.$inferInsert>)
     .where(eq(sessions.userId, userId));
 }
 
@@ -347,7 +347,7 @@ export async function authenticateWallet(
   // Update last login
   await db
     .update(users)
-    .set({ lastLoginAt: new Date() })
+    .set({ lastLoginAt: new Date() } as Partial<typeof users.$inferInsert>)
     .where(eq(users.id, user.id));
 
   return {

@@ -85,7 +85,7 @@ export default async function handler(
             totalCoinsWonToday: 0,
             matchesFoundToday: 0,
             updatedAt: new Date(),
-          })
+          } as Partial<typeof barnGameAttempts.$inferInsert>)
           .where(eq(barnGameAttempts.userId, auth.user.id));
 
         return res.status(200).json({

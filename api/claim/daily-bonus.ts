@@ -204,7 +204,7 @@ export default async function handler(
         amount: TOKEN_CONFIG.dailyBonusAmount,
         tokenAddress: TOKEN_CONFIG.tokenAddress,
         status: 'pending',
-      })
+      } as typeof claimTransactions.$inferInsert)
       .returning();
 
     // Step 6: Execute token transfer
@@ -217,7 +217,7 @@ export default async function handler(
         .set({
           status: 'pending',
           errorMessage: 'Token distribution not configured',
-        })
+        } as Partial<typeof claimTransactions.$inferInsert>)
         .where(eq(claimTransactions.id, transaction.id));
 
       // Still record the daily claim
@@ -226,7 +226,7 @@ export default async function handler(
         claimDate: getTodayDate(),
         amount: TOKEN_CONFIG.dailyBonusAmount,
         transactionId: transaction.id,
-      });
+      } as typeof dailyBonusClaims.$inferInsert);
 
       return res.status(200).json({
         status: API_STATUS.PENDING,
@@ -251,7 +251,7 @@ export default async function handler(
         .set({
           status: 'failed',
           errorMessage: transferResult.error,
-        })
+        } as Partial<typeof claimTransactions.$inferInsert>)
         .where(eq(claimTransactions.id, transaction.id));
 
       return res.status(500).json({
@@ -269,7 +269,7 @@ export default async function handler(
         txHash: transferResult.txHash,
         blockNumber: transferResult.blockNumber,
         confirmedAt: new Date(),
-      })
+      } as Partial<typeof claimTransactions.$inferInsert>)
       .where(eq(claimTransactions.id, transaction.id));
 
     // Step 8: Record daily bonus claim
@@ -278,7 +278,7 @@ export default async function handler(
       claimDate: getTodayDate(),
       amount: TOKEN_CONFIG.dailyBonusAmount,
       transactionId: transaction.id,
-    });
+    } as typeof dailyBonusClaims.$inferInsert);
 
     return res.status(200).json({
       status: API_STATUS.SUCCESS,
