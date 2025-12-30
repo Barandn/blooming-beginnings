@@ -1,0 +1,260 @@
+/**
+ * Database Schema for World App Mini-App
+ * Uses Drizzle ORM with Vercel Postgres (Neon)
+ *
+ * Tables:
+ * 1. users - Identity mapping (nullifier_hash → wallet_address)
+ * 2. claim_transactions - Token distribution log
+ * 3. game_scores - Validated game scores for leaderboard
+ * 4. sessions - User session management
+ */
+
+import {
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  boolean,
+  uuid,
+  varchar,
+  bigint,
+  index,
+  uniqueIndex
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+
+/**
+ * Users Table
+ * Links World ID nullifier_hash with wallet address
+ * Enforces unique human identity (anti-bot protection)
+ */
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // World ID unique identifier (nullifier_hash)
+  // This is unique per user per app - prevents multi-wallet farming
+  nullifierHash: text('nullifier_hash').notNull().unique(),
+
+  // User's wallet address on World Chain
+  walletAddress: varchar('wallet_address', { length: 42 }).notNull(),
+
+  // Verification level (must be 'orb' for our app)
+  verificationLevel: varchar('verification_level', { length: 20 }).notNull().default('orb'),
+
+  // Merkle root at time of verification
+  merkleRoot: text('merkle_root'),
+
+  // Whether user is currently active
+  isActive: boolean('is_active').notNull().default(true),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  lastLoginAt: timestamp('last_login_at'),
+}, (table) => [
+  uniqueIndex('users_nullifier_hash_idx').on(table.nullifierHash),
+  index('users_wallet_address_idx').on(table.walletAddress),
+]);
+
+/**
+ * Claim Transactions Table
+ * Records every token distribution with timestamps
+ * Used for enforcing 24-hour cooldown periods
+ */
+export const claimTransactions = pgTable('claim_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Claim type (daily_bonus, game_reward, referral, etc.)
+  claimType: varchar('claim_type', { length: 50 }).notNull(),
+
+  // Amount of tokens distributed (in wei as string for precision)
+  amount: text('amount').notNull(),
+
+  // Token contract address
+  tokenAddress: varchar('token_address', { length: 42 }).notNull(),
+
+  // Transaction hash on World Chain
+  txHash: varchar('tx_hash', { length: 66 }),
+
+  // Transaction status
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+  // Error message if failed
+  errorMessage: text('error_message'),
+
+  // Block number when confirmed
+  blockNumber: bigint('block_number', { mode: 'number' }),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  confirmedAt: timestamp('confirmed_at'),
+}, (table) => [
+  index('claim_transactions_user_id_idx').on(table.userId),
+  index('claim_transactions_claim_type_idx').on(table.claimType),
+  index('claim_transactions_created_at_idx').on(table.createdAt),
+  index('claim_transactions_user_type_created_idx').on(table.userId, table.claimType, table.createdAt),
+]);
+
+/**
+ * Game Scores Table
+ * Stores validated game scores for leaderboard
+ * Includes anti-cheat validation data
+ */
+export const gameScores = pgTable('game_scores', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Game type (barn_game, harvest, etc.)
+  gameType: varchar('game_type', { length: 50 }).notNull(),
+
+  // Score value
+  score: integer('score').notNull(),
+
+  // Monthly profit for leaderboard (in game currency)
+  monthlyProfit: bigint('monthly_profit', { mode: 'number' }).notNull().default(0),
+
+  // Game session data for validation
+  sessionId: uuid('session_id'),
+
+  // Time taken to complete (in seconds) - for time-delta validation
+  timeTaken: integer('time_taken'),
+
+  // Game start timestamp - for anti-cheat
+  gameStartedAt: timestamp('game_started_at'),
+
+  // Validation metadata (JSON string)
+  validationData: text('validation_data'),
+
+  // Whether score passed validation
+  isValidated: boolean('is_validated').notNull().default(false),
+
+  // Period for leaderboard (e.g., '2025-01' for January 2025)
+  leaderboardPeriod: varchar('leaderboard_period', { length: 7 }).notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('game_scores_user_id_idx').on(table.userId),
+  index('game_scores_leaderboard_period_idx').on(table.leaderboardPeriod),
+  index('game_scores_score_idx').on(table.score),
+  index('game_scores_monthly_profit_idx').on(table.monthlyProfit),
+  index('game_scores_period_profit_idx').on(table.leaderboardPeriod, table.monthlyProfit),
+]);
+
+/**
+ * Sessions Table
+ * Manages user sessions with JWT tokens
+ */
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Session token (hashed)
+  tokenHash: text('token_hash').notNull(),
+
+  // Wallet address used for this session
+  walletAddress: varchar('wallet_address', { length: 42 }).notNull(),
+
+  // Session expiration
+  expiresAt: timestamp('expires_at').notNull(),
+
+  // Whether session is active
+  isActive: boolean('is_active').notNull().default(true),
+
+  // Device/client info for security
+  userAgent: text('user_agent'),
+  ipAddress: varchar('ip_address', { length: 45 }),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
+}, (table) => [
+  index('sessions_user_id_idx').on(table.userId),
+  index('sessions_token_hash_idx').on(table.tokenHash),
+  index('sessions_expires_at_idx').on(table.expiresAt),
+]);
+
+/**
+ * Daily Bonus Claims Table
+ * Tracks daily bonus claims separately for easy 24h cooldown check
+ */
+export const dailyBonusClaims = pgTable('daily_bonus_claims', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Claim date (YYYY-MM-DD format for easy daily lookup)
+  claimDate: varchar('claim_date', { length: 10 }).notNull(),
+
+  // Amount claimed
+  amount: text('amount').notNull(),
+
+  // Associated transaction
+  transactionId: uuid('transaction_id').references(() => claimTransactions.id),
+
+  // Timestamp
+  claimedAt: timestamp('claimed_at').notNull().defaultNow(),
+}, (table) => [
+  index('daily_bonus_claims_user_id_idx').on(table.userId),
+  uniqueIndex('daily_bonus_claims_user_date_idx').on(table.userId, table.claimDate),
+]);
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  claimTransactions: many(claimTransactions),
+  gameScores: many(gameScores),
+  sessions: many(sessions),
+  dailyBonusClaims: many(dailyBonusClaims),
+}));
+
+export const claimTransactionsRelations = relations(claimTransactions, ({ one }) => ({
+  user: one(users, {
+    fields: [claimTransactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const gameScoresRelations = relations(gameScores, ({ one }) => ({
+  user: one(users, {
+    fields: [gameScores.userId],
+    references: [users.id],
+  }),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) => ({
+  user: one(users, {
+    fields: [dailyBonusClaims.userId],
+    references: [users.id],
+  }),
+  transaction: one(claimTransactions, {
+    fields: [dailyBonusClaims.transactionId],
+    references: [claimTransactions.id],
+  }),
+}));
+
+// Type exports for use in application
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type ClaimTransaction = typeof claimTransactions.$inferSelect;
+export type NewClaimTransaction = typeof claimTransactions.$inferInsert;
+export type GameScore = typeof gameScores.$inferSelect;
+export type NewGameScore = typeof gameScores.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
+export type NewDailyBonusClaim = typeof dailyBonusClaims.$inferInsert;
