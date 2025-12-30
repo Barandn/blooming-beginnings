@@ -8,7 +8,6 @@ import Market from "./pages/Market";
 import Barn from "./pages/Barn";
 import NotFound from "./pages/NotFound";
 import { GameProvider } from "./context/GameContext";
-import { MiniKitGuard } from "./components/MiniKitGuard";
 
 const queryClient = new QueryClient();
 
@@ -17,19 +16,17 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <MiniKitGuard>
-        <GameProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/market" element={<Market />} />
-              <Route path="/barn" element={<Barn />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </GameProvider>
-      </MiniKitGuard>
+      <GameProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/market" element={<Market />} />
+            <Route path="/barn" element={<Barn />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </GameProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
