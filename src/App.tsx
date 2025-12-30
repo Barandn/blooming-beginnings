@@ -6,9 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Market from "./pages/Market";
 import Barn from "./pages/Barn";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { GameProvider } from "./context/GameContext";
 import { MiniKitProvider } from "./components/MiniKitProvider";
+import { AuthProvider } from "./context/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -18,17 +21,45 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <GameProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/market" element={<Market />} />
-              <Route path="/barn" element={<Barn />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </GameProvider>
+        <AuthProvider>
+          <GameProvider>
+            <BrowserRouter>
+              <Routes>
+                {/* Public Route - Login */}
+                <Route path="/login" element={<Login />} />
+
+                {/* Protected Routes - Require World ID Authentication */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Index />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/market"
+                  element={
+                    <ProtectedRoute>
+                      <Market />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/barn"
+                  element={
+                    <ProtectedRoute>
+                      <Barn />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Catch-all Route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </GameProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </MiniKitProvider>
