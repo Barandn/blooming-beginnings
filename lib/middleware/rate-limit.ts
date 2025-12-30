@@ -86,7 +86,7 @@ export function checkRateLimit(
   const config = customConfig || getRateLimitConfig(path);
 
   // Create a unique key for this client + endpoint
-  const key = \`\${clientId}:\${path}\`;
+  const key = `${clientId}:${path}`;
   const now = Date.now();
 
   let entry = rateLimitStore.get(key);
@@ -176,7 +176,7 @@ export function getRateLimitStatus(
 ): { count: number; remaining: number; resetAt: Date } | null {
   const clientId = getClientIdentifier(req);
   const endpoint = path || req.url?.split('?')[0] || '/api';
-  const key = \`\${clientId}:\${endpoint}\`;
+  const key = `${clientId}:${endpoint}`;
   const config = getRateLimitConfig(endpoint);
 
   const entry = rateLimitStore.get(key);

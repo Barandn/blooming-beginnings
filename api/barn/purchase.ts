@@ -147,7 +147,7 @@ export default async function handler(
         status: 'confirmed',
         attemptsGranted: BARN_GAME_CONFIG.attemptsPerPurchase,
         confirmedAt: new Date(),
-      })
+      } as typeof barnGamePurchases.$inferInsert)
       .returning();
 
     // Get or create barn game attempts record
@@ -169,7 +169,7 @@ export default async function handler(
           totalCoinsWonToday: 0,
           matchesFoundToday: 0,
           updatedAt: new Date(),
-        })
+        } as Partial<typeof barnGameAttempts.$inferInsert>)
         .where(eq(barnGameAttempts.userId, auth.user.id));
     } else {
       // Create new record
@@ -178,7 +178,7 @@ export default async function handler(
         .values({
           userId: auth.user.id,
           attemptsRemaining: BARN_GAME_CONFIG.attemptsPerPurchase,
-        });
+        } as typeof barnGameAttempts.$inferInsert);
     }
 
     return res.status(200).json({

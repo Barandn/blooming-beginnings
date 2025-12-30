@@ -344,7 +344,7 @@ export async function validateAndSaveScore(
           : null,
         isValidated: true,
         leaderboardPeriod: period,
-      })
+      } as typeof gameScores.$inferInsert)
       .returning();
 
     return {

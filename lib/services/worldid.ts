@@ -80,7 +80,11 @@ export async function verifyCloudProof(
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as {
+      code?: string;
+      detail?: string;
+      attribute?: string;
+    };
 
     if (!response.ok) {
       return {
