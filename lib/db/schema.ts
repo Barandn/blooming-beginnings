@@ -208,11 +208,13 @@ export const dailyBonusClaims = pgTable('daily_bonus_claims', {
 ]);
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   claimTransactions: many(claimTransactions),
   gameScores: many(gameScores),
   sessions: many(sessions),
   dailyBonusClaims: many(dailyBonusClaims),
+  barnGameAttempts: one(barnGameAttempts),
+  barnGamePurchases: many(barnGamePurchases),
 }));
 
 export const claimTransactionsRelations = relations(claimTransactions, ({ one }) => ({
@@ -247,6 +249,96 @@ export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) =
   }),
 }));
 
+/**
+ * Barn Game Attempts Table
+ * Tracks card matching game attempts and cooldowns
+ * Supports instant refill via payment
+ */
+export const barnGameAttempts = pgTable('barn_game_attempts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Current attempts remaining (max 10)
+  attemptsRemaining: integer('attempts_remaining').notNull().default(10),
+
+  // When attempts were last used up (null if attempts available)
+  cooldownStartedAt: timestamp('cooldown_started_at'),
+
+  // When cooldown ends (24 hours after cooldown started)
+  cooldownEndsAt: timestamp('cooldown_ends_at'),
+
+  // Last game played date (YYYY-MM-DD format)
+  lastPlayedDate: varchar('last_played_date', { length: 10 }),
+
+  // Total coins won today
+  totalCoinsWonToday: integer('total_coins_won_today').notNull().default(0),
+
+  // Matches found today
+  matchesFoundToday: integer('matches_found_today').notNull().default(0),
+
+  // Whether user has active game session
+  hasActiveGame: boolean('has_active_game').notNull().default(false),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('barn_game_attempts_user_id_idx').on(table.userId),
+]);
+
+/**
+ * Barn Game Purchases Table
+ * Records when users pay to refill attempts
+ */
+export const barnGamePurchases = pgTable('barn_game_purchases', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Payment reference from World App
+  paymentReference: varchar('payment_reference', { length: 100 }).notNull(),
+
+  // Transaction ID from World App
+  transactionId: varchar('transaction_id', { length: 100 }),
+
+  // Amount paid (in WLD or USDC)
+  amount: text('amount').notNull(),
+
+  // Token symbol (WLD, USDC)
+  tokenSymbol: varchar('token_symbol', { length: 10 }).notNull(),
+
+  // Status of purchase
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+  // Attempts granted
+  attemptsGranted: integer('attempts_granted').notNull().default(10),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  confirmedAt: timestamp('confirmed_at'),
+}, (table) => [
+  index('barn_game_purchases_user_id_idx').on(table.userId),
+  index('barn_game_purchases_payment_reference_idx').on(table.paymentReference),
+]);
+
+// Barn game relations
+export const barnGameAttemptsRelations = relations(barnGameAttempts, ({ one }) => ({
+  user: one(users, {
+    fields: [barnGameAttempts.userId],
+    references: [users.id],
+  }),
+}));
+
+export const barnGamePurchasesRelations = relations(barnGamePurchases, ({ one }) => ({
+  user: one(users, {
+    fields: [barnGamePurchases.userId],
+    references: [users.id],
+  }),
+}));
+
 // Type exports for use in application
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -258,3 +350,7 @@ export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
 export type NewDailyBonusClaim = typeof dailyBonusClaims.$inferInsert;
+export type BarnGameAttempt = typeof barnGameAttempts.$inferSelect;
+export type NewBarnGameAttempt = typeof barnGameAttempts.$inferInsert;
+export type BarnGamePurchase = typeof barnGamePurchases.$inferSelect;
+export type NewBarnGamePurchase = typeof barnGamePurchases.$inferInsert;
