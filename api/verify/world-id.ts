@@ -14,6 +14,7 @@ import {
   type WorldIDProof,
 } from '../../lib/services/worldid';
 import { createSessionToken, createSession, type SessionData } from '../../lib/services/auth';
+import { rateLimitCheck } from '../../lib/middleware/rate-limit';
 import {
   API_STATUS,
   WORLD_ID,
@@ -45,6 +46,10 @@ export default async function handler(
       error: 'Method not allowed',
     });
   }
+
+  // Check rate limit
+  const rateLimited = rateLimitCheck(req, res);
+  if (rateLimited) return rateLimited;
 
   try {
     // Validate request body

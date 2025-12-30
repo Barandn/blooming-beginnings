@@ -1,87 +1,138 @@
 /**
  * Rate Limiting Middleware
- * Protects API endpoints from abuse
+ * Prevents abuse by limiting requests per IP/user
  */
 
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { SECURITY_CONFIG, API_STATUS, ERROR_MESSAGES } from '../config/constants';
 
-// In-memory rate limit store
-// In production, use Redis or similar for distributed rate limiting
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+// In-memory store for rate limiting
+// In production, use Redis or a similar distributed cache
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Cleanup old entries every minute
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (entry.resetAt < now) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 60000);
 
 /**
- * Get client identifier from request
+ * Get client identifier for rate limiting
+ * Uses IP address or forwarded headers
  */
-function getClientId(headers: Record<string, string | string[] | undefined>): string {
-  // Use X-Forwarded-For header if available (for proxied requests)
-  const forwarded = headers['x-forwarded-for'];
+function getClientIdentifier(req: VercelRequest): string {
+  // Check for forwarded IP (behind proxy/load balancer)
+  const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
     const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
     return ip.trim();
   }
 
-  // Fallback to remote address or a default
-  return 'unknown';
+  // Check for real IP header
+  const realIp = req.headers['x-real-ip'];
+  if (realIp) {
+    return Array.isArray(realIp) ? realIp[0] : realIp;
+  }
+
+  // Fall back to socket address
+  return req.socket?.remoteAddress || 'unknown';
 }
 
 /**
- * Check rate limit for a client
- *
- * @param clientId - Client identifier (usually IP)
- * @returns Object with allowed status and remaining requests
+ * Rate limit configuration per endpoint type
  */
-export function checkRateLimit(clientId: string): {
-  allowed: boolean;
-  remaining: number;
-  resetTime: number;
-} {
-  const { windowMs, maxRequests } = SECURITY_CONFIG.rateLimit;
+interface RateLimitConfig {
+  windowMs: number;
+  maxRequests: number;
+}
+
+const ENDPOINT_LIMITS: Record<string, RateLimitConfig> = {
+  // Strict limits for sensitive operations
+  '/api/verify/world-id': { windowMs: 60000, maxRequests: 10 },
+  '/api/claim/daily-bonus': { windowMs: 60000, maxRequests: 5 },
+  '/api/barn/purchase': { windowMs: 60000, maxRequests: 10 },
+  '/api/auth/login': { windowMs: 60000, maxRequests: 20 },
+
+  // Standard limits for other endpoints
+  default: SECURITY_CONFIG.rateLimit,
+};
+
+/**
+ * Get rate limit config for an endpoint
+ */
+function getRateLimitConfig(path: string): RateLimitConfig {
+  return ENDPOINT_LIMITS[path] || ENDPOINT_LIMITS.default;
+}
+
+/**
+ * Check rate limit for a request
+ * Returns true if request is allowed, false if rate limited
+ */
+export function checkRateLimit(
+  req: VercelRequest,
+  customConfig?: RateLimitConfig
+): { allowed: boolean; remaining: number; resetIn: number } {
+  const clientId = getClientIdentifier(req);
+  const path = req.url?.split('?')[0] || '/api';
+  const config = customConfig || getRateLimitConfig(path);
+
+  // Create a unique key for this client + endpoint
+  const key = \`\${clientId}:\${path}\`;
   const now = Date.now();
 
-  let entry = rateLimitStore.get(clientId);
+  let entry = rateLimitStore.get(key);
 
-  // Create new entry or reset expired one
-  if (!entry || now > entry.resetTime) {
+  // Create new entry or reset if window expired
+  if (!entry || entry.resetAt < now) {
     entry = {
       count: 0,
-      resetTime: now + windowMs,
+      resetAt: now + config.windowMs,
     };
-    rateLimitStore.set(clientId, entry);
+    rateLimitStore.set(key, entry);
   }
 
-  // Increment count
+  // Increment request count
   entry.count++;
 
-  const allowed = entry.count <= maxRequests;
-  const remaining = Math.max(0, maxRequests - entry.count);
+  const remaining = Math.max(0, config.maxRequests - entry.count);
+  const resetIn = Math.max(0, entry.resetAt - now);
 
   return {
-    allowed,
+    allowed: entry.count <= config.maxRequests,
     remaining,
-    resetTime: entry.resetTime,
+    resetIn,
   };
 }
 
 /**
- * Rate limit middleware for API handlers
+ * Rate limit middleware wrapper for Vercel serverless functions
+ * Use this to wrap your handler function
  */
-export function withRateLimit<Req extends { headers: Record<string, string | string[] | undefined> }, Res extends { status: (code: number) => Res; setHeader: (name: string, value: string) => void; json: (data: unknown) => void }>(
-  handler: (req: Req, res: Res) => Promise<void> | void
+export function withRateLimit(
+  handler: (req: VercelRequest, res: VercelResponse) => Promise<void | VercelResponse>,
+  customConfig?: RateLimitConfig
 ) {
-  return async (req: Req, res: Res) => {
-    const clientId = getClientId(req.headers);
-    const { allowed, remaining, resetTime } = checkRateLimit(clientId);
+  return async (req: VercelRequest, res: VercelResponse) => {
+    const { allowed, remaining, resetIn } = checkRateLimit(req, customConfig);
 
     // Set rate limit headers
-    res.setHeader('X-RateLimit-Limit', SECURITY_CONFIG.rateLimit.maxRequests.toString());
     res.setHeader('X-RateLimit-Remaining', remaining.toString());
-    res.setHeader('X-RateLimit-Reset', Math.ceil(resetTime / 1000).toString());
+    res.setHeader('X-RateLimit-Reset', Math.ceil(resetIn / 1000).toString());
 
     if (!allowed) {
       return res.status(429).json({
         status: API_STATUS.ERROR,
         error: ERROR_MESSAGES.RATE_LIMITED,
-        retryAfter: Math.ceil((resetTime - Date.now()) / 1000),
+        retryAfter: Math.ceil(resetIn / 1000),
       });
     }
 
@@ -90,18 +141,56 @@ export function withRateLimit<Req extends { headers: Record<string, string | str
 }
 
 /**
- * Clean up expired rate limit entries
- * Call this periodically to prevent memory leaks
+ * Rate limit check that can be used inline in handlers
+ * Returns null if allowed, or a response object if rate limited
  */
-export function cleanupRateLimitStore(): void {
-  const now = Date.now();
+export function rateLimitCheck(
+  req: VercelRequest,
+  res: VercelResponse,
+  customConfig?: RateLimitConfig
+): VercelResponse | null {
+  const { allowed, remaining, resetIn } = checkRateLimit(req, customConfig);
 
-  for (const [clientId, entry] of rateLimitStore.entries()) {
-    if (now > entry.resetTime) {
-      rateLimitStore.delete(clientId);
-    }
+  // Set rate limit headers
+  res.setHeader('X-RateLimit-Remaining', remaining.toString());
+  res.setHeader('X-RateLimit-Reset', Math.ceil(resetIn / 1000).toString());
+
+  if (!allowed) {
+    return res.status(429).json({
+      status: API_STATUS.ERROR,
+      error: ERROR_MESSAGES.RATE_LIMITED,
+      retryAfter: Math.ceil(resetIn / 1000),
+    });
   }
+
+  return null;
 }
 
-// Run cleanup every minute
-setInterval(cleanupRateLimitStore, 60 * 1000);
+/**
+ * Get current rate limit status for a client
+ * Useful for debugging or monitoring
+ */
+export function getRateLimitStatus(
+  req: VercelRequest,
+  path?: string
+): { count: number; remaining: number; resetAt: Date } | null {
+  const clientId = getClientIdentifier(req);
+  const endpoint = path || req.url?.split('?')[0] || '/api';
+  const key = \`\${clientId}:\${endpoint}\`;
+  const config = getRateLimitConfig(endpoint);
+
+  const entry = rateLimitStore.get(key);
+  if (!entry) {
+    return {
+      count: 0,
+      remaining: config.maxRequests,
+      resetAt: new Date(Date.now() + config.windowMs),
+    };
+  }
+
+  return {
+    count: entry.count,
+    remaining: Math.max(0, config.maxRequests - entry.count),
+    resetAt: new Date(entry.resetAt),
+  };
+}
