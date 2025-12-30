@@ -378,8 +378,9 @@ export function useBarnGameStatus(): UseBarnGameStatusReturn {
 // ============================
 
 // Barn game purchase configuration
+// IMPORTANT: VITE_BARN_GAME_RECIPIENT_ADDRESS must be set in production
 const BARN_GAME_PURCHASE_CONFIG = {
-  recipientAddress: '0x0000000000000000000000000000000000000000', // Set via env in production
+  recipientAddress: import.meta.env.VITE_BARN_GAME_RECIPIENT_ADDRESS || '',
   priceWLD: '0.1',
   priceUSDC: '0.25',
 };
@@ -405,6 +406,13 @@ export function useBarnGamePurchase(
       // Check if MiniKit is available
       if (!isMiniKitAvailable()) {
         setError('World App gerekli. Lütfen World App içinden açın.');
+        return false;
+      }
+
+      // Check if recipient address is configured
+      if (!BARN_GAME_PURCHASE_CONFIG.recipientAddress) {
+        setError('Ödeme yapılandırması eksik. Lütfen yönetici ile iletişime geçin.');
+        console.error('VITE_BARN_GAME_RECIPIENT_ADDRESS is not configured');
         return false;
       }
 

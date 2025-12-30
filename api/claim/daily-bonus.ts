@@ -6,7 +6,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { db, users, claimTransactions, dailyBonusClaims } from '../../lib/db';
+import { db, claimTransactions, dailyBonusClaims } from '../../lib/db';
 import { eq, and, desc } from 'drizzle-orm';
 import { getAuthenticatedUser } from '../../lib/services/auth';
 import {
@@ -17,6 +17,7 @@ import {
   getTokenDistributionService,
   formatTokenAmount,
 } from '../../lib/services/token-distribution';
+import { rateLimitCheck } from '../../lib/middleware/rate-limit';
 import {
   API_STATUS,
   WORLD_ID,
@@ -119,6 +120,10 @@ export default async function handler(
       error: 'Method not allowed',
     });
   }
+
+  // Check rate limit
+  const rateLimited = rateLimitCheck(req, res);
+  if (rateLimited) return rateLimited;
 
   try {
     // Authenticate user
