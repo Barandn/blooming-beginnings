@@ -3,18 +3,21 @@
  * Handles World App MiniKit SDK integration for the frontend
  */
 
+import { MiniKit, VerificationLevel as MiniKitVerificationLevel } from '@worldcoin/minikit-js';
+
 // Check if MiniKit is available (running inside World App)
 export function isMiniKitAvailable(): boolean {
   if (typeof window === 'undefined') return false;
-  return !!(window as unknown as { MiniKit?: unknown }).MiniKit;
+  // Use MiniKit SDK's isInstalled method which checks if running inside World App
+  return MiniKit.isInstalled();
 }
 
-// Get MiniKit instance
+// Get MiniKit instance - returns the MiniKit SDK
 export function getMiniKit() {
-  if (!isMiniKitAvailable()) {
+  if (!MiniKit.isInstalled()) {
     throw new Error('MiniKit is not available. Please open this app in World App.');
   }
-  return (window as unknown as { MiniKit: MiniKitInstance }).MiniKit;
+  return MiniKit;
 }
 
 // Types for MiniKit
@@ -178,10 +181,6 @@ export async function requestWalletAuth(nonce: string): Promise<WalletAuthResult
  * Check if running inside World App
  */
 export function isInWorldApp(): boolean {
-  try {
-    const minikit = getMiniKit();
-    return minikit.isInstalled();
-  } catch {
-    return false;
-  }
+  if (typeof window === 'undefined') return false;
+  return MiniKit.isInstalled();
 }
