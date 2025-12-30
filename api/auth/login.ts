@@ -5,8 +5,8 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { authenticateWallet } from '../../lib/services/auth';
-import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants';
+import { authenticateWallet } from '../../lib/services/auth.js';
+import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants.js';
 
 // Request validation schema
 const loginSchema = z.object({

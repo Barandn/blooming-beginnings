@@ -4,13 +4,13 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, claimTransactions, gameScores, dailyBonusClaims } from '../../lib/db';
+import { db, claimTransactions, gameScores, dailyBonusClaims } from '../../lib/db/index.js';
 import { eq, and, desc, sql } from 'drizzle-orm';
-import { getAuthenticatedUser } from '../../lib/services/auth';
-import { getCurrentPeriod, getUserMonthlyProfit } from '../../lib/services/score-validation';
-import { getUserRank } from '../../lib/services/leaderboard';
-import { formatTokenAmount } from '../../lib/services/token-distribution';
-import { API_STATUS, ERROR_MESSAGES, TOKEN_CONFIG } from '../../lib/config/constants';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
+import { getCurrentPeriod, getUserMonthlyProfit } from '../../lib/services/score-validation.js';
+import { getUserRank } from '../../lib/services/leaderboard.js';
+import { formatTokenAmount } from '../../lib/services/token-distribution.js';
+import { API_STATUS, ERROR_MESSAGES, TOKEN_CONFIG } from '../../lib/config/constants.js';
 
 /**
  * Get today's date string

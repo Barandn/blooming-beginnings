@@ -4,14 +4,14 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, barnGameAttempts } from '../../lib/db';
+import { db, barnGameAttempts } from '../../lib/db/index.js';
 import { eq } from 'drizzle-orm';
-import { getAuthenticatedUser } from '../../lib/services/auth';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
   API_STATUS,
   BARN_GAME_CONFIG,
   ERROR_MESSAGES,
-} from '../../lib/config/constants';
+} from '../../lib/config/constants.js';
 
 export default async function handler(
   req: VercelRequest,

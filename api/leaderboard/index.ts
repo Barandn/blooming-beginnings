@@ -4,14 +4,14 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthenticatedUser } from '../../lib/services/auth';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
   getLeaderboardWithUserContext,
   getLeaderboardStats,
   getPreviousPeriods,
-} from '../../lib/services/leaderboard';
-import { getCurrentPeriod } from '../../lib/services/score-validation';
-import { API_STATUS, LEADERBOARD_CONFIG } from '../../lib/config/constants';
+} from '../../lib/services/leaderboard.js';
+import { getCurrentPeriod } from '../../lib/services/score-validation.js';
+import { API_STATUS, LEADERBOARD_CONFIG } from '../../lib/config/constants.js';
 
 export default async function handler(
   req: VercelRequest,

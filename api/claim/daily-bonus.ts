@@ -6,24 +6,24 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { db, claimTransactions, dailyBonusClaims } from '../../lib/db';
+import { db, claimTransactions, dailyBonusClaims } from '../../lib/db/index.js';
 import { eq, and, desc } from 'drizzle-orm';
-import { getAuthenticatedUser } from '../../lib/services/auth';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
   verifyWorldIDWithOrbPolicy,
   type WorldIDProof,
-} from '../../lib/services/worldid';
+} from '../../lib/services/worldid.js';
 import {
   getTokenDistributionService,
   formatTokenAmount,
-} from '../../lib/services/token-distribution';
-import { rateLimitCheck } from '../../lib/middleware/rate-limit';
+} from '../../lib/services/token-distribution.js';
+import { rateLimitCheck } from '../../lib/middleware/rate-limit.js';
 import {
   API_STATUS,
   WORLD_ID,
   TOKEN_CONFIG,
   ERROR_MESSAGES,
-} from '../../lib/config/constants';
+} from '../../lib/config/constants.js';
 
 // Request validation schema
 const claimSchema = z.object({

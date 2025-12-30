@@ -6,21 +6,21 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { db, users } from '../../lib/db';
+import { db, users } from '../../lib/db/index.js';
 import { eq } from 'drizzle-orm';
 import {
   verifyWorldIDWithOrbPolicy,
   getWorldIDErrorMessage,
   type WorldIDProof,
-} from '../../lib/services/worldid';
-import { createSessionToken, createSession, type SessionData } from '../../lib/services/auth';
-import { rateLimitCheck } from '../../lib/middleware/rate-limit';
+} from '../../lib/services/worldid.js';
+import { createSessionToken, createSession, type SessionData } from '../../lib/services/auth.js';
+import { rateLimitCheck } from '../../lib/middleware/rate-limit.js';
 import {
   API_STATUS,
   WORLD_ID,
   ERROR_MESSAGES,
   SESSION_CONFIG,
-} from '../../lib/config/constants';
+} from '../../lib/config/constants.js';
 
 // Request validation schema
 const verifySchema = z.object({
