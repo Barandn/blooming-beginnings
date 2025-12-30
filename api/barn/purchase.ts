@@ -5,16 +5,16 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { db, barnGameAttempts, barnGamePurchases } from '../../lib/db';
+import { db, barnGameAttempts, barnGamePurchases } from '../../lib/db/index.js';
 import { eq } from 'drizzle-orm';
-import { getAuthenticatedUser } from '../../lib/services/auth';
-import { verifyPaymentTransaction } from '../../lib/services/payment-verification';
-import { rateLimitCheck } from '../../lib/middleware/rate-limit';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
+import { verifyPaymentTransaction } from '../../lib/services/payment-verification.js';
+import { rateLimitCheck } from '../../lib/middleware/rate-limit.js';
 import {
   API_STATUS,
   BARN_GAME_CONFIG,
   ERROR_MESSAGES,
-} from '../../lib/config/constants';
+} from '../../lib/config/constants.js';
 
 // Request validation schema
 const purchaseSchema = z.object({

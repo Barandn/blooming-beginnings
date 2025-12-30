@@ -4,13 +4,13 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAuthenticatedUser } from '../../lib/services/auth';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
   getUserRank,
   getSurroundingEntries,
-} from '../../lib/services/leaderboard';
-import { getCurrentPeriod, getUserMonthlyProfit, getUserBestScore } from '../../lib/services/score-validation';
-import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants';
+} from '../../lib/services/leaderboard.js';
+import { getCurrentPeriod, getUserMonthlyProfit, getUserBestScore } from '../../lib/services/score-validation.js';
+import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants.js';
 
 export default async function handler(
   req: VercelRequest,

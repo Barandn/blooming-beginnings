@@ -4,8 +4,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateSignMessage } from '../../lib/services/auth';
-import { API_STATUS } from '../../lib/config/constants';
+import { generateSignMessage } from '../../lib/services/auth.js';
+import { API_STATUS } from '../../lib/config/constants.js';
 
 export default async function handler(
   req: VercelRequest,

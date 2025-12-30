@@ -4,8 +4,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '../lib/db';
-import { API_STATUS, ACTIVE_CHAIN } from '../lib/config/constants';
+import { sql } from '../lib/db/index.js';
+import { API_STATUS, ACTIVE_CHAIN } from '../lib/config/constants.js';
 
 export default async function handler(
   req: VercelRequest,

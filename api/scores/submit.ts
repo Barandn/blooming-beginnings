@@ -5,10 +5,10 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { getAuthenticatedUser } from '../../lib/services/auth';
-import { validateAndSaveScore, type ScoreSubmission } from '../../lib/services/score-validation';
-import { clearLeaderboardCache } from '../../lib/services/leaderboard';
-import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants';
+import { getAuthenticatedUser } from '../../lib/services/auth.js';
+import { validateAndSaveScore, type ScoreSubmission } from '../../lib/services/score-validation.js';
+import { clearLeaderboardCache } from '../../lib/services/leaderboard.js';
+import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants.js';
 
 // Request validation schema
 const scoreSchema = z.object({
