@@ -110,6 +110,22 @@ export const SECURITY_CONFIG = {
   minGameActionTime: 1,
 } as const;
 
+// Barn Game Purchase Configuration
+export const BARN_GAME_CONFIG = {
+  // Purchase prices for attempt refill
+  purchasePriceWLD: '0.1', // 0.1 WLD
+  purchasePriceUSDC: '0.25', // 0.25 USDC
+  attemptsPerPurchase: 10,
+  cooldownDuration: 24 * 60 * 60 * 1000, // 24 hours in ms
+  // Token addresses on World Chain
+  tokenAddresses: {
+    WLD: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', // WLD on World Chain
+    USDC: '0x79A02482A880bCE3F13e09Da970dC34db4CD24d1', // USDC on World Chain
+  },
+  // Recipient wallet for payments
+  recipientAddress: process.env.BARN_GAME_RECIPIENT_ADDRESS || '',
+} as const;
+
 // Game Configuration for Score Validation
 export const GAME_VALIDATION = {
   // Barn game settings

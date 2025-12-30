@@ -8,8 +8,10 @@ import {
   isInWorldApp,
   requestVerification,
   requestWalletAuth,
+  getMiniKit,
   VerificationLevel,
   type VerifyCommandResult,
+  type PayCommandInput,
 } from './index';
 import {
   verifyWorldID,
@@ -18,8 +20,11 @@ import {
   isAuthenticated,
   getStoredUser,
   clearAuthState,
+  getBarnGameStatus,
+  purchaseBarnGameAttempts,
   type UserProfileResponse,
   type WorldIDProof,
+  type BarnGameStatusResponse,
 } from './api';
 
 // ============================
@@ -316,5 +321,154 @@ export function useGameSession(): UseGameSessionReturn {
     startTime,
     startSession,
     endSession,
+  };
+}
+
+// ============================
+// useBarnGameStatus Hook
+// ============================
+
+interface UseBarnGameStatusReturn {
+  status: BarnGameStatusResponse | null;
+  isLoading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+}
+
+export function useBarnGameStatus(): UseBarnGameStatusReturn {
+  const [status, setStatus] = useState<BarnGameStatusResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!isAuthenticated()) {
+      setStatus(null);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await getBarnGameStatus();
+
+      if (result.status !== 'success' || !result.data) {
+        setError(result.error || 'Failed to load barn game status');
+        return;
+      }
+
+      setStatus(result.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { status, isLoading, error, refresh };
+}
+
+// ============================
+// useBarnGamePurchase Hook
+// ============================
+
+// Barn game purchase configuration
+const BARN_GAME_PURCHASE_CONFIG = {
+  recipientAddress: '0x0000000000000000000000000000000000000000', // Set via env in production
+  priceWLD: '0.1',
+  priceUSDC: '0.25',
+};
+
+interface UseBarnGamePurchaseReturn {
+  isPurchasing: boolean;
+  error: string | null;
+  purchaseWithWLD: () => Promise<boolean>;
+  purchaseWithUSDC: () => Promise<boolean>;
+}
+
+export function useBarnGamePurchase(
+  onPurchaseSuccess: () => void
+): UseBarnGamePurchaseReturn {
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const executePurchase = useCallback(async (tokenSymbol: 'WLD' | 'USDC'): Promise<boolean> => {
+    setIsPurchasing(true);
+    setError(null);
+
+    try {
+      // Check if MiniKit is available
+      if (!isMiniKitAvailable()) {
+        setError('World App gerekli. Lütfen World App içinden açın.');
+        return false;
+      }
+
+      const minikit = getMiniKit();
+
+      // Generate unique payment reference
+      const paymentReference = `barn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+      // Get price based on token
+      const tokenAmount = tokenSymbol === 'WLD'
+        ? BARN_GAME_PURCHASE_CONFIG.priceWLD
+        : BARN_GAME_PURCHASE_CONFIG.priceUSDC;
+
+      // Create payment payload
+      const paymentPayload: PayCommandInput = {
+        reference: paymentReference,
+        to: BARN_GAME_PURCHASE_CONFIG.recipientAddress,
+        tokens: [
+          {
+            symbol: tokenSymbol,
+            token_amount: tokenAmount,
+          },
+        ],
+        description: 'Kart Oyunu - 10 Eşleştirme Hakkı',
+      };
+
+      // Request payment via MiniKit
+      const payResult = await minikit.commandsAsync.pay(paymentPayload);
+
+      if (payResult.status !== 'success') {
+        setError(payResult.error?.message || 'Ödeme başarısız oldu');
+        return false;
+      }
+
+      // Verify purchase with backend
+      const verifyResult = await purchaseBarnGameAttempts({
+        paymentReference,
+        transactionId: payResult.transaction_id,
+        tokenSymbol,
+      });
+
+      if (verifyResult.status !== 'success') {
+        setError(verifyResult.error || 'Satın alma doğrulanamadı');
+        return false;
+      }
+
+      // Success!
+      onPurchaseSuccess();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+      return false;
+    } finally {
+      setIsPurchasing(false);
+    }
+  }, [onPurchaseSuccess]);
+
+  const purchaseWithWLD = useCallback(() => executePurchase('WLD'), [executePurchase]);
+  const purchaseWithUSDC = useCallback(() => executePurchase('USDC'), [executePurchase]);
+
+  return {
+    isPurchasing,
+    error,
+    purchaseWithWLD,
+    purchaseWithUSDC,
   };
 }

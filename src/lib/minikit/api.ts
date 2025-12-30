@@ -353,3 +353,46 @@ export function clearAuthState(): void {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
 }
+
+// ============================
+// Barn Game API
+// ============================
+
+export interface BarnGameStatusResponse {
+  attemptsRemaining: number;
+  isInCooldown: boolean;
+  cooldownEndsAt: number | null;
+  cooldownRemainingMs: number;
+  totalCoinsWonToday: number;
+  matchesFoundToday: number;
+  canPlay: boolean;
+  purchasePrice: {
+    WLD: string;
+    USDC: string;
+  };
+}
+
+export async function getBarnGameStatus(): Promise<ApiResponse<BarnGameStatusResponse>> {
+  return apiCall<BarnGameStatusResponse>('/barn/status');
+}
+
+export interface BarnGamePurchaseRequest {
+  paymentReference: string;
+  transactionId?: string;
+  tokenSymbol: 'WLD' | 'USDC';
+}
+
+export interface BarnGamePurchaseResponse {
+  purchaseId: string;
+  attemptsGranted: number;
+  message: string;
+}
+
+export async function purchaseBarnGameAttempts(
+  data: BarnGamePurchaseRequest
+): Promise<ApiResponse<BarnGamePurchaseResponse>> {
+  return apiCall<BarnGamePurchaseResponse>('/barn/purchase', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

@@ -21,6 +21,9 @@ export interface BarnGameState {
   lastPlayedDate: string; // ISO date string (YYYY-MM-DD)
   hasPlayedToday: boolean;
   totalCoinsWon: number;
+  // Cooldown system
+  cooldownEndsAt: number | null; // Timestamp when cooldown ends (null if no cooldown)
+  isInCooldown: boolean;
 }
 
 export interface PlotData {
@@ -60,6 +63,8 @@ interface GameContextType {
   flipBarnCard: (cardId: number) => void;
   startBarnGame: () => void;
   checkBarnDailyReset: () => void;
+  resetBarnAttempts: () => void; // Reset attempts after purchase
+  getCooldownRemaining: () => number; // Get remaining cooldown in ms
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -114,6 +119,8 @@ const INITIAL_BARN_STATE: BarnGameState = {
   lastPlayedDate: "",
   hasPlayedToday: false,
   totalCoinsWon: 0,
+  cooldownEndsAt: null,
+  isInCooldown: false,
 };
 
 const INITIAL_STATE: GameState = {
@@ -404,22 +411,58 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   // Barn Game Actions
   const checkBarnDailyReset = useCallback(() => {
-    const today = getTodayDateString();
+    const now = Date.now();
     setState((prev) => {
-      // If the saved date is different from today, reset the game
-      if (prev.barnGame.lastPlayedDate !== today) {
+      const { barnGame } = prev;
+
+      // Check if cooldown has expired
+      if (barnGame.isInCooldown && barnGame.cooldownEndsAt && now >= barnGame.cooldownEndsAt) {
+        // Cooldown expired - reset game
         return {
           ...prev,
           barnGame: {
             ...INITIAL_BARN_STATE,
-            cards: createBarnCards(), // Fresh shuffle
-            lastPlayedDate: "", // Will be set when game starts
+            cards: createBarnCards(),
+            lastPlayedDate: "",
             hasPlayedToday: false,
             totalCoinsWon: 0,
+            cooldownEndsAt: null,
+            isInCooldown: false,
           },
         };
       }
+
       return prev;
+    });
+  }, []);
+
+  // Get remaining cooldown time in milliseconds
+  const getCooldownRemaining = useCallback((): number => {
+    const { barnGame } = state;
+    if (!barnGame.isInCooldown || !barnGame.cooldownEndsAt) {
+      return 0;
+    }
+    const remaining = barnGame.cooldownEndsAt - Date.now();
+    return remaining > 0 ? remaining : 0;
+  }, [state.barnGame.cooldownEndsAt, state.barnGame.isInCooldown]);
+
+  // Reset attempts after purchase
+  const resetBarnAttempts = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      barnGame: {
+        ...INITIAL_BARN_STATE,
+        cards: createBarnCards(),
+        lastPlayedDate: "",
+        hasPlayedToday: false,
+        totalCoinsWon: 0,
+        cooldownEndsAt: null,
+        isInCooldown: false,
+      },
+    }));
+    toast({
+      title: "Haklar Yenilendi!",
+      description: "10 yeni eşleştirme hakkın var. İyi şanslar!",
     });
   }, []);
 
@@ -449,6 +492,11 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   const flipBarnCard = (cardId: number) => {
     setState((prev) => {
       const { barnGame } = prev;
+
+      // Check if in cooldown
+      if (barnGame.isInCooldown) {
+        return prev;
+      }
 
       // Check if game is over (all attempts used or all matched)
       if (barnGame.attemptsUsed >= BARN_CONFIG.totalAttempts || barnGame.matchedPairs >= BARN_CONFIG.totalPairs) {
@@ -492,6 +540,9 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           const newTotalCoinsWon = barnGame.totalCoinsWon + BARN_CONFIG.matchReward;
           const isGameComplete = newMatchedPairs >= BARN_CONFIG.totalPairs || newAttemptsUsed >= BARN_CONFIG.totalAttempts;
 
+          // Start cooldown if game is complete
+          const cooldownEndsAt = isGameComplete ? Date.now() + BARN_CONFIG.cooldownDuration : null;
+
           // Add reward
           toast({
             title: "Eşleşme!",
@@ -509,12 +560,17 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
               attemptsUsed: newAttemptsUsed,
               hasPlayedToday: isGameComplete,
               totalCoinsWon: newTotalCoinsWon,
+              cooldownEndsAt,
+              isInCooldown: isGameComplete,
             },
           };
         } else {
           // No match - cards will flip back (handled by setTimeout in component)
           const newAttemptsUsed = barnGame.attemptsUsed + 1;
           const isGameComplete = newAttemptsUsed >= BARN_CONFIG.totalAttempts;
+
+          // Start cooldown if game is complete
+          const cooldownEndsAt = isGameComplete ? Date.now() + BARN_CONFIG.cooldownDuration : null;
 
           // We'll flip back in the component after a delay
           return {
@@ -525,6 +581,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
               flippedCards: newFlippedCards,
               attemptsUsed: newAttemptsUsed,
               hasPlayedToday: isGameComplete,
+              cooldownEndsAt,
+              isInCooldown: isGameComplete,
             },
           };
         }
@@ -594,6 +652,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         flipBarnCard,
         startBarnGame,
         checkBarnDailyReset,
+        resetBarnAttempts,
+        getCooldownRemaining,
       }}
     >
       {children}

@@ -1,59 +1,83 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import GameHeader from "@/components/game/GameHeader";
 import BottomNavigation from "@/components/game/BottomNavigation";
 import { useGame } from "@/context/GameContext";
 import { BARN_CONFIG } from "@/config/gameConfig";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Coins, Clock, Trophy, RefreshCw } from "lucide-react";
+import { Coins, Clock, Trophy, RefreshCw, Zap, Loader2 } from "lucide-react";
+import { useBarnGamePurchase } from "@/lib/minikit/hooks";
+import { toast } from "@/hooks/use-toast";
 
 type NavItem = "garden" | "market" | "barn";
 
+// Format milliseconds to HH:MM:SS
+const formatCountdown = (ms: number): string => {
+  if (ms <= 0) return "00:00:00";
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+};
+
 const Barn = () => {
-  const { state, flipBarnCard, startBarnGame, checkBarnDailyReset } = useGame();
+  const { state, flipBarnCard, startBarnGame, checkBarnDailyReset, resetBarnAttempts, getCooldownRemaining } = useGame();
   const [activeNav, setActiveNav] = useState<NavItem>("barn");
   const [showResultDialog, setShowResultDialog] = useState(false);
-  const [timeUntilReset, setTimeUntilReset] = useState("");
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [cooldownDisplay, setCooldownDisplay] = useState("");
 
   const navigate = useNavigate();
 
   const { barnGame } = state;
   const isGameOver = barnGame.attemptsUsed >= BARN_CONFIG.totalAttempts || barnGame.matchedPairs >= BARN_CONFIG.totalPairs;
-  const canPlay = !barnGame.hasPlayedToday || barnGame.lastPlayedDate === "";
+  const isInCooldown = barnGame.isInCooldown;
+  const canPlay = !isInCooldown && (!barnGame.hasPlayedToday || barnGame.lastPlayedDate === "");
 
-  // Check for daily reset on mount
+  // Handle purchase success
+  const handlePurchaseSuccess = useCallback(() => {
+    resetBarnAttempts();
+    setShowPurchaseDialog(false);
+    toast({
+      title: "Satın Alma Başarılı!",
+      description: "10 yeni eşleştirme hakkın aktif edildi.",
+    });
+  }, [resetBarnAttempts]);
+
+  // Purchase hook
+  const { isPurchasing, error: purchaseError, purchaseWithWLD, purchaseWithUSDC } = useBarnGamePurchase(handlePurchaseSuccess);
+
+  // Check for cooldown reset on mount and periodically
   useEffect(() => {
     checkBarnDailyReset();
+    const interval = setInterval(checkBarnDailyReset, 1000);
+    return () => clearInterval(interval);
   }, [checkBarnDailyReset]);
+
+  // Update cooldown display
+  useEffect(() => {
+    if (!isInCooldown) {
+      setCooldownDisplay("");
+      return;
+    }
+
+    const updateCooldown = () => {
+      const remaining = getCooldownRemaining();
+      setCooldownDisplay(formatCountdown(remaining));
+    };
+
+    updateCooldown();
+    const interval = setInterval(updateCooldown, 1000);
+    return () => clearInterval(interval);
+  }, [isInCooldown, getCooldownRemaining]);
 
   // Show result dialog when game ends
   useEffect(() => {
-    if (isGameOver && barnGame.hasPlayedToday) {
+    if (isGameOver && barnGame.hasPlayedToday && !isInCooldown) {
       const timer = setTimeout(() => setShowResultDialog(true), 500);
       return () => clearTimeout(timer);
     }
-  }, [isGameOver, barnGame.hasPlayedToday]);
-
-  // Calculate time until midnight reset
-  useEffect(() => {
-    const updateTimeUntilReset = () => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-
-      const diff = tomorrow.getTime() - now.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeUntilReset(`${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`);
-    };
-
-    updateTimeUntilReset();
-    const interval = setInterval(updateTimeUntilReset, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [isGameOver, barnGame.hasPlayedToday, isInCooldown]);
 
   const handleNavClick = (item: NavItem) => {
     setActiveNav(item);
@@ -65,8 +89,9 @@ const Barn = () => {
   };
 
   const handleCardClick = (cardId: number) => {
+    if (isInCooldown) return;
     if (barnGame.hasPlayedToday && barnGame.lastPlayedDate !== "") {
-      return; // Already played today
+      return;
     }
     if (!barnGame.lastPlayedDate) {
       startBarnGame();
@@ -86,7 +111,6 @@ const Barn = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Background - Barn themed gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50 via-orange-50 to-amber-100">
-        {/* Subtle decorative pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-20 left-8 text-8xl">🌾</div>
           <div className="absolute bottom-32 right-8 text-8xl">🌾</div>
@@ -95,21 +119,17 @@ const Barn = () => {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Header */}
         <GameHeader />
 
-        {/* Main Content */}
         <div className="flex flex-col items-center px-4 pt-20 pb-28">
           {/* Title & Stats Card */}
           <div className="w-full max-w-sm mb-4">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-md border border-amber-100">
-              {/* Title Row */}
               <div className="flex items-center justify-center gap-2 mb-3">
                 <span className="text-2xl">🐮</span>
                 <h1 className="text-lg font-bold text-amber-800">Günlük Eşleştirme</h1>
               </div>
 
-              {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-amber-50 rounded-lg py-2 px-1">
                   <div className="flex items-center justify-center gap-1">
@@ -134,26 +154,41 @@ const Barn = () => {
                 </div>
               </div>
 
-              {/* Reset Timer */}
-              <div className="flex items-center justify-center gap-1 mt-3 text-xs text-amber-500">
-                <Clock className="w-3 h-3" />
-                <span>Yenileme: {timeUntilReset}</span>
-              </div>
+              {/* Cooldown Timer - Show when in cooldown */}
+              {isInCooldown && cooldownDisplay && (
+                <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-center gap-2">
+                    <Clock className="w-4 h-4 text-red-500 animate-pulse" />
+                    <span className="text-sm font-medium text-red-600">
+                      Yenileme: {cooldownDisplay}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Already Played Today Message */}
-          {barnGame.hasPlayedToday && barnGame.lastPlayedDate && (
+          {/* Cooldown Active - Show purchase option */}
+          {isInCooldown && (
             <div className="w-full max-w-sm mb-4">
-              <div className="bg-green-50 rounded-xl p-3 border border-green-200 text-center">
-                <p className="text-sm font-medium text-green-700">
-                  Bugün oynadın! Yarın tekrar gel.
-                </p>
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200">
+                <div className="text-center mb-3">
+                  <p className="text-sm font-medium text-purple-800">
+                    Hakların bitti! 24 saat bekle veya hemen yenile.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPurchaseDialog(true)}
+                  className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-5 h-5" />
+                  <span>Hemen Yenile</span>
+                </button>
               </div>
             </div>
           )}
 
-          {/* Start Game Button - Show if haven't started today */}
+          {/* Start Game Button */}
           {canPlay && !barnGame.lastPlayedDate && (
             <div className="w-full max-w-sm mb-4">
               <button
@@ -168,11 +203,11 @@ const Barn = () => {
 
           {/* Card Grid */}
           <div className="w-full max-w-sm">
-            <div className="grid grid-cols-4 gap-2 sm:gap-3">
+            <div className={`grid grid-cols-4 gap-2 sm:gap-3 ${isInCooldown ? 'opacity-50 pointer-events-none' : ''}`}>
               {barnGame.cards.map((card) => {
                 const isFlipped = card.isFlipped || card.isMatched;
                 const isMatched = card.isMatched;
-                const isDisabled = barnGame.hasPlayedToday || !barnGame.lastPlayedDate || barnGame.flippedCards.length >= 2;
+                const isDisabled = isInCooldown || barnGame.hasPlayedToday || !barnGame.lastPlayedDate || barnGame.flippedCards.length >= 2;
 
                 return (
                   <button
@@ -190,11 +225,8 @@ const Barn = () => {
                       ${!isFlipped && !isDisabled ? "cursor-pointer" : ""}
                       barn-card-flip
                     `}
-                    style={{
-                      perspective: "1000px",
-                    }}
+                    style={{ perspective: "1000px" }}
                   >
-                    {/* Card Face */}
                     <div
                       className={`
                         absolute inset-0 flex items-center justify-center rounded-xl
@@ -214,7 +246,6 @@ const Barn = () => {
                       )}
                     </div>
 
-                    {/* Match Glow Effect */}
                     {isMatched && (
                       <div className="absolute inset-0 rounded-xl bg-green-400/20 animate-pulse" />
                     )}
@@ -233,7 +264,6 @@ const Barn = () => {
         </div>
       </div>
 
-      {/* Bottom Navigation */}
       <BottomNavigation activeItem={activeNav} onItemClick={handleNavClick} />
 
       {/* Result Dialog */}
@@ -248,8 +278,7 @@ const Barn = () => {
                 ? "Mükemmel!"
                 : barnGame.matchedPairs > 0
                   ? "Tebrikler!"
-                  : "Yarın Tekrar Dene!"
-              }
+                  : "Yarın Tekrar Dene!"}
             </h2>
             <p className="text-amber-700 text-center mb-4">
               {barnGame.matchedPairs}/{BARN_CONFIG.totalPairs} eşleşme buldun!
@@ -265,15 +294,106 @@ const Barn = () => {
               </div>
             </div>
 
-            <p className="text-sm text-amber-600 text-center">
-              Yarın gece 00:00'da yeni oyun!
-            </p>
+            {/* Cooldown info */}
+            <div className="bg-purple-50 rounded-xl p-3 w-full mb-4 border border-purple-200">
+              <p className="text-sm text-purple-700 text-center">
+                24 saat sonra tekrar oynayabilirsin veya{" "}
+                <button
+                  onClick={() => {
+                    setShowResultDialog(false);
+                    setShowPurchaseDialog(true);
+                  }}
+                  className="font-bold text-purple-600 underline"
+                >
+                  hemen yenile
+                </button>
+              </p>
+            </div>
 
             <button
               onClick={() => setShowResultDialog(false)}
-              className="mt-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
+              className="bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
             >
               Tamam
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Purchase Dialog */}
+      <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
+        <DialogContent className="bg-gradient-to-b from-purple-50 to-indigo-100 border-purple-300 rounded-3xl max-w-sm mx-auto">
+          <div className="flex flex-col items-center py-4">
+            <div className="text-5xl mb-3">⚡</div>
+            <h2 className="text-xl font-bold text-purple-800 mb-2">
+              Hakları Yenile
+            </h2>
+            <p className="text-purple-600 text-center mb-4 text-sm">
+              10 eşleştirme hakkı satın al ve hemen oynamaya devam et!
+            </p>
+
+            {purchaseError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 w-full">
+                <p className="text-sm text-red-600 text-center">{purchaseError}</p>
+              </div>
+            )}
+
+            <div className="w-full space-y-3 mb-4">
+              {/* WLD Option */}
+              <button
+                onClick={purchaseWithWLD}
+                disabled={isPurchasing}
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🌐</span>
+                  <div className="text-left">
+                    <p className="font-bold">WLD ile Öde</p>
+                    <p className="text-xs opacity-80">World Token</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {isPurchasing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <span className="font-bold">{BARN_CONFIG.purchase.priceWLD} WLD</span>
+                  )}
+                </div>
+              </button>
+
+              {/* USDC Option */}
+              <button
+                onClick={purchaseWithUSDC}
+                disabled={isPurchasing}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:opacity-50 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">💵</span>
+                  <div className="text-left">
+                    <p className="font-bold">USDC ile Öde</p>
+                    <p className="text-xs opacity-80">USD Coin</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {isPurchasing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <span className="font-bold">${BARN_CONFIG.purchase.priceUSDC}</span>
+                  )}
+                </div>
+              </button>
+            </div>
+
+            <p className="text-xs text-purple-500 text-center mb-3">
+              Ödeme World App üzerinden güvenle gerçekleştirilir.
+            </p>
+
+            <button
+              onClick={() => setShowPurchaseDialog(false)}
+              disabled={isPurchasing}
+              className="text-purple-600 font-medium py-2 px-6 hover:underline"
+            >
+              Vazgeç
             </button>
           </div>
         </DialogContent>
