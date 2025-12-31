@@ -1,7 +1,6 @@
 import { useState } from "react";
 import GameHeader from "@/components/game/GameHeader";
 import BottomNavigation from "@/components/game/BottomNavigation";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Diamond, Droplets, Sparkles, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -95,19 +94,19 @@ const Market = () => {
       <div className="relative z-10">
         <GameHeader />
 
-        <div className="pt-20 pb-24 px-4 h-screen flex flex-col">
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl flex-1 overflow-hidden flex flex-col">
+        <div className="pt-20 pb-24 px-4">
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden">
                 <div className="p-4 bg-amber-800/10 border-b border-amber-200">
                     <h1 className="text-2xl font-bold text-amber-900 text-center">Pazar Yeri</h1>
                 </div>
 
-                <Tabs defaultValue="seeds" className="flex-1 flex flex-col">
+                <Tabs defaultValue="seeds" className="flex flex-col">
                     <TabsList className="grid w-full grid-cols-2 p-1 bg-amber-100/50">
                         <TabsTrigger value="essentials" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Temel Malzemeler</TabsTrigger>
                         <TabsTrigger value="seeds" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Tohumlar</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="essentials" className="flex-1 p-4 space-y-4">
+                    <TabsContent value="essentials" className="p-4 space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto">
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col items-center text-center space-y-2">
                             <div className="p-3 bg-blue-100 rounded-full">
                                 <Droplets className="w-8 h-8 text-blue-500" />
@@ -139,9 +138,8 @@ const Market = () => {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="seeds" className="flex-1 p-0">
-                        <ScrollArea className="h-full">
-                            <div className="grid grid-cols-1 gap-3 p-4 pb-20">
+                    <TabsContent value="seeds" className="p-0 max-h-[calc(100vh-280px)] overflow-y-auto">
+                            <div className="grid grid-cols-1 gap-3 p-4">
                                 {Object.values(PLANT_TYPES).map((plant) => (
                                     <div key={plant.id} className="bg-white border border-amber-200 rounded-xl p-3 flex items-center gap-4 shadow-sm relative overflow-hidden">
                                         {/* Background Decoration */}
@@ -185,7 +183,6 @@ const Market = () => {
                                     </div>
                                 ))}
                             </div>
-                        </ScrollArea>
                     </TabsContent>
                 </Tabs>
             </div>
