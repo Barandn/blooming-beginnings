@@ -99,7 +99,7 @@ const Index = () => {
           {/* Garden Title */}
           <div className="mb-4">
             <h2 className="text-lg font-bold text-white/90 drop-shadow-md tracking-wide">
-              Bahçem
+              My Garden
             </h2>
           </div>
 

@@ -68,15 +68,15 @@ const Market = () => {
 
   const handleBuyWaterInfo = () => {
       toast({
-          title: "Su Bilgisi",
-          description: "Su, kullanım başına 1 Elmas. Mahsulleriniz susamışken doğrudan sulayın!",
+          title: "Water Info",
+          description: "Water costs 1 Diamond per use. Water your crops directly when they're thirsty!",
       });
   };
 
   const handleBuyFertilizerInfo = () => {
       toast({
-          title: "Gübre Bilgisi",
-          description: "Gübre 500 B&G. Büyüyen mahsullere uygulayarak hızlandırın!",
+          title: "Fertilizer Info",
+          description: "Fertilizer costs 500 B&G. Apply to growing crops to speed them up!",
       });
   };
 
@@ -98,13 +98,13 @@ const Market = () => {
         <div className="pt-20 pb-24 px-4 h-screen flex flex-col">
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl flex-1 overflow-hidden flex flex-col">
                 <div className="p-4 bg-amber-800/10 border-b border-amber-200">
-                    <h1 className="text-2xl font-bold text-amber-900 text-center">Pazar Yeri</h1>
+                    <h1 className="text-2xl font-bold text-amber-900 text-center">Marketplace</h1>
                 </div>
 
                 <Tabs defaultValue="seeds" className="flex-1 flex flex-col">
                     <TabsList className="grid w-full grid-cols-2 p-1 bg-amber-100/50">
-                        <TabsTrigger value="essentials" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Temel Malzemeler</TabsTrigger>
-                        <TabsTrigger value="seeds" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Tohumlar</TabsTrigger>
+                        <TabsTrigger value="essentials" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Essentials</TabsTrigger>
+                        <TabsTrigger value="seeds" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Seeds</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="essentials" className="flex-1 p-4 space-y-4">
@@ -112,14 +112,14 @@ const Market = () => {
                             <div className="p-3 bg-blue-100 rounded-full">
                                 <Droplets className="w-8 h-8 text-blue-500" />
                             </div>
-                            <h3 className="font-bold text-lg text-blue-900">Su</h3>
-                            <p className="text-sm text-blue-700">Mahsullerin hayatta kalması için gerekli.</p>
+                            <h3 className="font-bold text-lg text-blue-900">Water</h3>
+                            <p className="text-sm text-blue-700">Required for crop survival.</p>
                             <div className="flex items-center gap-1 font-bold text-blue-600 bg-white px-3 py-1 rounded-full shadow-sm">
-                                <span>Fiyat: {GAME_CONFIG.waterCost}</span>
+                                <span>Price: {GAME_CONFIG.waterCost}</span>
                                 <Diamond className="w-3 h-3" />
                             </div>
                             <Button className="w-full bg-blue-500 hover:bg-blue-600" onClick={handleBuyWaterInfo}>
-                                Bilgi
+                                Info
                             </Button>
                         </div>
 
@@ -127,14 +127,14 @@ const Market = () => {
                             <div className="p-3 bg-amber-100 rounded-full">
                                 <Sparkles className="w-8 h-8 text-amber-500" />
                             </div>
-                            <h3 className="font-bold text-lg text-amber-900">Gübre</h3>
-                            <p className="text-sm text-amber-700">Büyüme süresini %25 azaltır.</p>
+                            <h3 className="font-bold text-lg text-amber-900">Fertilizer</h3>
+                            <p className="text-sm text-amber-700">Reduces growth time by 25%.</p>
                             <div className="flex items-center gap-1 font-bold text-amber-600 bg-white px-3 py-1 rounded-full shadow-sm">
-                                <span>Fiyat: {GAME_CONFIG.fertilizerCost}</span>
+                                <span>Price: {GAME_CONFIG.fertilizerCost}</span>
                                 <Coins className="w-3 h-3 text-yellow-500" />
                             </div>
                             <Button className="w-full bg-amber-500 hover:bg-amber-600" onClick={handleBuyFertilizerInfo}>
-                                Bilgi
+                                Info
                             </Button>
                         </div>
                     </TabsContent>
@@ -170,7 +170,7 @@ const Market = () => {
                                                     {plant.difficulty}
                                                 </span>
                                                 <span className="text-[10px] bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">
-                                                    {plant.totalWaterCycles} Döngü
+                                                    {plant.totalWaterCycles} Cycles
                                                 </span>
                                             </div>
                                         </div>
@@ -180,7 +180,7 @@ const Market = () => {
                                             className="h-full px-4 bg-green-600 hover:bg-green-700 z-10"
                                             onClick={() => handleBuySeed(plant.id)}
                                         >
-                                            Satın Al
+                                            Buy
                                         </Button>
                                     </div>
                                 ))}

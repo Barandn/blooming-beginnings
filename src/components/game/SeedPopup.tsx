@@ -44,7 +44,7 @@ const SeedPopup = ({ isOpen, onClose, selectedPlotId }: SeedPopupProps) => {
         <DialogHeader>
           <DialogTitle className="text-center text-amber-900 flex items-center justify-center gap-2">
             <Leaf className="w-5 h-5 text-green-600" />
-            <span>Tohum Seç</span>
+            <span>Choose Seed</span>
             <Leaf className="w-5 h-5 text-green-600 scale-x-[-1]" />
           </DialogTitle>
         </DialogHeader>
@@ -53,12 +53,12 @@ const SeedPopup = ({ isOpen, onClose, selectedPlotId }: SeedPopupProps) => {
           {inventorySeeds.length === 0 ? (
             <div className="flex flex-col items-center gap-4 py-8 animate-popup-enter">
               <div className="text-5xl animate-wiggle">🌱</div>
-              <p className="text-amber-800 text-center font-medium">Hiç tohumun yok!</p>
+              <p className="text-amber-800 text-center font-medium">You have no seeds!</p>
               <Button
                 onClick={() => navigate("/market")}
                 className="touch-feedback bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
               >
-                Pazara Git
+                Go to Market
               </Button>
             </div>
           ) : (
@@ -92,7 +92,7 @@ const SeedPopup = ({ isOpen, onClose, selectedPlotId }: SeedPopupProps) => {
                     <div className="text-center">
                       <div className="font-bold text-amber-900">{plant.name}</div>
                       <div className="text-xs text-amber-600 font-medium">
-                        Stok: <span className="text-amber-800">{count}</span>
+                        Stock: <span className="text-amber-800">{count}</span>
                       </div>
                     </div>
                   </Button>
