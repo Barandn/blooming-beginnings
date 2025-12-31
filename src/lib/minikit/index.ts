@@ -3,10 +3,19 @@
  * Handles World App MiniKit SDK integration for the frontend
  */
 
-import { MiniKit, VerificationLevel as MiniKitVerificationLevel, Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
+import {
+  MiniKit,
+  VerificationLevel as MiniKitVerificationLevel,
+  Tokens,
+  tokenToDecimals,
+  type PayCommandInput as SDKPayCommandInput,
+} from '@worldcoin/minikit-js';
 
 // Re-export for use in other modules
 export { Tokens, tokenToDecimals };
+
+// Re-export SDK PayCommandInput type for proper type safety
+export type PayCommandInput = SDKPayCommandInput;
 
 // Check if MiniKit is available (running inside World App)
 export function isMiniKitAvailable(): boolean {
@@ -83,16 +92,7 @@ export interface WalletAuthResult {
   };
 }
 
-// Pay command types
-export interface PayCommandInput {
-  reference: string;
-  to: string;
-  tokens: Array<{
-    symbol: string;
-    token_amount: string;
-  }>;
-  description?: string;
-}
+// Pay command types - Using SDK's PayCommandInput (re-exported above)
 
 export interface PayCommandResult {
   status: 'success' | 'error';
