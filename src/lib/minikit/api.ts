@@ -106,8 +106,62 @@ export async function logout(): Promise<ApiResponse<{ message: string }>> {
 }
 
 // ============================
-// World ID Verification API
+// SIWE (Sign In With Ethereum) API
 // ============================
+// World ID Sign-In is deprecated. Using Wallet Auth instead.
+// Reference: https://docs.world.org/world-id/sign-in/deprecation
+
+export interface SiweNonceResponse {
+  nonce: string;
+  expiresIn: number;
+}
+
+export async function getSiweNonce(): Promise<ApiResponse<SiweNonceResponse>> {
+  return apiCall<SiweNonceResponse>('/auth/siwe/nonce');
+}
+
+export interface SiweVerifyRequest {
+  message: string;
+  signature: string;
+  address: string;
+  nonce: string;
+}
+
+export interface SiweVerifyResponse {
+  isNewUser: boolean;
+  token: string;
+  user: {
+    id: string;
+    walletAddress: string;
+    verificationLevel: string;
+    createdAt: string;
+  };
+  expiresAt: string;
+}
+
+export async function verifySiwe(
+  data: SiweVerifyRequest
+): Promise<ApiResponse<SiweVerifyResponse>> {
+  const result = await apiCall<SiweVerifyResponse>('/auth/siwe/verify', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+  // Save token and user if successful
+  if (result.status === 'success' && result.data) {
+    localStorage.setItem('auth_token', result.data.token);
+    localStorage.setItem('user', JSON.stringify(result.data.user));
+  }
+
+  return result;
+}
+
+// ============================
+// World ID Verification API (DEPRECATED)
+// ============================
+// NOTE: World ID Sign-In is deprecated as of September 2025
+// and will be shut down on January 31, 2026.
+// Use SIWE (Wallet Auth) instead for new implementations.
 
 export interface WorldIDProof {
   proof: string;
@@ -135,6 +189,10 @@ export interface VerifyWorldIDResponse {
   expiresAt: string;
 }
 
+/**
+ * @deprecated World ID Sign-In is deprecated. Use verifySiwe() instead.
+ * Reference: https://docs.world.org/world-id/sign-in/deprecation
+ */
 export async function verifyWorldID(
   data: VerifyWorldIDRequest
 ): Promise<ApiResponse<VerifyWorldIDResponse>> {

@@ -1,11 +1,15 @@
 /**
  * Login Screen Component
  *
+ * World ID Sign-In is deprecated as of September 2025.
+ * Using Wallet Auth (SIWE) instead.
+ * Reference: https://docs.world.org/world-id/sign-in/deprecation
+ *
  * World App Guidelines Compliant:
  * - Mobile-first design
  * - Fast loading (<2-3 seconds)
  * - Minimal, clean UI
- * - Single call-to-action: World ID verification
+ * - Single call-to-action: Wallet Auth
  * - No footer/sidebar
  * - Proper error handling with user feedback
  */
@@ -96,9 +100,10 @@ const Login = () => {
           className="w-full max-w-sm bg-white/15 backdrop-blur-xl rounded-3xl p-6 border border-white/20 shadow-2xl animate-popup-enter"
           style={{ animationDelay: '0.2s' }}
         >
-          {/* World ID Info */}
+          {/* Wallet Auth Info */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-2xl mb-4">
+              {/* Wallet Icon */}
               <svg
                 width="32"
                 height="32"
@@ -107,16 +112,17 @@ const Login = () => {
                 xmlns="http://www.w3.org/2000/svg"
                 className="text-white"
               >
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                <circle cx="12" cy="12" r="4" fill="currentColor" />
+                <rect x="2" y="6" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+                <path d="M2 10H22" stroke="currentColor" strokeWidth="2" />
+                <circle cx="17" cy="14" r="2" fill="currentColor" />
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-white mb-2">
-              World ID ile Giris Yap
+              World App ile Giris Yap
             </h2>
             <p className="text-white/70 text-sm leading-relaxed">
-              Insan oldugunu dogrula ve oyuna basla.
-              Tek bir hesap, guvende bir kimlik.
+              Cuzdanini bagla ve oyuna basla.
+              Hizli, guvenli, tek tikla giris.
             </p>
           </div>
 
@@ -153,11 +159,11 @@ const Login = () => {
             {isVerifying ? (
               <>
                 <div className="w-5 h-5 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
-                <span>Dogrulanıyor...</span>
+                <span>Baglaniyor...</span>
               </>
             ) : (
               <>
-                {/* World ID Icon */}
+                {/* Wallet Connect Icon */}
                 <svg
                   width="24"
                   height="24"
@@ -166,17 +172,18 @@ const Login = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   className="text-emerald-600"
                 >
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                  <circle cx="12" cy="12" r="4" fill="currentColor" />
+                  <rect x="3" y="7" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
+                  <path d="M3 11H21" stroke="currentColor" strokeWidth="2" />
+                  <circle cx="16" cy="15" r="1.5" fill="currentColor" />
                 </svg>
-                <span>World ID ile Baglan</span>
+                <span>Cuzdan ile Baglan</span>
               </>
             )}
           </button>
 
           {/* Security Note */}
           <p className="mt-4 text-white/50 text-xs text-center">
-            Orb ile dogrulanmis hesaplar kabul edilir
+            World App cuzdaniniz ile guvenli giris
           </p>
         </div>
 
