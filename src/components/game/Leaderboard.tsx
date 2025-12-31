@@ -43,7 +43,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
           setUserRank(result.data.user.rank);
         }
       } else {
-        setError(result.error || 'Leaderboard yüklenemedi');
+        setError(result.error || 'Could not load leaderboard');
       }
 
       // If authenticated, also fetch user-specific rank
@@ -54,7 +54,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bağlantı hatası');
+      setError(err instanceof Error ? err.message : 'Connection error');
     } finally {
       setIsLoading(false);
     }
@@ -76,14 +76,14 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
         <DialogHeader>
           <DialogTitle className="flex items-center justify-center gap-2 text-2xl text-amber-800">
             <Trophy className="w-6 h-6 text-yellow-500 fill-yellow-500" />
-            En İyi Çiftçiler
+            Top Farmers
           </DialogTitle>
         </DialogHeader>
 
         <div className="py-2">
           {/* User Stats */}
           <div className="flex justify-between items-center px-4 py-2 bg-amber-50 rounded-lg mb-2 border border-amber-100">
-            <span className="font-bold text-amber-900">Aylık Kazancın:</span>
+            <span className="font-bold text-amber-900">Your Monthly Earnings:</span>
             <div className="flex items-center gap-1 font-mono text-lg font-bold text-green-600">
               <TrendingUp className="w-4 h-4" />
               {state.monthlyProfit} 💎
@@ -93,7 +93,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
           {/* User Rank */}
           {userRank !== null && (
             <div className="flex justify-between items-center px-4 py-2 bg-blue-50 rounded-lg mb-4 border border-blue-100">
-              <span className="font-bold text-blue-900">Sıralaman:</span>
+              <span className="font-bold text-blue-900">Your Rank:</span>
               <span className="font-mono text-lg font-bold text-blue-600">#{userRank}</span>
             </div>
           )}
@@ -103,11 +103,11 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
             <div className="flex justify-center gap-4 mb-4 text-xs text-gray-500">
               <div className="flex items-center gap-1">
                 <Users className="w-3 h-3" />
-                <span>{stats.totalPlayers} oyuncu</span>
+                <span>{stats.totalPlayers} players</span>
               </div>
               <div className="flex items-center gap-1">
                 <Trophy className="w-3 h-3" />
-                <span>{stats.totalGames} oyun</span>
+                <span>{stats.totalGames} games</span>
               </div>
             </div>
           )}
@@ -116,7 +116,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-              <span className="text-sm text-gray-500">Yükleniyor...</span>
+              <span className="text-sm text-gray-500">Loading...</span>
             </div>
           )}
 
@@ -129,7 +129,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
                 className="flex items-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200 rounded-lg text-amber-800 text-sm transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Tekrar Dene
+                Try Again
               </button>
             </div>
           )}
@@ -139,8 +139,8 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
             <div className="flex flex-col items-center justify-center py-8 gap-2">
               <Trophy className="w-12 h-12 text-gray-300" />
               <p className="text-sm text-gray-500 text-center">
-                Henüz sıralamada kimse yok.<br />
-                İlk sen ol!
+                No one on the leaderboard yet.<br />
+                Be the first!
               </p>
             </div>
           )}
@@ -172,7 +172,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
                           {user.walletAddress}
                         </span>
                         <span className="text-xs text-gray-400">
-                          {user.gamesPlayed} oyun
+                          {user.gamesPlayed} games
                         </span>
                       </div>
                     </div>
@@ -193,7 +193,7 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
                 className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-amber-600 transition-colors"
               >
                 <RefreshCw className="w-3 h-3" />
-                Yenile
+                Refresh
               </button>
             </div>
           )}

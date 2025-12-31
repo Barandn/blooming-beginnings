@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: 'Bu uygulama sadece World App icinde calisir',
+          error: 'This app only works inside World App',
         }));
         return false;
       }
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: 'Nonce alinamadi. Lutfen tekrar deneyin.',
+          error: 'Could not get nonce. Please try again.',
         }));
         return false;
       }
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const walletAuthPayload = {
         nonce,
         expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        statement: 'Blooming Beginnings uygulamasina giris yap',
+        statement: 'Sign in to Blooming Beginnings',
       };
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
@@ -117,8 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (walletAuthResult.status !== 'success') {
         const errorMessage =
           walletAuthResult.finalPayload?.error_code === 'user_rejected'
-            ? 'Giris iptal edildi'
-            : 'Cuzdan dogrulamasi basarisiz';
+            ? 'Login cancelled'
+            : 'Wallet verification failed';
 
         setState(prev => ({
           ...prev,
@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: 'Imza alinamadi',
+          error: 'Could not get signature',
         }));
         return false;
       }
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: backendResult.error || 'Sunucu dogrulamasi basarisiz',
+          error: backendResult.error || 'Server verification failed',
         }));
         return false;
       }
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState(prev => ({
         ...prev,
         isVerifying: false,
-        error: error instanceof Error ? error.message : 'Beklenmeyen bir hata olustu',
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
       }));
       return false;
     }

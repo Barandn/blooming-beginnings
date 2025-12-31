@@ -406,7 +406,7 @@ export function useBarnGamePurchase(
     try {
       // Check if MiniKit is available
       if (!isMiniKitAvailable()) {
-        setError('World App gerekli. Lütfen World App içinden açın.');
+        setError('World App required. Please open from within World App.');
         return false;
       }
 
@@ -419,7 +419,7 @@ export function useBarnGamePurchase(
       });
 
       if (initResult.status !== 'success' || !initResult.data) {
-        setError(initResult.error || 'Ödeme başlatılamadı');
+        setError(initResult.error || 'Could not initiate payment');
         return false;
       }
 
@@ -440,14 +440,14 @@ export function useBarnGamePurchase(
             token_amount: tokenAmountDecimal,
           },
         ],
-        description: 'Kart Oyunu - 10 Eşleştirme Hakkı',
+        description: 'Card Game - 10 Matching Attempts',
       };
 
       // Step 4: Request payment via MiniKit (opens World App payment drawer)
       const payResult = await minikit.commandsAsync.pay(paymentPayload);
 
       if (payResult.status !== 'success') {
-        setError(payResult.error?.message || 'Ödeme başarısız oldu');
+        setError(payResult.error?.message || 'Payment failed');
         return false;
       }
 
@@ -461,9 +461,9 @@ export function useBarnGamePurchase(
       if (verifyResult.status !== 'success') {
         // Handle pending status - transaction may still be confirming
         if (verifyResult.status === 'pending') {
-          setError('Ödeme işleniyor. Lütfen birkaç saniye bekleyip tekrar deneyin.');
+          setError('Payment processing. Please wait a few seconds and try again.');
         } else {
-          setError(verifyResult.error || 'Satın alma doğrulanamadı');
+          setError(verifyResult.error || 'Could not verify purchase');
         }
         return false;
       }
@@ -472,7 +472,7 @@ export function useBarnGamePurchase(
       onPurchaseSuccess();
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+      setError(err instanceof Error ? err.message : 'Unknown error');
       return false;
     } finally {
       setIsPurchasing(false);

@@ -39,8 +39,8 @@ const Barn = () => {
     resetBarnAttempts();
     setShowPurchaseDialog(false);
     toast({
-      title: "Satın Alma Başarılı!",
-      description: "10 yeni eşleştirme hakkın aktif edildi.",
+      title: "Purchase Successful!",
+      description: "10 new matching attempts have been activated.",
     });
   }, [resetBarnAttempts]);
 
@@ -127,28 +127,28 @@ const Barn = () => {
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 shadow-md border border-amber-100">
               <div className="flex items-center justify-center gap-2 mb-3">
                 <span className="text-2xl">🐮</span>
-                <h1 className="text-lg font-bold text-amber-800">Günlük Eşleştirme</h1>
+                <h1 className="text-lg font-bold text-amber-800">Daily Matching</h1>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-amber-50 rounded-lg py-2 px-1">
                   <div className="flex items-center justify-center gap-1">
                     <RefreshCw className="w-3 h-3 text-amber-600" />
-                    <span className="text-xs text-amber-600">Hak</span>
+                    <span className="text-xs text-amber-600">Attempts</span>
                   </div>
                   <span className="text-sm font-bold text-amber-800">{attemptsRemaining}/{BARN_CONFIG.totalAttempts}</span>
                 </div>
                 <div className="bg-green-50 rounded-lg py-2 px-1">
                   <div className="flex items-center justify-center gap-1">
                     <Trophy className="w-3 h-3 text-green-600" />
-                    <span className="text-xs text-green-600">Eşleşme</span>
+                    <span className="text-xs text-green-600">Matches</span>
                   </div>
                   <span className="text-sm font-bold text-green-700">{barnGame.matchedPairs}/{BARN_CONFIG.totalPairs}</span>
                 </div>
                 <div className="bg-yellow-50 rounded-lg py-2 px-1">
                   <div className="flex items-center justify-center gap-1">
                     <Coins className="w-3 h-3 text-yellow-600" />
-                    <span className="text-xs text-yellow-600">Kazanç</span>
+                    <span className="text-xs text-yellow-600">Earnings</span>
                   </div>
                   <span className="text-sm font-bold text-yellow-700">+{barnGame.totalCoinsWon}</span>
                 </div>
@@ -160,7 +160,7 @@ const Barn = () => {
                   <div className="flex items-center justify-center gap-2">
                     <Clock className="w-4 h-4 text-red-500 animate-pulse" />
                     <span className="text-sm font-medium text-red-600">
-                      Yenileme: {cooldownDisplay}
+                      Refresh: {cooldownDisplay}
                     </span>
                   </div>
                 </div>
@@ -174,7 +174,7 @@ const Barn = () => {
               <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200">
                 <div className="text-center mb-3">
                   <p className="text-sm font-medium text-purple-800">
-                    Hakların bitti! 24 saat bekle veya hemen yenile.
+                    Out of attempts! Wait 24 hours or refresh now.
                   </p>
                 </div>
                 <button
@@ -182,7 +182,7 @@ const Barn = () => {
                   className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Zap className="w-5 h-5" />
-                  <span>Hemen Yenile</span>
+                  <span>Refresh Now</span>
                 </button>
               </div>
             </div>
@@ -196,7 +196,7 @@ const Barn = () => {
                 className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
               >
                 <span className="text-xl">🎮</span>
-                <span className="text-base">Oyunu Başlat</span>
+                <span className="text-base">Start Game</span>
               </button>
             </div>
           )}
@@ -258,7 +258,7 @@ const Barn = () => {
           {/* Reward Info */}
           <div className="w-full max-w-sm mt-3">
             <p className="text-center text-xs text-amber-600">
-              Her eşleşme = <strong>{BARN_CONFIG.matchReward} B&G Coin</strong>
+              Each match = <strong>{BARN_CONFIG.matchReward} B&G Coin</strong>
             </p>
           </div>
         </div>
@@ -275,13 +275,13 @@ const Barn = () => {
             </div>
             <h2 className="text-2xl font-bold text-amber-800 mb-2">
               {barnGame.matchedPairs >= BARN_CONFIG.totalPairs
-                ? "Mükemmel!"
+                ? "Perfect!"
                 : barnGame.matchedPairs > 0
-                  ? "Tebrikler!"
-                  : "Yarın Tekrar Dene!"}
+                  ? "Congratulations!"
+                  : "Try Again Tomorrow!"}
             </h2>
             <p className="text-amber-700 text-center mb-4">
-              {barnGame.matchedPairs}/{BARN_CONFIG.totalPairs} eşleşme buldun!
+              You found {barnGame.matchedPairs}/{BARN_CONFIG.totalPairs} matches!
             </p>
 
             <div className="bg-white/80 rounded-2xl p-4 w-full mb-4">
@@ -297,7 +297,7 @@ const Barn = () => {
             {/* Cooldown info */}
             <div className="bg-purple-50 rounded-xl p-3 w-full mb-4 border border-purple-200">
               <p className="text-sm text-purple-700 text-center">
-                24 saat sonra tekrar oynayabilirsin veya{" "}
+                You can play again in 24 hours or{" "}
                 <button
                   onClick={() => {
                     setShowResultDialog(false);
@@ -305,7 +305,7 @@ const Barn = () => {
                   }}
                   className="font-bold text-purple-600 underline"
                 >
-                  hemen yenile
+                  refresh now
                 </button>
               </p>
             </div>
@@ -314,7 +314,7 @@ const Barn = () => {
               onClick={() => setShowResultDialog(false)}
               className="bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:scale-105 transition-transform"
             >
-              Tamam
+              OK
             </button>
           </div>
         </DialogContent>
@@ -326,10 +326,10 @@ const Barn = () => {
           <div className="flex flex-col items-center py-4">
             <div className="text-5xl mb-3">⚡</div>
             <h2 className="text-xl font-bold text-purple-800 mb-2">
-              Hakları Yenile
+              Refresh Attempts
             </h2>
             <p className="text-purple-600 text-center mb-4 text-sm">
-              10 eşleştirme hakkı satın al ve hemen oynamaya devam et!
+              Buy 10 matching attempts and continue playing!
             </p>
 
             {purchaseError && (
@@ -348,7 +348,7 @@ const Barn = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">🌐</span>
                   <div className="text-left">
-                    <p className="font-bold">WLD ile Öde</p>
+                    <p className="font-bold">Pay with WLD</p>
                     <p className="text-xs opacity-80">World Token</p>
                   </div>
                 </div>
@@ -370,7 +370,7 @@ const Barn = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">💵</span>
                   <div className="text-left">
-                    <p className="font-bold">USDC ile Öde</p>
+                    <p className="font-bold">Pay with USDC</p>
                     <p className="text-xs opacity-80">USD Coin</p>
                   </div>
                 </div>
@@ -385,7 +385,7 @@ const Barn = () => {
             </div>
 
             <p className="text-xs text-purple-500 text-center mb-3">
-              Ödeme World App üzerinden güvenle gerçekleştirilir.
+              Payment is processed securely via World App.
             </p>
 
             <button
@@ -393,7 +393,7 @@ const Barn = () => {
               disabled={isPurchasing}
               className="text-purple-600 font-medium py-2 px-6 hover:underline"
             >
-              Vazgeç
+              Cancel
             </button>
           </div>
         </DialogContent>
