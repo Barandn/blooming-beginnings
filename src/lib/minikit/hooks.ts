@@ -3,17 +3,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
 import {
   isMiniKitAvailable,
   isInWorldApp,
   requestVerification,
-  requestWalletAuth,
   getMiniKit,
-  VerificationLevel,
-  Tokens,
-  tokenToDecimals,
   type VerifyCommandResult,
-  type PayCommandInput,
 } from './index';
 import {
   verifyWorldID,
@@ -46,18 +42,13 @@ export function useMiniKit(): UseMiniKitReturn {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check MiniKit availability after a short delay
-    // to ensure the SDK is fully loaded
     const checkMiniKit = () => {
       setIsAvailable(isMiniKitAvailable());
       setIsInApp(isInWorldApp());
       setIsLoading(false);
     };
 
-    // Initial check
     checkMiniKit();
-
-    // Also check after a delay in case SDK loads late
     const timer = setTimeout(checkMiniKit, 1000);
 
     return () => clearTimeout(timer);
@@ -85,13 +76,11 @@ export function useWorldIDAuth(): UseWorldIDAuthReturn {
   const [user, setUser] = useState(getStoredUser());
   const [error, setError] = useState<string | null>(null);
 
-  // Verify with World ID
   const verify = useCallback(async (walletAddress: string): Promise<boolean> => {
     setIsVerifying(true);
     setError(null);
 
     try {
-      // Request World ID verification from MiniKit
       const verifyResult = await requestVerification('verify-human', walletAddress);
 
       if (verifyResult.status !== 'success' || !verifyResult.proof) {
@@ -99,7 +88,6 @@ export function useWorldIDAuth(): UseWorldIDAuthReturn {
         return false;
       }
 
-      // Verify with backend
       const proof: WorldIDProof = {
         proof: verifyResult.proof,
         merkle_root: verifyResult.merkle_root!,
@@ -128,7 +116,6 @@ export function useWorldIDAuth(): UseWorldIDAuthReturn {
     }
   }, []);
 
-  // Logout
   const logout = useCallback(() => {
     clearAuthState();
     setUser(null);
@@ -217,7 +204,6 @@ export function useDailyBonus(profile: UserProfileResponse | null): UseDailyBonu
   const [error, setError] = useState<string | null>(null);
   const [cooldownMs, setCooldownMs] = useState(0);
 
-  // Update cooldown timer
   useEffect(() => {
     if (!profile?.dailyBonus) return;
 
@@ -244,7 +230,6 @@ export function useDailyBonus(profile: UserProfileResponse | null): UseDailyBonu
     setError(null);
 
     try {
-      // Request World ID verification for claim
       const verifyResult = await requestVerification('claim-daily-bonus', walletAddress);
 
       if (verifyResult.status !== 'success' || !verifyResult.proof) {
@@ -252,7 +237,6 @@ export function useDailyBonus(profile: UserProfileResponse | null): UseDailyBonu
         return { success: false };
       }
 
-      // Claim with backend
       const proof: WorldIDProof = {
         proof: verifyResult.proof,
         merkle_root: verifyResult.merkle_root!,
@@ -309,7 +293,6 @@ export function useGameSession(): UseGameSessionReturn {
   const [startTime, setStartTime] = useState(0);
 
   const startSession = useCallback(() => {
-    // Generate UUID for session
     const id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36);
     setSessionId(id);
     setStartTime(Date.now());
@@ -380,12 +363,6 @@ export function useBarnGameStatus(): UseBarnGameStatusReturn {
 // useBarnGamePurchase Hook
 // ============================
 
-// Barn game purchase configuration
-const BARN_GAME_PURCHASE_CONFIG = {
-  priceWLD: 0.1,  // Numeric for tokenToDecimals
-  priceUSDC: 0.25,
-};
-
 interface UseBarnGamePurchaseReturn {
   isPurchasing: boolean;
   error: string | null;
@@ -404,7 +381,6 @@ export function useBarnGamePurchase(
     setError(null);
 
     try {
-      // Check if MiniKit is available
       if (!isMiniKitAvailable()) {
         setError('World App gerekli. Lütfen World App içinden açın.');
         return false;
@@ -412,7 +388,6 @@ export function useBarnGamePurchase(
 
       const minikit = getMiniKit();
 
-      // Step 1: Get reference ID and merchant wallet from backend (secure)
       const initResult = await initiatePayment({
         tokenSymbol,
         itemType: 'barn_game_attempts',
@@ -425,13 +400,10 @@ export function useBarnGamePurchase(
 
       const { referenceId, merchantWallet, amount } = initResult.data;
 
-      // Step 2: Convert amount to proper decimal format using tokenToDecimals
-      // MiniKit requires token amounts in smallest unit (wei for WLD, 6 decimals for USDC)
-      const tokenEnum = tokenSymbol === 'WLD' ? Tokens.WLD : Tokens.USDCE;
+      const tokenEnum = tokenSymbol === 'WLD' ? Tokens.WLD : Tokens.USDC;
       const tokenAmountDecimal = tokenToDecimals(parseFloat(amount), tokenEnum).toString();
 
-      // Step 3: Create payment payload with proper MiniKit format
-      const paymentPayload: PayCommandInput = {
+      const payResult = await minikit.commandsAsync.pay({
         reference: referenceId,
         to: merchantWallet,
         tokens: [
@@ -441,25 +413,22 @@ export function useBarnGamePurchase(
           },
         ],
         description: 'Kart Oyunu - 10 Eşleştirme Hakkı',
-      };
+      });
 
-      // Step 4: Request payment via MiniKit (opens World App payment drawer)
-      const payResult = await minikit.commandsAsync.pay(paymentPayload);
-
-      if (payResult.status !== 'success') {
-        setError(payResult.error?.message || 'Ödeme başarısız oldu');
+      const payPayload = payResult.finalPayload as any;
+      
+      if (!payPayload?.transaction_id) {
+        setError('Ödeme başarısız oldu');
         return false;
       }
 
-      // Step 5: Verify purchase with backend
       const verifyResult = await purchaseBarnGameAttempts({
         paymentReference: referenceId,
-        transactionId: payResult.transaction_id!,
+        transactionId: payPayload.transaction_id,
         tokenSymbol,
       });
 
       if (verifyResult.status !== 'success') {
-        // Handle pending status - transaction may still be confirming
         if (verifyResult.status === 'pending') {
           setError('Ödeme işleniyor. Lütfen birkaç saniye bekleyip tekrar deneyin.');
         } else {
@@ -468,7 +437,6 @@ export function useBarnGamePurchase(
         return false;
       }
 
-      // Success!
       onPurchaseSuccess();
       return true;
     } catch (err) {

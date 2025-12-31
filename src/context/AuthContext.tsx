@@ -113,12 +113,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
+      const walletPayload = walletAuthResult.finalPayload as any;
 
-      if (walletAuthResult.status !== 'success') {
-        const errorMessage =
-          walletAuthResult.finalPayload?.error_code === 'user_rejected'
-            ? 'Giris iptal edildi'
-            : 'Cuzdan dogrulamasi basarisiz';
+      if (!walletPayload?.signature) {
+        const errorMessage = walletPayload?.error_code === 'user_rejected'
+          ? 'Giris iptal edildi'
+          : 'Cuzdan dogrulamasi basarisiz';
 
         setState(prev => ({
           ...prev,
@@ -129,8 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Extract payload from wallet auth
-      const payload = walletAuthResult.finalPayload;
-      if (!payload || !payload.message || !payload.signature || !payload.address) {
+      if (!walletPayload.message || !walletPayload.signature || !walletPayload.address) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
@@ -141,9 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Step 3: Verify signature with backend
       const backendResult = await verifySiwe({
-        message: payload.message,
-        signature: payload.signature,
-        address: payload.address,
+        message: walletPayload.message,
+        signature: walletPayload.signature,
+        address: walletPayload.address,
         nonce,
       });
 

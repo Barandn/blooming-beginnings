@@ -3,7 +3,7 @@
  * Handles World App MiniKit SDK integration for the frontend
  */
 
-import { MiniKit, VerificationLevel as MiniKitVerificationLevel, Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
+import { MiniKit, Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
 
 // Re-export for use in other modules
 export { Tokens, tokenToDecimals };
@@ -11,7 +11,6 @@ export { Tokens, tokenToDecimals };
 // Check if MiniKit is available (running inside World App)
 export function isMiniKitAvailable(): boolean {
   if (typeof window === 'undefined') return false;
-  // Use MiniKit SDK's isInstalled method which checks if running inside World App
   return MiniKit.isInstalled();
 }
 
@@ -21,19 +20,6 @@ export function getMiniKit() {
     throw new Error('MiniKit is not available. Please open this app in World App.');
   }
   return MiniKit;
-}
-
-// Types for MiniKit
-interface MiniKitInstance {
-  isInstalled: () => boolean;
-  commandsAsync: {
-    verify: (payload: VerifyCommandInput) => Promise<VerifyCommandResult>;
-    walletAuth: (payload: WalletAuthInput) => Promise<WalletAuthResult>;
-    pay: (payload: PayCommandInput) => Promise<PayCommandResult>;
-    sendTransaction: (payload: SendTransactionInput) => Promise<SendTransactionResult>;
-  };
-  subscribe: (event: string, callback: (payload: unknown) => void) => void;
-  unsubscribe: (event: string) => void;
 }
 
 // Verification levels
@@ -88,7 +74,7 @@ export interface PayCommandInput {
   reference: string;
   to: string;
   tokens: Array<{
-    symbol: string;
+    symbol: Tokens;
     token_amount: string;
   }>;
   description?: string;
@@ -132,15 +118,20 @@ export async function requestVerification(
 ): Promise<VerifyCommandResult> {
   const minikit = getMiniKit();
 
-  const payload: VerifyCommandInput = {
-    action,
-    signal,
-    verification_level: VerificationLevel.Orb, // Enforce Orb-only
-  };
-
   try {
-    const result = await minikit.commandsAsync.verify(payload);
-    return result;
+    const result = await minikit.commandsAsync.verify({
+      action,
+      signal,
+      verification_level: 'orb' as any, // Enforce Orb-only
+    });
+    
+    return {
+      status: 'success',
+      proof: (result.finalPayload as any)?.proof,
+      merkle_root: (result.finalPayload as any)?.merkle_root,
+      nullifier_hash: (result.finalPayload as any)?.nullifier_hash,
+      verification_level: (result.finalPayload as any)?.verification_level,
+    };
   } catch (error) {
     console.error('Verification request failed:', error);
     return {
@@ -160,14 +151,20 @@ export async function requestVerification(
 export async function requestWalletAuth(nonce: string): Promise<WalletAuthResult> {
   const minikit = getMiniKit();
 
-  const payload: WalletAuthInput = {
-    nonce,
-    statement: 'Sign in to Blooming Beginnings',
-  };
-
   try {
-    const result = await minikit.commandsAsync.walletAuth(payload);
-    return result;
+    const result = await minikit.commandsAsync.walletAuth({
+      nonce,
+      statement: 'Sign in to Blooming Beginnings',
+    });
+    
+    const payload = result.finalPayload as any;
+    
+    return {
+      status: 'success',
+      message: payload?.message,
+      signature: payload?.signature,
+      address: payload?.address,
+    };
   } catch (error) {
     console.error('Wallet auth request failed:', error);
     return {

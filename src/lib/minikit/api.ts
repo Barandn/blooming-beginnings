@@ -3,7 +3,8 @@
  * Handles all API calls to the backend services
  */
 
-const API_BASE = '/api';
+// Use Supabase Edge Functions as API base
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
 // API Response type
 interface ApiResponse<T> {
@@ -29,8 +30,13 @@ async function apiCall<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Determine function name from endpoint
+  const functionName = endpoint.split('/')[1] || 'auth';
+  const subPath = endpoint.replace(`/${functionName}`, '') || '';
+  const url = `${SUPABASE_URL}/functions/v1/${functionName}${subPath}`;
+
   try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const response = await fetch(url, {
       ...options,
       headers,
     });
