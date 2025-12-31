@@ -5,10 +5,10 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { db, barnGameAttempts, barnGamePurchases } from '../../lib/db/index.js';
-import { eq } from 'drizzle-orm';
+import { db, barnGameAttempts, barnGamePurchases, paymentReferences } from '../../lib/db/index.js';
+import { eq, and, gt } from 'drizzle-orm';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
-import { verifyPaymentTransaction } from '../../lib/services/payment-verification.js';
+import { verifyPaymentCombined } from '../../lib/services/payment-verification.js';
 import { rateLimitCheck } from '../../lib/middleware/rate-limit.js';
 import {
   API_STATUS,
@@ -91,6 +91,27 @@ export default async function handler(
       });
     }
 
+    // Validate payment reference exists and is not expired
+    const [storedReference] = await db
+      .select()
+      .from(paymentReferences)
+      .where(
+        and(
+          eq(paymentReferences.referenceId, paymentReference),
+          eq(paymentReferences.userId, auth.user.id),
+          gt(paymentReferences.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (!storedReference) {
+      return res.status(400).json({
+        status: API_STATUS.ERROR,
+        error: 'Invalid or expired payment reference',
+        errorCode: 'invalid_reference',
+      });
+    }
+
     // Validate recipient address is configured
     const recipientAddress = BARN_GAME_CONFIG.recipientAddress;
     if (!recipientAddress) {
@@ -102,9 +123,10 @@ export default async function handler(
       });
     }
 
-    // CRITICAL: Verify payment on blockchain
-    const paymentVerification = await verifyPaymentTransaction(
+    // CRITICAL: Verify payment using Developer Portal API with blockchain fallback
+    const paymentVerification = await verifyPaymentCombined(
       transactionId,
+      paymentReference,
       recipientAddress,
       tokenSymbol
     );
@@ -134,6 +156,12 @@ export default async function handler(
     const amount = tokenSymbol === 'WLD'
       ? BARN_GAME_CONFIG.purchasePriceWLD
       : BARN_GAME_CONFIG.purchasePriceUSDC;
+
+    // Mark payment reference as used
+    await db
+      .update(paymentReferences)
+      .set({ status: 'completed' })
+      .where(eq(paymentReferences.referenceId, paymentReference));
 
     // Record the verified purchase
     const [purchase] = await db

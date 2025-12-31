@@ -10,6 +10,8 @@ import {
   requestWalletAuth,
   getMiniKit,
   VerificationLevel,
+  Tokens,
+  tokenToDecimals,
   type VerifyCommandResult,
   type PayCommandInput,
 } from './index';
@@ -21,6 +23,7 @@ import {
   getStoredUser,
   clearAuthState,
   getBarnGameStatus,
+  initiatePayment,
   purchaseBarnGameAttempts,
   type UserProfileResponse,
   type WorldIDProof,
@@ -378,11 +381,9 @@ export function useBarnGameStatus(): UseBarnGameStatusReturn {
 // ============================
 
 // Barn game purchase configuration
-// IMPORTANT: VITE_BARN_GAME_RECIPIENT_ADDRESS must be set in production
 const BARN_GAME_PURCHASE_CONFIG = {
-  recipientAddress: import.meta.env.VITE_BARN_GAME_RECIPIENT_ADDRESS || '',
-  priceWLD: '0.1',
-  priceUSDC: '0.25',
+  priceWLD: 0.1,  // Numeric for tokenToDecimals
+  priceUSDC: 0.25,
 };
 
 interface UseBarnGamePurchaseReturn {
@@ -409,37 +410,40 @@ export function useBarnGamePurchase(
         return false;
       }
 
-      // Check if recipient address is configured
-      if (!BARN_GAME_PURCHASE_CONFIG.recipientAddress) {
-        setError('Ödeme yapılandırması eksik. Lütfen yönetici ile iletişime geçin.');
-        console.error('VITE_BARN_GAME_RECIPIENT_ADDRESS is not configured');
+      const minikit = getMiniKit();
+
+      // Step 1: Get reference ID and merchant wallet from backend (secure)
+      const initResult = await initiatePayment({
+        tokenSymbol,
+        itemType: 'barn_game_attempts',
+      });
+
+      if (initResult.status !== 'success' || !initResult.data) {
+        setError(initResult.error || 'Ödeme başlatılamadı');
         return false;
       }
 
-      const minikit = getMiniKit();
+      const { referenceId, merchantWallet, amount } = initResult.data;
 
-      // Generate unique payment reference
-      const paymentReference = `barn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      // Step 2: Convert amount to proper decimal format using tokenToDecimals
+      // MiniKit requires token amounts in smallest unit (wei for WLD, 6 decimals for USDC)
+      const tokenEnum = tokenSymbol === 'WLD' ? Tokens.WLD : Tokens.USDCE;
+      const tokenAmountDecimal = tokenToDecimals(parseFloat(amount), tokenEnum).toString();
 
-      // Get price based on token
-      const tokenAmount = tokenSymbol === 'WLD'
-        ? BARN_GAME_PURCHASE_CONFIG.priceWLD
-        : BARN_GAME_PURCHASE_CONFIG.priceUSDC;
-
-      // Create payment payload
+      // Step 3: Create payment payload with proper MiniKit format
       const paymentPayload: PayCommandInput = {
-        reference: paymentReference,
-        to: BARN_GAME_PURCHASE_CONFIG.recipientAddress,
+        reference: referenceId,
+        to: merchantWallet,
         tokens: [
           {
-            symbol: tokenSymbol,
-            token_amount: tokenAmount,
+            symbol: tokenEnum,
+            token_amount: tokenAmountDecimal,
           },
         ],
         description: 'Kart Oyunu - 10 Eşleştirme Hakkı',
       };
 
-      // Request payment via MiniKit
+      // Step 4: Request payment via MiniKit (opens World App payment drawer)
       const payResult = await minikit.commandsAsync.pay(paymentPayload);
 
       if (payResult.status !== 'success') {
@@ -447,15 +451,20 @@ export function useBarnGamePurchase(
         return false;
       }
 
-      // Verify purchase with backend
+      // Step 5: Verify purchase with backend
       const verifyResult = await purchaseBarnGameAttempts({
-        paymentReference,
-        transactionId: payResult.transaction_id,
+        paymentReference: referenceId,
+        transactionId: payResult.transaction_id!,
         tokenSymbol,
       });
 
       if (verifyResult.status !== 'success') {
-        setError(verifyResult.error || 'Satın alma doğrulanamadı');
+        // Handle pending status - transaction may still be confirming
+        if (verifyResult.status === 'pending') {
+          setError('Ödeme işleniyor. Lütfen birkaç saniye bekleyip tekrar deneyin.');
+        } else {
+          setError(verifyResult.error || 'Satın alma doğrulanamadı');
+        }
         return false;
       }
 

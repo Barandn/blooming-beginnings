@@ -324,6 +324,43 @@ export const barnGamePurchases = pgTable('barn_game_purchases', {
   index('barn_game_purchases_payment_reference_idx').on(table.paymentReference),
 ]);
 
+/**
+ * Payment References Table
+ * Stores secure payment reference IDs generated server-side
+ * Used for World App MiniKit payment verification
+ */
+export const paymentReferences = pgTable('payment_references', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Unique reference ID (32 hex chars)
+  referenceId: varchar('reference_id', { length: 64 }).notNull(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Amount to be paid
+  amount: text('amount').notNull(),
+
+  // Token symbol (WLD, USDC)
+  tokenSymbol: varchar('token_symbol', { length: 10 }).notNull(),
+
+  // Item type being purchased
+  itemType: varchar('item_type', { length: 50 }).notNull(),
+
+  // Status of the payment reference
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+  // When this reference expires (5 minutes)
+  expiresAt: timestamp('expires_at').notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('payment_references_reference_id_idx').on(table.referenceId),
+  index('payment_references_user_id_idx').on(table.userId),
+  index('payment_references_expires_at_idx').on(table.expiresAt),
+]);
+
 // Barn game relations
 export const barnGameAttemptsRelations = relations(barnGameAttempts, ({ one }) => ({
   user: one(users, {
@@ -335,6 +372,13 @@ export const barnGameAttemptsRelations = relations(barnGameAttempts, ({ one }) =
 export const barnGamePurchasesRelations = relations(barnGamePurchases, ({ one }) => ({
   user: one(users, {
     fields: [barnGamePurchases.userId],
+    references: [users.id],
+  }),
+}));
+
+export const paymentReferencesRelations = relations(paymentReferences, ({ one }) => ({
+  user: one(users, {
+    fields: [paymentReferences.userId],
     references: [users.id],
   }),
 }));
@@ -354,3 +398,5 @@ export type BarnGameAttempt = typeof barnGameAttempts.$inferSelect;
 export type NewBarnGameAttempt = typeof barnGameAttempts.$inferInsert;
 export type BarnGamePurchase = typeof barnGamePurchases.$inferSelect;
 export type NewBarnGamePurchase = typeof barnGamePurchases.$inferInsert;
+export type PaymentReference = typeof paymentReferences.$inferSelect;
+export type NewPaymentReference = typeof paymentReferences.$inferInsert;

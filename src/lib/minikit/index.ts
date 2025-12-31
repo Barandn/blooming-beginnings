@@ -3,7 +3,10 @@
  * Handles World App MiniKit SDK integration for the frontend
  */
 
-import { MiniKit, VerificationLevel as MiniKitVerificationLevel } from '@worldcoin/minikit-js';
+import { MiniKit, VerificationLevel as MiniKitVerificationLevel, Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
+
+// Re-export for use in other modules
+export { Tokens, tokenToDecimals };
 
 // Check if MiniKit is available (running inside World App)
 export function isMiniKitAvailable(): boolean {

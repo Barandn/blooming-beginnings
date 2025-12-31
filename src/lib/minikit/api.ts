@@ -434,9 +434,32 @@ export async function getBarnGameStatus(): Promise<ApiResponse<BarnGameStatusRes
   return apiCall<BarnGameStatusResponse>('/barn/status');
 }
 
+// Initiate payment - gets reference ID from backend (secure)
+export interface InitiatePaymentRequest {
+  tokenSymbol: 'WLD' | 'USDC';
+  itemType: 'barn_game_attempts';
+}
+
+export interface InitiatePaymentResponse {
+  referenceId: string;
+  merchantWallet: string;
+  amount: string;
+  tokenSymbol: 'WLD' | 'USDC';
+  expiresAt: number;
+}
+
+export async function initiatePayment(
+  data: InitiatePaymentRequest
+): Promise<ApiResponse<InitiatePaymentResponse>> {
+  return apiCall<InitiatePaymentResponse>('/barn/initiate-payment', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export interface BarnGamePurchaseRequest {
   paymentReference: string;
-  transactionId?: string;
+  transactionId: string;
   tokenSymbol: 'WLD' | 'USDC';
 }
 
