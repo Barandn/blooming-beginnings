@@ -488,12 +488,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       return {
         ...prev,
         barnGame: {
-          cards: createBarnCards(), // Fresh shuffle for new game
+          ...INITIAL_BARN_STATE,
+          cards: createBarnCards(),
           flippedCards: [],
           matchedPairs: 0,
           attemptsUsed: 0,
           lastPlayedDate: today,
-          hasPlayedToday: false, // Will be set to true when game ends
+          hasPlayedToday: false,
           totalCoinsWon: 0,
         },
       };

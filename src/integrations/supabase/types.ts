@@ -14,7 +14,375 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      barn_game_attempts: {
+        Row: {
+          attempts_remaining: number
+          cooldown_ends_at: string | null
+          cooldown_started_at: string | null
+          created_at: string
+          has_active_game: boolean
+          id: string
+          last_played_date: string | null
+          matches_found_today: number
+          total_coins_won_today: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts_remaining?: number
+          cooldown_ends_at?: string | null
+          cooldown_started_at?: string | null
+          created_at?: string
+          has_active_game?: boolean
+          id?: string
+          last_played_date?: string | null
+          matches_found_today?: number
+          total_coins_won_today?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts_remaining?: number
+          cooldown_ends_at?: string | null
+          cooldown_started_at?: string | null
+          created_at?: string
+          has_active_game?: boolean
+          id?: string
+          last_played_date?: string | null
+          matches_found_today?: number
+          total_coins_won_today?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "barn_game_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      barn_game_purchases: {
+        Row: {
+          amount: string
+          attempts_granted: number
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          payment_reference: string
+          status: string
+          token_symbol: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: string
+          attempts_granted?: number
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          payment_reference: string
+          status?: string
+          token_symbol: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: string
+          attempts_granted?: number
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          payment_reference?: string
+          status?: string
+          token_symbol?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "barn_game_purchases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      claim_transactions: {
+        Row: {
+          amount: string
+          block_number: number | null
+          claim_type: string
+          confirmed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          status: string
+          token_address: string
+          tx_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: string
+          block_number?: number | null
+          claim_type: string
+          confirmed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          status?: string
+          token_address: string
+          tx_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: string
+          block_number?: number | null
+          claim_type?: string
+          confirmed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          status?: string
+          token_address?: string
+          tx_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claim_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_bonus_claims: {
+        Row: {
+          amount: string
+          claim_date: string
+          claimed_at: string
+          id: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: string
+          claim_date: string
+          claimed_at?: string
+          id?: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: string
+          claim_date?: string
+          claimed_at?: string
+          id?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_bonus_claims_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "claim_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_bonus_claims_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_scores: {
+        Row: {
+          created_at: string
+          game_started_at: string | null
+          game_type: string
+          id: string
+          is_validated: boolean
+          leaderboard_period: string
+          monthly_profit: number
+          score: number
+          session_id: string | null
+          time_taken: number | null
+          user_id: string
+          validation_data: string | null
+        }
+        Insert: {
+          created_at?: string
+          game_started_at?: string | null
+          game_type: string
+          id?: string
+          is_validated?: boolean
+          leaderboard_period: string
+          monthly_profit?: number
+          score: number
+          session_id?: string | null
+          time_taken?: number | null
+          user_id: string
+          validation_data?: string | null
+        }
+        Update: {
+          created_at?: string
+          game_started_at?: string | null
+          game_type?: string
+          id?: string
+          is_validated?: boolean
+          leaderboard_period?: string
+          monthly_profit?: number
+          score?: number
+          session_id?: string | null
+          time_taken?: number | null
+          user_id?: string
+          validation_data?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_scores_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_references: {
+        Row: {
+          amount: string
+          created_at: string
+          expires_at: string
+          id: string
+          item_type: string
+          reference_id: string
+          status: string
+          token_symbol: string
+          user_id: string
+        }
+        Insert: {
+          amount: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          item_type: string
+          reference_id: string
+          status?: string
+          token_symbol: string
+          user_id: string
+        }
+        Update: {
+          amount?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          item_type?: string
+          reference_id?: string
+          status?: string
+          token_symbol?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_references_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          is_active: boolean
+          last_used_at: string
+          token_hash: string
+          user_agent: string | null
+          user_id: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean
+          last_used_at?: string
+          token_hash: string
+          user_agent?: string | null
+          user_id: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean
+          last_used_at?: string
+          token_hash?: string
+          user_agent?: string | null
+          user_id?: string
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          merkle_root: string | null
+          nullifier_hash: string
+          updated_at: string
+          verification_level: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          merkle_root?: string | null
+          nullifier_hash: string
+          updated_at?: string
+          verification_level?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          merkle_root?: string | null
+          nullifier_hash?: string
+          updated_at?: string
+          verification_level?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
