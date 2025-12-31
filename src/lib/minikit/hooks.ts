@@ -427,7 +427,7 @@ export function useBarnGamePurchase(
 
       // Step 2: Convert amount to proper decimal format using tokenToDecimals
       // MiniKit requires token amounts in smallest unit (wei for WLD, 6 decimals for USDC)
-      const tokenEnum = tokenSymbol === 'WLD' ? Tokens.WLD : Tokens.USDCE;
+      const tokenEnum = tokenSymbol === 'WLD' ? Tokens.WLD : Tokens.USDC;
       const tokenAmountDecimal = tokenToDecimals(parseFloat(amount), tokenEnum).toString();
 
       // Step 3: Create payment payload with proper MiniKit format
