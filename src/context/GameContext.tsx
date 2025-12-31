@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { GAME_CONFIG, PLANT_TYPES, PlantType, BARN_ANIMALS, BARN_CONFIG } from "@/config/gameConfig";
 import { toast } from "@/hooks/use-toast";
+import { submitScore, isAuthenticated } from "@/lib/minikit/api";
 
 export type PlotState = "empty" | "growing" | "thirsty" | "dead" | "ready";
 
@@ -333,25 +334,19 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const harvestPlant = (plotId: number) => {
+    const plot = state.plots[plotId];
+    if (!plot.plantId) return;
+
+    const plant = PLANT_TYPES[plot.plantId];
+    const diamondReward = plant.seedCost * 2;
+    const bngReward = Math.floor(plant.seedCost * (Math.random() * 3 + 2));
+    const profit = diamondReward - plant.seedCost;
+    const newMonthlyProfit = state.monthlyProfit + profit;
+
     setState((prev) => {
-      const plot = prev.plots[plotId];
-      if (!plot.plantId) return prev;
-
-      const plant = PLANT_TYPES[plot.plantId];
-      const diamondReward = plant.seedCost * 2;
-      // Random B&G reward
-      // Min/Max not specified in spec per plant, using generic logic or assuming logic based on "Growth Factor"
-      // "BG_Reward = Random(Min, Max) * Growth_Factor."
-      // Let's assume generic 50-100 base * difficulty multiplier maybe?
-      // Or just a range. Let's say 20-50 for Daisy, 50-100 Rose, 200-500 Orchid.
-      // Implementing simple random range for now: 2x to 5x seed cost in B&G?
-      // Spec says "Random Range based on growth time".
-      // Let's use Seed Cost * Random(2, 5).
-      const bngReward = Math.floor(plant.seedCost * (Math.random() * 3 + 2));
-
       const newPlots = [...prev.plots];
       newPlots[plotId] = {
-        ...INITIAL_STATE.plots[plotId], // Reset to empty
+        ...INITIAL_STATE.plots[plotId],
         id: plotId,
       };
 
@@ -359,14 +354,30 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         ...prev,
         diamonds: prev.diamonds + diamondReward,
         bng: prev.bng + bngReward,
-        monthlyProfit: prev.monthlyProfit + (diamondReward - plant.seedCost), // Profit logic (ignoring water cost for simple metric or track strictly?)
-        // "Monthly Diamond Profit". Strict profit = Reward - Seed - Water.
-        // I'll stick to simple "Net Gain from Harvest" for now, or track expenses.
-        // Let's do Revenue - SeedCost. (Water cost is sunk).
+        monthlyProfit: newMonthlyProfit,
         plots: newPlots,
       };
     });
+
     toast({ title: "Hasat Edildi!", description: "Ödüller cüzdanına eklendi." });
+
+    // Submit score to backend if authenticated
+    if (isAuthenticated()) {
+      submitScore({
+        gameType: 'harvest',
+        score: diamondReward,
+        monthlyProfit: newMonthlyProfit,
+        gameStartedAt: plot.plantTimestamp,
+        gameEndedAt: Date.now(),
+        validationData: {
+          plantId: plot.plantId,
+          waterCount: plot.waterCount,
+          plotId: plotId,
+        },
+      }).catch((err) => {
+        console.error('Failed to submit harvest score:', err);
+      });
+    }
   };
 
   const clearDeadPlant = (plotId: number) => {
@@ -549,6 +560,28 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
             description: `+${BARN_CONFIG.matchReward} B&G Coin kazandın!`,
           });
 
+          // Submit barn game score to backend when game completes
+          if (isGameComplete && isAuthenticated()) {
+            const gameStartTime = barnGame.lastPlayedDate
+              ? new Date(barnGame.lastPlayedDate).getTime()
+              : Date.now() - 60000;
+
+            submitScore({
+              gameType: 'barn_game',
+              score: newTotalCoinsWon,
+              monthlyProfit: prev.monthlyProfit,
+              gameStartedAt: gameStartTime,
+              gameEndedAt: Date.now(),
+              validationData: {
+                matchedPairs: newMatchedPairs,
+                attemptsUsed: newAttemptsUsed,
+                totalPairs: BARN_CONFIG.totalPairs,
+              },
+            }).catch((err) => {
+              console.error('Failed to submit barn game score:', err);
+            });
+          }
+
           return {
             ...prev,
             bng: prev.bng + BARN_CONFIG.matchReward,
@@ -571,6 +604,28 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
           // Start cooldown if game is complete
           const cooldownEndsAt = isGameComplete ? Date.now() + BARN_CONFIG.cooldownDuration : null;
+
+          // Submit barn game score to backend when game completes (no more attempts)
+          if (isGameComplete && isAuthenticated()) {
+            const gameStartTime = barnGame.lastPlayedDate
+              ? new Date(barnGame.lastPlayedDate).getTime()
+              : Date.now() - 60000;
+
+            submitScore({
+              gameType: 'barn_game',
+              score: barnGame.totalCoinsWon,
+              monthlyProfit: prev.monthlyProfit,
+              gameStartedAt: gameStartTime,
+              gameEndedAt: Date.now(),
+              validationData: {
+                matchedPairs: barnGame.matchedPairs,
+                attemptsUsed: newAttemptsUsed,
+                totalPairs: BARN_CONFIG.totalPairs,
+              },
+            }).catch((err) => {
+              console.error('Failed to submit barn game score:', err);
+            });
+          }
 
           // We'll flip back in the component after a delay
           return {

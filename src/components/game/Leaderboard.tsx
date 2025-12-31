@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -5,27 +6,69 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trophy, TrendingUp } from "lucide-react";
+import { Trophy, TrendingUp, Loader2, RefreshCw, Users } from "lucide-react";
 import { useGame } from "@/context/GameContext";
+import { getLeaderboard, getUserLeaderboard, type LeaderboardEntry, type LeaderboardResponse } from "@/lib/minikit/api";
+import { isAuthenticated } from "@/lib/minikit/api";
 
 interface LeaderboardProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const MOCK_LEADERBOARD = [
-  { rank: 1, name: "CiftciAga99", profit: 12500 },
-  { rank: 2, name: "HasatKrali_X", profit: 9800 },
-  { rank: 3, name: "TarlaSultani", profit: 8400 },
-  { rank: 4, name: "MisirBey", profit: 5200 },
-  { rank: 5, name: "BugdayUstasi", profit: 3100 },
-];
+// Note: Backend already masks wallet addresses for privacy
+// Format: 0x1234...5678
 
 const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
   const { state } = useGame();
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardResponse | null>(null);
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Insert current user into the list for comparison (simple logic)
-  const userEntry = { rank: 99, name: "SEN", profit: state.monthlyProfit };
+  // Fetch leaderboard data
+  const fetchLeaderboard = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Fetch main leaderboard
+      const result = await getLeaderboard(undefined, 100, 0, true);
+
+      if (result.status === 'success' && result.data) {
+        setLeaderboardData(result.data);
+
+        // If user data is included in response, use it
+        if (result.data.user) {
+          setUserRank(result.data.user.rank);
+        }
+      } else {
+        setError(result.error || 'Leaderboard yüklenemedi');
+      }
+
+      // If authenticated, also fetch user-specific rank
+      if (isAuthenticated()) {
+        const userResult = await getUserLeaderboard();
+        if (userResult.status === 'success' && userResult.data) {
+          setUserRank(userResult.data.rank);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bağlantı hatası');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch data when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchLeaderboard();
+    }
+  }, [isOpen, fetchLeaderboard]);
+
+  const entries = leaderboardData?.entries || [];
+  const stats = leaderboardData?.stats;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -38,38 +81,122 @@ const Leaderboard = ({ isOpen, onClose }: LeaderboardProps) => {
         </DialogHeader>
 
         <div className="py-2">
-            <div className="flex justify-between items-center px-4 py-2 bg-amber-50 rounded-lg mb-4 border border-amber-100">
-                <span className="font-bold text-amber-900">Aylık Kazancın:</span>
-                <div className="flex items-center gap-1 font-mono text-lg font-bold text-green-600">
-                    <TrendingUp className="w-4 h-4" />
-                    {state.monthlyProfit} 💎
-                </div>
+          {/* User Stats */}
+          <div className="flex justify-between items-center px-4 py-2 bg-amber-50 rounded-lg mb-2 border border-amber-100">
+            <span className="font-bold text-amber-900">Aylık Kazancın:</span>
+            <div className="flex items-center gap-1 font-mono text-lg font-bold text-green-600">
+              <TrendingUp className="w-4 h-4" />
+              {state.monthlyProfit} 💎
             </div>
+          </div>
 
+          {/* User Rank */}
+          {userRank !== null && (
+            <div className="flex justify-between items-center px-4 py-2 bg-blue-50 rounded-lg mb-4 border border-blue-100">
+              <span className="font-bold text-blue-900">Sıralaman:</span>
+              <span className="font-mono text-lg font-bold text-blue-600">#{userRank}</span>
+            </div>
+          )}
+
+          {/* Stats Summary */}
+          {stats && (
+            <div className="flex justify-center gap-4 mb-4 text-xs text-gray-500">
+              <div className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                <span>{stats.totalPlayers} oyuncu</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Trophy className="w-3 h-3" />
+                <span>{stats.totalGames} oyun</span>
+              </div>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+              <span className="text-sm text-gray-500">Yükleniyor...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !isLoading && (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <p className="text-sm text-red-500 text-center">{error}</p>
+              <button
+                onClick={fetchLeaderboard}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200 rounded-lg text-amber-800 text-sm transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Tekrar Dene
+              </button>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && !error && entries.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Trophy className="w-12 h-12 text-gray-300" />
+              <p className="text-sm text-gray-500 text-center">
+                Henüz sıralamada kimse yok.<br />
+                İlk sen ol!
+              </p>
+            </div>
+          )}
+
+          {/* Leaderboard List */}
+          {!isLoading && !error && entries.length > 0 && (
             <ScrollArea className="h-[300px] pr-4">
-                <div className="space-y-2">
-                    {MOCK_LEADERBOARD.map((user) => (
-                        <div key={user.rank} className={`flex items-center justify-between p-3 rounded-lg border ${user.rank <= 3 ? "bg-gradient-to-r from-yellow-50 to-white border-yellow-200" : "bg-white border-gray-100"}`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                                    user.rank === 1 ? "bg-yellow-400 text-yellow-900" :
-                                    user.rank === 2 ? "bg-gray-300 text-gray-800" :
-                                    user.rank === 3 ? "bg-amber-600 text-amber-100" :
-                                    "bg-gray-100 text-gray-500"
-                                }`}>
-                                    {user.rank}
-                                </div>
-                                <span className={`font-medium ${user.rank <= 3 ? "text-amber-900" : "text-gray-700"}`}>
-                                    {user.name}
-                                </span>
-                            </div>
-                            <span className="font-bold text-green-600">
-                                {user.profit} 💎
-                            </span>
-                        </div>
-                    ))}
-                </div>
+              <div className="space-y-2">
+                {entries.map((user: LeaderboardEntry) => (
+                  <div
+                    key={`${user.rank}-${user.walletAddress}`}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      user.rank <= 3
+                        ? "bg-gradient-to-r from-yellow-50 to-white border-yellow-200"
+                        : "bg-white border-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        user.rank === 1 ? "bg-yellow-400 text-yellow-900" :
+                        user.rank === 2 ? "bg-gray-300 text-gray-800" :
+                        user.rank === 3 ? "bg-amber-600 text-amber-100" :
+                        "bg-gray-100 text-gray-500"
+                      }`}>
+                        {user.rank}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={`font-medium text-sm ${user.rank <= 3 ? "text-amber-900" : "text-gray-700"}`}>
+                          {user.walletAddress}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {user.gamesPlayed} oyun
+                        </span>
+                      </div>
+                    </div>
+                    <span className="font-bold text-green-600">
+                      {user.monthlyProfit} 💎
+                    </span>
+                  </div>
+                ))}
+              </div>
             </ScrollArea>
+          )}
+
+          {/* Refresh Button */}
+          {!isLoading && !error && entries.length > 0 && (
+            <div className="flex justify-center mt-3">
+              <button
+                onClick={fetchLeaderboard}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-amber-600 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Yenile
+              </button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
