@@ -1,9 +1,13 @@
 /**
  * Authentication Context
- * Manages World ID authentication state across the app
+ * Manages World App Wallet Auth (SIWE) across the app
+ *
+ * World ID Sign-In is deprecated as of September 2025.
+ * Using Wallet Auth (SIWE) instead.
+ * Reference: https://docs.world.org/world-id/sign-in/deprecation
  *
  * World App Guidelines Compliant:
- * - Uses World ID for human verification
+ * - Uses Wallet Auth for authentication
  * - Stores session in localStorage
  * - Provides auth state to all components
  */
@@ -11,11 +15,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { MiniKit } from '@worldcoin/minikit-js';
 import {
-  verifyWorldID,
+  getSiweNonce,
+  verifySiwe,
   isAuthenticated as checkAuth,
   getStoredUser,
   clearAuthState,
-  type WorldIDProof,
 } from '@/lib/minikit/api';
 
 // User type from API
@@ -43,9 +47,6 @@ interface AuthContextValue extends AuthState {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-// World ID Action for verification
-const WORLD_ID_ACTION = 'verify-human';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Login with World ID
+  // Login with Wallet Auth (SIWE)
   const login = useCallback(async (): Promise<boolean> => {
     setState(prev => ({ ...prev, isVerifying: true, error: null }));
 
@@ -90,30 +91,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Get wallet address from MiniKit
-      const walletAddress = MiniKit.walletAddress;
-      if (!walletAddress) {
+      // Step 1: Get nonce from backend
+      const nonceResult = await getSiweNonce();
+
+      if (nonceResult.status !== 'success' || !nonceResult.data) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: 'Cuzdan adresi alinamadi',
+          error: 'Nonce alinamadi. Lutfen tekrar deneyin.',
         }));
         return false;
       }
 
-      // Request World ID verification
-      const verifyPayload = {
-        action: WORLD_ID_ACTION,
-        signal: walletAddress,
-        verification_level: 'orb' as const, // Orb-only for security
+      const { nonce } = nonceResult.data;
+
+      // Step 2: Request Wallet Auth from MiniKit
+      const walletAuthPayload = {
+        nonce,
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        statement: 'Blooming Beginnings uygulamasina giris yap',
       };
 
-      const verifyResult = await MiniKit.commandsAsync.verify(verifyPayload);
+      const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
 
-      if (verifyResult.status !== 'success') {
-        const errorMessage = verifyResult.finalPayload?.error_code === 'user_rejected'
-          ? 'Dogrulama iptal edildi'
-          : 'World ID dogrulamasi basarisiz';
+      if (walletAuthResult.status !== 'success') {
+        const errorMessage =
+          walletAuthResult.finalPayload?.error_code === 'user_rejected'
+            ? 'Giris iptal edildi'
+            : 'Cuzdan dogrulamasi basarisiz';
 
         setState(prev => ({
           ...prev,
@@ -123,31 +128,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Extract proof from result
-      const payload = verifyResult.finalPayload;
-      if (!payload || !payload.proof) {
+      // Extract payload from wallet auth
+      const payload = walletAuthResult.finalPayload;
+      if (!payload || !payload.message || !payload.signature || !payload.address) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: 'Dogrulama kaniti alinamadi',
+          error: 'Imza alinamadi',
         }));
         return false;
       }
 
-      // Create proof object for backend
-      const proof: WorldIDProof = {
-        proof: payload.proof,
-        merkle_root: payload.merkle_root,
-        nullifier_hash: payload.nullifier_hash,
-        verification_level: (payload.verification_level || 'orb') as 'orb' | 'device',
-      };
-
-      // Verify with backend
-      const backendResult = await verifyWorldID({
-        proof,
-        walletAddress,
-        action: WORLD_ID_ACTION,
-        signal: walletAddress,
+      // Step 3: Verify signature with backend
+      const backendResult = await verifySiwe({
+        message: payload.message,
+        signature: payload.signature,
+        address: payload.address,
+        nonce,
       });
 
       if (backendResult.status !== 'success' || !backendResult.data) {
