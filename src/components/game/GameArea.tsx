@@ -13,7 +13,7 @@ const formatTime = (ms: number): string => {
 // Confetti component for win celebration
 const Confetti = () => {
   const confettiPieces = useMemo(() => {
-    const colors = ['#fbbf24', '#22c55e', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899'];
+    const colors = ['#fbbf24', '#3b82f6', '#2563eb', '#ef4444', '#8b5cf6', '#ec4899'];
     return Array.from({ length: 50 }, (_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,

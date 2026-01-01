@@ -17,14 +17,14 @@ const GameHeader = () => {
       <div className="flex items-center justify-between">
         {/* User Identity */}
         <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center border-2 border-white/20 shadow-lg">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center border-2 border-white/20 shadow-lg">
                 <span className="text-xl">⚽</span>
             </div>
             <div className="flex flex-col">
                 <span className="text-white font-bold text-sm leading-tight">
                     {formatId(user.id)}
                 </span>
-                <span className="text-green-400 text-xs font-bold uppercase tracking-wider">
+                <span className="text-blue-400 text-xs font-bold uppercase tracking-wider">
                     Rookie League
                 </span>
             </div>

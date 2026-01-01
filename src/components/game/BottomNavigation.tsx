@@ -45,7 +45,7 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
                 onClick={() => handleClick(item.id)}
                 className={cn(
                     "relative flex flex-col items-center justify-center flex-1 py-3 rounded-full transition-all duration-300",
-                    isActive ? "bg-green-600 shadow-lg shadow-green-900/50" : "hover:bg-white/5 active:scale-95"
+                    isActive ? "bg-blue-600 shadow-lg shadow-blue-900/50" : "hover:bg-white/5 active:scale-95"
                 )}
               >
                 <span

@@ -22,7 +22,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-green-800 via-green-900 to-black relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-blue-800 via-blue-900 to-black relative overflow-hidden">
       {/* Background Elements (Pitch Lines) */}
       <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
          <div className="absolute top-0 left-0 right-0 h-1 bg-white/20"></div>
@@ -36,7 +36,7 @@ const Login = () => {
         <div className="text-center space-y-2">
           <div className="text-6xl mb-4 animate-bounce">⚽</div>
           <h1 className="text-5xl font-black text-white drop-shadow-lg tracking-tighter uppercase italic">
-            SİUU <span className="text-green-400">GAME</span>
+            SİUU <span className="text-blue-400">GAME</span>
           </h1>
           <p className="text-white/80 text-lg font-medium tracking-wide">
             Match. Win. Conquer.
@@ -45,7 +45,7 @@ const Login = () => {
 
         <Card className="bg-black/40 backdrop-blur-md border-white/10 p-8 shadow-2xl space-y-6">
           <div className="flex justify-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-700 rounded-full flex items-center justify-center shadow-lg border-4 border-black/50">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center shadow-lg border-4 border-black/50">
               <Trophy className="w-10 h-10 text-white" />
             </div>
           </div>
@@ -69,7 +69,7 @@ const Login = () => {
             <Button
               onClick={handleConnectWallet}
               disabled={isVerifying}
-              className="w-full h-14 text-lg font-bold bg-white text-green-900 hover:bg-green-50 shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
+              className="w-full h-14 text-lg font-bold bg-white text-blue-900 hover:bg-blue-50 shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
             >
               {isVerifying ? (
                 <span className="animate-pulse">Connecting...</span>
