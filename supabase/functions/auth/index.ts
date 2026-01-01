@@ -22,7 +22,10 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/auth/, '');
+  // Supabase Edge Functions URL format: /functions/v1/auth/[path]
+  // Extract the path after /auth (handles both /functions/v1/auth and /auth prefix)
+  const pathMatch = url.pathname.match(/\/auth(\/.*)?$/);
+  const path = pathMatch ? (pathMatch[1] || '') : '';
 
   try {
     const supabase = createClient(
