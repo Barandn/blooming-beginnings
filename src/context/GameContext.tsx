@@ -228,9 +228,9 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         },
         tutorialStep: prev.tutorialStep === 2 ? 3 : prev.tutorialStep,
       }));
-      toast({ title: "Satın Alma Başarılı!", description: `${plant.name} tohumu alındı!` });
+      toast({ title: "Purchase Successful!", description: `${plant.name} seed acquired!` });
     } else {
-      toast({ title: "Yetersiz Bakiye", description: "Daha fazla Elmas gerekli!", variant: "destructive" });
+      toast({ title: "Insufficient Balance", description: "More Diamonds needed!", variant: "destructive" });
     }
   };
 
@@ -266,13 +266,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           plots: newPlots,
         };
       });
-      toast({ title: "Ekildi!", description: `${plant.name} şimdi büyüyor.` });
+      toast({ title: "Planted!", description: `${plant.name} is now growing.` });
     }
   };
 
   const waterPlant = (plotId: number) => {
     if (state.diamonds < GAME_CONFIG.waterCost) {
-      toast({ title: "Su Yok!", description: "Sulamak için 1 Elmas gerekli.", variant: "destructive" });
+      toast({ title: "No Water!", description: "1 Diamond needed to water.", variant: "destructive" });
       return;
     }
 
@@ -297,12 +297,12 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Sulandı!", description: "Mahsul tekrar sağlıklı." });
+    toast({ title: "Watered!", description: "Crop is healthy again." });
   };
 
   const fertilizePlant = (plotId: number) => {
     if (state.bng < GAME_CONFIG.fertilizerCost) {
-      toast({ title: "Yetersiz B&G!", description: "Gübre için 500 B&G gerekli.", variant: "destructive" });
+      toast({ title: "Insufficient B&G!", description: "500 B&G needed for fertilizer.", variant: "destructive" });
       return;
     }
 
@@ -330,7 +330,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Gübrelendi!", description: "Büyüme süresi azaldı!" });
+    toast({ title: "Fertilized!", description: "Growth time reduced!" });
   };
 
   const harvestPlant = (plotId: number) => {
@@ -359,7 +359,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       };
     });
 
-    toast({ title: "Hasat Edildi!", description: "Ödüller cüzdanına eklendi." });
+    toast({ title: "Harvested!", description: "Rewards added to your wallet." });
 
     // Submit score to backend if authenticated
     if (isAuthenticated()) {
@@ -399,7 +399,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         plots: newPlots,
       };
     });
-    toast({ title: "Mahsul Temizlendi", description: `${PLANT_TYPES[state.plots[plotId].plantId!].seedCost} Elmas iade edildi.` });
+    toast({ title: "Crop Cleared", description: `${PLANT_TYPES[state.plots[plotId].plantId!].seedCost} Diamonds refunded.` });
   };
 
   const claimDailyBonus = () => {
@@ -412,7 +412,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         bng: prev.bng + GAME_CONFIG.dailyBonusBnG,
         lastDailyBonus: now,
       }));
-      toast({ title: "Günlük Bonus!", description: `${GAME_CONFIG.dailyBonusBnG} B&G Coin kazanıldı.` });
+      toast({ title: "Daily Bonus!", description: `${GAME_CONFIG.dailyBonusBnG} B&G Coins earned.` });
     }
   };
 
@@ -472,8 +472,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       },
     }));
     toast({
-      title: "Haklar Yenilendi!",
-      description: "10 yeni eşleştirme hakkın var. İyi şanslar!",
+      title: "Attempts Refreshed!",
+      description: "You have 10 new matching attempts. Good luck!",
     });
   }, []);
 
@@ -557,8 +557,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
           // Add reward
           toast({
-            title: "Eşleşme!",
-            description: `+${BARN_CONFIG.matchReward} B&G Coin kazandın!`,
+            title: "Match!",
+            description: `+${BARN_CONFIG.matchReward} B&G Coins earned!`,
           });
 
           // Submit barn game score to backend when game completes

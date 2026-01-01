@@ -62,7 +62,7 @@ const GrowingPopup = ({
           <DialogTitle className="text-center text-xl flex items-center justify-center gap-2">
             <Leaf className={`w-5 h-5 ${isThirsty ? "text-orange-500" : "text-green-500"}`} />
             <span className={isThirsty ? "text-orange-800" : "text-green-800"}>
-              Mahsul Bakımı
+              Crop Care
             </span>
             <Leaf className={`w-5 h-5 scale-x-[-1] ${isThirsty ? "text-orange-500" : "text-green-500"}`} />
           </DialogTitle>
@@ -108,13 +108,13 @@ const GrowingPopup = ({
           {/* Durum mesajı */}
           <div className="text-center space-y-2">
             <p className={`font-medium ${isThirsty ? "text-red-600 animate-pulse" : "text-green-700"}`}>
-              {isThirsty ? "💧 Susadım! Yardım et!" : "🌱 Güzelce büyüyorum..."}
+              {isThirsty ? "💧 I'm thirsty! Help me!" : "🌱 Growing nicely..."}
             </p>
 
             {/* İlerleme çubuğu */}
             <div className="w-48 mx-auto">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
-                <span>Büyüme</span>
+                <span>Growth</span>
                 <span className="font-medium">{Math.round(progressPercent)}%</span>
               </div>
               <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
@@ -124,7 +124,7 @@ const GrowingPopup = ({
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1 text-center">
-                Kalan: {cyclesRemaining} döngü
+                Remaining: {cyclesRemaining} cycles
               </p>
             </div>
           </div>
@@ -143,12 +143,12 @@ const GrowingPopup = ({
               {isWatering ? (
                 <span className="flex items-center gap-2">
                   <Droplets className="w-5 h-5 animate-bounce" />
-                  Sulanıyor...
+                  Watering...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Droplets className="w-5 h-5" />
-                  Sula (1 💎)
+                  Water (1 💎)
                 </span>
               )}
             </Button>
@@ -165,19 +165,19 @@ const GrowingPopup = ({
               {isFertilizing ? (
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-amber-600 animate-spin" />
-                  Gübre veriliyor...
+                  Fertilizing...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-amber-600" />
-                  Gübrele (500 B&G)
+                  Fertilize (500 B&G)
                 </span>
               )}
             </Button>
 
             <p className="text-xs text-center text-gray-500 flex items-center justify-center gap-1">
               <span>✨</span>
-              <span>Büyüme döngüsünü %25 azaltır</span>
+              <span>Reduces growth cycle by 25%</span>
               <span>✨</span>
             </p>
           </div>

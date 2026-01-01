@@ -110,10 +110,10 @@ const Login = () => {
             Harvest<span className="text-yellow-300">&</span>Yield
           </h1>
           <p className="text-white/90 text-lg font-medium">
-            Tohumunu Ek, Hasadini Topla
+            Plant Your Seed, Harvest Your Crop
           </p>
           <p className="text-white/70 text-sm mt-1">
-            Dijital ciftligini yonet ve kazan
+            Manage your digital farm and earn
           </p>
         </div>
 
@@ -140,11 +140,11 @@ const Login = () => {
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-white mb-2">
-              Ciftlige Hosgeldin
+              Welcome to the Farm
             </h2>
             <p className="text-white/70 text-sm leading-relaxed">
-              Cuzdanini bagla ve ciftciligin keyfini cikar.
-              Guvenli, hizli, tek tikla giris.
+              Connect your wallet and enjoy farming.
+              Secure, fast, one-click login.
             </p>
           </div>
 
@@ -159,7 +159,7 @@ const Login = () => {
           {!isInWorldApp && (
             <div className="mb-4 p-3 bg-amber-500/20 border border-amber-400/30 rounded-xl">
               <p className="text-amber-100 text-sm text-center">
-                Bu uygulamayi World App icinden acin
+                Please open this app from within World App
               </p>
             </div>
           )}
@@ -181,7 +181,7 @@ const Login = () => {
             {isVerifying ? (
               <>
                 <div className="w-5 h-5 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" />
-                <span>Baglaniyor...</span>
+                <span>Connecting...</span>
               </>
             ) : (
               <>
@@ -198,14 +198,14 @@ const Login = () => {
                   <path d="M3 11H21" stroke="currentColor" strokeWidth="2" />
                   <circle cx="16" cy="15" r="1.5" fill="currentColor" />
                 </svg>
-                <span>Cuzdan ile Baglan</span>
+                <span>Connect Wallet</span>
               </>
             )}
           </button>
 
           {/* Security Note */}
           <p className="mt-4 text-white/50 text-xs text-center">
-            World App cuzdaniniz ile guvenli giris
+            Secure login with your World App wallet
           </p>
         </div>
 
@@ -216,19 +216,19 @@ const Login = () => {
         >
           <div className="text-center">
             <div className="text-3xl mb-1">🌱</div>
-            <p className="text-white/80 text-xs font-medium">Ek</p>
+            <p className="text-white/80 text-xs font-medium">Plant</p>
           </div>
           <div className="text-center">
             <div className="text-3xl mb-1">💧</div>
-            <p className="text-white/80 text-xs font-medium">Sula</p>
+            <p className="text-white/80 text-xs font-medium">Water</p>
           </div>
           <div className="text-center">
             <div className="text-3xl mb-1">🌾</div>
-            <p className="text-white/80 text-xs font-medium">Hasat</p>
+            <p className="text-white/80 text-xs font-medium">Harvest</p>
           </div>
           <div className="text-center">
             <div className="text-3xl mb-1">💰</div>
-            <p className="text-white/80 text-xs font-medium">Kazan</p>
+            <p className="text-white/80 text-xs font-medium">Earn</p>
           </div>
         </div>
 
@@ -239,7 +239,7 @@ const Login = () => {
         >
           <span className="text-sm">🏆</span>
           <p className="text-white/70 text-xs">
-            En iyi ciftci sen ol!
+            Be the best farmer!
           </p>
         </div>
       </div>
