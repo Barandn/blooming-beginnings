@@ -7,6 +7,43 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_NONCES_PER_IP = 10; // Max 10 nonces per IP per 5 minutes
+
+// In-memory rate limit store (resets on function cold start, but provides basic protection)
+const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+
+// Check rate limit for nonce generation
+function checkNonceRateLimit(ipAddress: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const entry = rateLimitStore.get(ipAddress);
+  
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    // New window
+    rateLimitStore.set(ipAddress, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+  
+  if (entry.count >= MAX_NONCES_PER_IP) {
+    const retryAfter = Math.ceil((entry.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  entry.count++;
+  return { allowed: true };
+}
+
+// Clean up old rate limit entries periodically
+function cleanupRateLimitStore(): void {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitStore.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+      rateLimitStore.delete(ip);
+    }
+  }
+}
+
 // ERC-1271 interface for smart contract wallet signature verification
 const ERC1271_ABI = [
   "function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)"
@@ -133,6 +170,30 @@ serve(async (req) => {
 
     // GET /siwe/nonce - Generate nonce for SIWE
     if (req.method === "GET" && (path === "/siwe/nonce" || path === "" || path === "/")) {
+      // Get client IP for rate limiting
+      const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() 
+        || req.headers.get("x-real-ip") 
+        || "unknown";
+      
+      // Check rate limit
+      cleanupRateLimitStore();
+      const rateLimitResult = checkNonceRateLimit(ipAddress);
+      
+      if (!rateLimitResult.allowed) {
+        console.log("Rate limit exceeded for IP:", ipAddress);
+        return new Response(
+          JSON.stringify({ status: "error", error: "Too many requests. Please try again later.", errorCode: "RATE_LIMIT_EXCEEDED" }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "Retry-After": String(rateLimitResult.retryAfter || 60)
+            } 
+          }
+        );
+      }
+      
       const nonce = generateNonce();
       const expiresIn = 5 * 60 * 1000; // 5 minutes
       const expiresAt = new Date(Date.now() + expiresIn).toISOString();
@@ -156,7 +217,7 @@ serve(async (req) => {
         );
       }
       
-      console.log("Nonce generated and stored:", { nonce: nonce.substring(0, 8) + "...", expiresAt });
+      console.log("Nonce generated and stored:", { nonce: nonce.substring(0, 8) + "...", expiresAt, ip: ipAddress });
 
       return new Response(
         JSON.stringify({
