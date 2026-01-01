@@ -1,10 +1,6 @@
-/**
- * API Client for MiniKit Backend
- * Handles all API calls to the backend services
- */
-
-// Use Supabase Edge Functions as API base
+// Use backend functions as API base
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 // API Response type
 interface ApiResponse<T> {
@@ -20,15 +16,21 @@ async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('auth_token');
+  const authToken = token || SUPABASE_ANON_KEY;
+
+  if (!SUPABASE_URL) {
+    return { status: 'error', error: 'Backend URL missing' };
+  }
+  if (!SUPABASE_ANON_KEY) {
+    return { status: 'error', error: 'Backend key missing' };
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${authToken}`,
     ...(options.headers as Record<string, string>),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   // Determine function name from endpoint
   const functionName = endpoint.split('/')[1] || 'auth';
