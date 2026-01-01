@@ -107,7 +107,7 @@ const Market = () => {
                         <TabsTrigger value="seeds" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">Seeds</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="essentials" className="flex-1 p-4 space-y-4">
+                    <TabsContent value="essentials" className="flex-1 p-4 space-y-4 overflow-auto min-h-0">
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col items-center text-center space-y-2">
                             <div className="p-3 bg-blue-100 rounded-full">
                                 <Droplets className="w-8 h-8 text-blue-500" />
@@ -139,7 +139,7 @@ const Market = () => {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="seeds" className="flex-1 p-0">
+                    <TabsContent value="seeds" className="flex-1 p-0 overflow-hidden min-h-0">
                         <ScrollArea className="h-full">
                             <div className="grid grid-cols-1 gap-3 p-4 pb-20">
                                 {Object.values(PLANT_TYPES).map((plant) => (
