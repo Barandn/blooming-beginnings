@@ -347,6 +347,27 @@ export type Database = {
           },
         ]
       }
+      siwe_nonces: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          nonce: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          nonce: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          nonce?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           created_at: string
