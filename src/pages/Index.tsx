@@ -25,7 +25,7 @@ const Index = () => {
   // We need a way to plant. The "SeedPopup" in original code was just a selection.
   // We need to implement planting logic.
   // For now, if user clicks empty plot, if they have inventory, show selection?
-  // Or just "Plant Papatya" if they only have that?
+  // Or just "Plant Daisy" if they only have that?
   // Let's reuse SeedPopup but populate with inventory.
   const [selectedPlotId, setSelectedPlotId] = useState<number | null>(null);
 

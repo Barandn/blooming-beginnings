@@ -16,7 +16,7 @@ interface HarvestPopupProps {
   seedCost: number;
 }
 
-// Konfeti parçacıkları için renk paleti
+// Color palette for confetti particles
 const confettiColors = [
   "bg-yellow-400",
   "bg-green-400",
@@ -39,7 +39,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
       setShowConfetti(true);
       setShowRewards(false);
 
-      // Ödülleri kademeli göster
+      // Show rewards gradually
       const timer = setTimeout(() => setShowRewards(true), 200);
       return () => clearTimeout(timer);
     } else {
@@ -50,13 +50,13 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
 
   const handleClaim = useCallback(() => {
     setIsClaiming(true);
-    // Hasat patlaması animasyonu sonrası
+    // After harvest burst animation
     setTimeout(() => {
       onClaim();
     }, 300);
   }, [onClaim]);
 
-  // Konfeti parçacıkları oluştur
+  // Create confetti particles
   const renderConfetti = () => {
     if (!showConfetti) return null;
 
@@ -99,9 +99,9 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-5 py-4 relative">
-          {/* Ana mahsul emoji */}
+          {/* Main crop emoji */}
           <div className="relative">
-            {/* Parıltı efekti */}
+            {/* Sparkle effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-yellow-200 via-yellow-100 to-yellow-200 blur-2xl opacity-60 animate-pulse rounded-full scale-150" />
             <div className="absolute inset-0 golden-shine rounded-full" />
 
@@ -109,12 +109,12 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
               {flowerEmoji}
             </div>
 
-            {/* Yıldız parıltıları */}
+            {/* Star sparkles */}
             <Sparkles className="absolute -top-2 -right-2 w-5 h-5 text-yellow-400 animate-star-burst" style={{ animationDelay: "0.1s" }} />
             <Sparkles className="absolute -bottom-1 -left-2 w-4 h-4 text-yellow-300 animate-star-burst" style={{ animationDelay: "0.3s" }} />
           </div>
 
-          {/* Başlık */}
+          {/* Title */}
           <div className="text-center space-y-1">
             <h3 className="text-xl font-bold text-green-900 animate-reward-pop" style={{ animationDelay: "0.1s" }}>
               Amazing Harvest!
@@ -122,9 +122,9 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
             <p className="text-green-700 text-sm">You took great care of your crop 🌟</p>
           </div>
 
-          {/* Ödül kartları */}
+          {/* Reward cards */}
           <div className="grid grid-cols-2 gap-3 w-full">
-            {/* Elmas ödülü */}
+            {/* Diamond reward */}
             <div
               className={`bg-white/70 backdrop-blur-sm p-4 rounded-xl border-2 border-cyan-200 flex flex-col items-center gap-2 shadow-lg shadow-cyan-100/50 transition-all duration-300 ${
                 showRewards ? "animate-reward-pop" : "opacity-0 scale-75"
@@ -143,7 +143,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
               </div>
             </div>
 
-            {/* B&G Coin ödülü */}
+            {/* B&G Coin reward */}
             <div
               className={`bg-white/70 backdrop-blur-sm p-4 rounded-xl border-2 border-yellow-200 flex flex-col items-center gap-2 shadow-lg shadow-yellow-100/50 transition-all duration-300 ${
                 showRewards ? "animate-reward-pop" : "opacity-0 scale-75"
@@ -163,7 +163,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
             </div>
           </div>
 
-          {/* Hasat butonu */}
+          {/* Harvest button */}
           <Button
             className={`w-full h-14 text-lg font-bold shadow-lg transition-all duration-200 touch-feedback ${
               isClaiming

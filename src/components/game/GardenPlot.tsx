@@ -70,7 +70,7 @@ const GardenPlot = ({
       {/* Plot Image */}
       <img
         src={gardenPlot}
-        alt="Tarla"
+        alt="Field"
         className={`w-full h-full object-contain drop-shadow-md transition-all duration-300 relative z-10 ${
           state === "ready" ? "drop-shadow-[0_4px_12px_rgba(251,191,36,0.4)]" : ""
         }`}
