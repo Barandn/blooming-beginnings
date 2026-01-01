@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Mask wallet address for privacy (show first 6 and last 4 characters)
+function maskWalletAddress(address: string): string {
+  if (!address || address.length < 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -72,12 +78,15 @@ serve(async (req) => {
       }
     }
 
-    // Sort and rank
+    // Sort, rank, and mask wallet addresses for privacy
     const entries = Array.from(userScores.values())
       .sort((a, b) => b.monthlyProfit - a.monthlyProfit)
       .map((entry, index) => ({
         rank: offset + index + 1,
-        ...entry,
+        walletAddress: maskWalletAddress(entry.walletAddress), // Privacy: mask addresses
+        monthlyProfit: entry.monthlyProfit,
+        totalScore: entry.totalScore,
+        gamesPlayed: entry.gamesPlayed,
       }));
 
     // Get total count
