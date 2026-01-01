@@ -523,7 +523,7 @@
     will-change: transform, opacity;
   }
 
-  /* Barn Card Flip Animations */
+  /* Barn Card Flip Animations - OPTIMIZED */
   @keyframes card-flip-in {
     0% {
       transform: rotateY(180deg);
@@ -542,21 +542,35 @@
     }
   }
 
-  @keyframes card-match-celebration {
+  /* Optimized emoji animation - runs once */
+  @keyframes emoji-flip-in {
     0% {
-      transform: scale(1);
-    }
-    25% {
-      transform: scale(1.15) rotate(-3deg);
-    }
-    50% {
-      transform: scale(1.1) rotate(3deg);
-    }
-    75% {
-      transform: scale(1.05) rotate(-1deg);
+      transform: scale(0.5);
+      opacity: 0;
     }
     100% {
-      transform: scale(0.95) rotate(0deg);
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Lighter matched animation - reduced iterations */
+  @keyframes emoji-matched {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+
+  /* Lighter card pulse - GPU optimized */
+  @keyframes card-pulse-light {
+    0%, 100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 0.35;
     }
   }
 
@@ -564,21 +578,43 @@
     0%, 100% {
       transform: translateX(0);
     }
-    10%, 30%, 50%, 70%, 90% {
-      transform: translateX(-3px);
+    25%, 75% {
+      transform: translateX(-2px);
     }
-    20%, 40%, 60%, 80% {
-      transform: translateX(3px);
+    50% {
+      transform: translateX(2px);
     }
   }
 
+  /* Base card flip - NO transition-all, only transform */
   .barn-card-flip {
     transform-style: preserve-3d;
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Card states - specific transitions for better performance */
+  .barn-card-idle {
+    transition: transform 0.15s ease-out;
+  }
+
+  .barn-card-idle:hover {
+    transform: scale(1.05);
+  }
+
+  .barn-card-idle:active {
+    transform: scale(0.95);
+  }
+
+  .barn-card-flipped {
+    transition: none;
+  }
+
+  .barn-card-matched {
+    transition: transform 0.3s ease-out;
   }
 
   .barn-card-front {
-    animation: card-flip-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: card-flip-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     will-change: transform;
   }
 
@@ -586,13 +622,23 @@
     transform: rotateY(0deg);
   }
 
-  .animate-card-match {
-    animation: card-match-celebration 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    will-change: transform;
+  /* Optimized emoji animations */
+  .barn-emoji-flip {
+    animation: emoji-flip-in 0.3s ease-out forwards;
+  }
+
+  .barn-emoji-matched {
+    animation: emoji-matched 1.5s ease-in-out 2;
+  }
+
+  /* Optimized card pulse - lighter animation */
+  .barn-card-pulse {
+    animation: card-pulse-light 2s ease-in-out infinite;
+    will-change: opacity;
   }
 
   .animate-card-shake {
-    animation: card-shake 0.5s ease-in-out;
+    animation: card-shake 0.3s ease-in-out;
     will-change: transform;
   }
 

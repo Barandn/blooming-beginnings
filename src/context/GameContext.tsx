@@ -172,11 +172,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  // Game Loop (Tick)
+  // Game Loop (Tick) - Optimized to only update when state actually changes
   useEffect(() => {
     const interval = setInterval(() => {
       setState((prev) => {
         const now = Date.now();
+        let hasChanges = false;
+
         const newPlots: PlotData[] = prev.plots.map((plot) => {
           if (plot.state === "empty" || plot.state === "dead" || plot.state === "ready") {
             return plot;
@@ -189,17 +191,16 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           const timeSinceWater = now - plot.lastWaterTime;
 
           // Check if it should become thirsty
-          // It becomes thirsty after 'wateringInterval'
           if (plot.state === "growing" && timeSinceWater >= plantType.wateringInterval) {
+            hasChanges = true;
             return { ...plot, state: "thirsty" as PlotState };
           }
 
           // Check if it died
-          // It dies if thirsty + gracePeriod passed
-          // Effective time since it became thirsty = timeSinceWater - wateringInterval
           if (plot.state === "thirsty") {
             const timeThirsty = timeSinceWater - plantType.wateringInterval;
             if (timeThirsty >= plot.currentGracePeriod) {
+              hasChanges = true;
               return { ...plot, state: "dead" as PlotState };
             }
           }
@@ -207,11 +208,14 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           return plot;
         });
 
-        // Only update if something changed to avoid re-renders if strict equality check fails (though map always returns new array)
-        // Optimization: check deep equality or just trust React
+        // Only update state if something actually changed - prevents unnecessary re-renders
+        if (!hasChanges) {
+          return prev;
+        }
+
         return { ...prev, plots: newPlots };
       });
-    }, 1000); // Check every second
+    }, 5000); // Check every 5 seconds - sufficient for 24h intervals
 
     return () => clearInterval(interval);
   }, []);

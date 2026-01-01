@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import GameHeader from "@/components/game/GameHeader";
 import BottomNavigation from "@/components/game/BottomNavigation";
-import { useGame } from "@/context/GameContext";
+import { useGame, BarnCard } from "@/context/GameContext";
 import { BARN_CONFIG } from "@/config/gameConfig";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Coins, Clock, Trophy, RefreshCw, Zap, Loader2 } from "lucide-react";
@@ -10,6 +10,67 @@ import { useBarnGamePurchase } from "@/lib/minikit/hooks";
 import { toast } from "@/hooks/use-toast";
 
 type NavItem = "garden" | "market" | "barn";
+
+// Memoized Card Component for performance
+interface BarnCardProps {
+  card: BarnCard;
+  isDisabled: boolean;
+  onClick: (cardId: number) => void;
+}
+
+const BarnCardComponent = memo(({ card, isDisabled, onClick }: BarnCardProps) => {
+  const isFlipped = card.isFlipped || card.isMatched;
+  const isMatched = card.isMatched;
+
+  return (
+    <button
+      onClick={() => onClick(card.id)}
+      disabled={isDisabled && !isFlipped}
+      className={`
+        relative aspect-square rounded-xl transform-gpu
+        ${isMatched
+          ? "bg-gradient-to-br from-green-200 to-emerald-300 border-2 border-green-400 shadow-lg scale-95 barn-card-matched"
+          : isFlipped
+            ? "bg-gradient-to-br from-amber-100 to-orange-200 border-2 border-amber-400 shadow-md barn-card-flipped"
+            : "bg-gradient-to-br from-amber-600 to-orange-700 border-2 border-amber-800 shadow-lg barn-card-idle"
+        }
+        ${!isFlipped && !isDisabled ? "cursor-pointer" : ""}
+        barn-card-flip
+      `}
+      style={{ perspective: "1000px" }}
+    >
+      <div
+        className={`
+          absolute inset-0 flex items-center justify-center rounded-xl
+          backface-hidden
+          ${isFlipped ? "barn-card-front" : "barn-card-back"}
+        `}
+      >
+        {isFlipped ? (
+          <span className={`text-3xl sm:text-4xl ${isMatched ? "barn-emoji-matched" : "barn-emoji-flip"}`}>
+            {card.emoji}
+          </span>
+        ) : (
+          <div className="flex flex-col items-center justify-center">
+            <span className="text-2xl sm:text-3xl">&#10067;</span>
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-amber-900/30 to-transparent" />
+          </div>
+        )}
+      </div>
+
+      {isMatched && (
+        <div className="absolute inset-0 rounded-xl bg-green-400/20 barn-card-pulse" />
+      )}
+    </button>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if these change
+  return (
+    prevProps.card.isFlipped === nextProps.card.isFlipped &&
+    prevProps.card.isMatched === nextProps.card.isMatched &&
+    prevProps.isDisabled === nextProps.isDisabled
+  );
+});
 
 // Format milliseconds to HH:MM:SS
 const formatCountdown = (ms: number): string => {
@@ -47,29 +108,27 @@ const Barn = () => {
   // Purchase hook
   const { isPurchasing, error: purchaseError, purchaseWithWLD, purchaseWithUSDC } = useBarnGamePurchase(handlePurchaseSuccess);
 
-  // Check for cooldown reset on mount and periodically
+  // Combined timer for cooldown check and display - optimized to single interval
   useEffect(() => {
+    // Initial check
     checkBarnDailyReset();
-    const interval = setInterval(checkBarnDailyReset, 1000);
-    return () => clearInterval(interval);
-  }, [checkBarnDailyReset]);
 
-  // Update cooldown display
-  useEffect(() => {
     if (!isInCooldown) {
       setCooldownDisplay("");
       return;
     }
 
-    const updateCooldown = () => {
+    // Update both cooldown check and display in single interval
+    const updateTimer = () => {
+      checkBarnDailyReset();
       const remaining = getCooldownRemaining();
       setCooldownDisplay(formatCountdown(remaining));
     };
 
-    updateCooldown();
-    const interval = setInterval(updateCooldown, 1000);
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [isInCooldown, getCooldownRemaining]);
+  }, [isInCooldown, checkBarnDailyReset, getCooldownRemaining]);
 
   // Show result dialog when game ends
   useEffect(() => {
@@ -88,7 +147,7 @@ const Barn = () => {
     }
   };
 
-  const handleCardClick = (cardId: number) => {
+  const handleCardClick = useCallback((cardId: number) => {
     if (isInCooldown) return;
     if (barnGame.hasPlayedToday && barnGame.lastPlayedDate !== "") {
       return;
@@ -97,7 +156,7 @@ const Barn = () => {
       startBarnGame();
     }
     flipBarnCard(cardId);
-  };
+  }, [isInCooldown, barnGame.hasPlayedToday, barnGame.lastPlayedDate, startBarnGame, flipBarnCard]);
 
   const handleStartGame = () => {
     if (canPlay) {
@@ -201,55 +260,18 @@ const Barn = () => {
             </div>
           )}
 
-          {/* Card Grid */}
+          {/* Card Grid - Optimized with memoized components */}
           <div className="w-full max-w-sm">
             <div className={`grid grid-cols-4 gap-2 sm:gap-3 ${isInCooldown ? 'opacity-50 pointer-events-none' : ''}`}>
               {barnGame.cards.map((card) => {
-                const isFlipped = card.isFlipped || card.isMatched;
-                const isMatched = card.isMatched;
                 const isDisabled = isInCooldown || barnGame.hasPlayedToday || !barnGame.lastPlayedDate || barnGame.flippedCards.length >= 2;
-
                 return (
-                  <button
+                  <BarnCardComponent
                     key={card.id}
-                    onClick={() => handleCardClick(card.id)}
-                    disabled={isDisabled && !isFlipped}
-                    className={`
-                      relative aspect-square rounded-xl transition-all duration-300 transform-gpu
-                      ${isMatched
-                        ? "bg-gradient-to-br from-green-200 to-emerald-300 border-2 border-green-400 shadow-lg scale-95"
-                        : isFlipped
-                          ? "bg-gradient-to-br from-amber-100 to-orange-200 border-2 border-amber-400 shadow-md"
-                          : "bg-gradient-to-br from-amber-600 to-orange-700 border-2 border-amber-800 shadow-lg hover:scale-105 active:scale-95"
-                      }
-                      ${!isFlipped && !isDisabled ? "cursor-pointer" : ""}
-                      barn-card-flip
-                    `}
-                    style={{ perspective: "1000px" }}
-                  >
-                    <div
-                      className={`
-                        absolute inset-0 flex items-center justify-center rounded-xl
-                        transition-all duration-500 backface-hidden
-                        ${isFlipped ? "barn-card-front" : "barn-card-back"}
-                      `}
-                    >
-                      {isFlipped ? (
-                        <span className={`text-3xl sm:text-4xl ${isMatched ? "animate-bounce-soft" : "animate-reward-pop"}`}>
-                          {card.emoji}
-                        </span>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center">
-                          <span className="text-2xl sm:text-3xl">❓</span>
-                          <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-amber-900/30 to-transparent" />
-                        </div>
-                      )}
-                    </div>
-
-                    {isMatched && (
-                      <div className="absolute inset-0 rounded-xl bg-green-400/20 animate-pulse" />
-                    )}
-                  </button>
+                    card={card}
+                    isDisabled={isDisabled}
+                    onClick={handleCardClick}
+                  />
                 );
               })}
             </div>
