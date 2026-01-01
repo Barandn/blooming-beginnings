@@ -1,0 +1,19 @@
+
+> blooming-beginnings@1.0.0 dev
+> vite --host
+
+Port 8080 is in use, trying another one...
+Port 8081 is in use, trying another one...
+
+  VITE v5.4.19  ready in 296 ms
+
+  ➜  Local:   http://localhost:8082/
+  ➜  Network: http://192.168.0.2:8082/
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+1:15:13 PM [vite] hmr update /src/pages/Login.tsx, /src/index.css
+1:15:13 PM [vite] hmr update /src/pages/Login.tsx, /src/index.css
+1:15:31 PM [vite] ✨ new dependencies optimized: @radix-ui/react-slot
+1:15:31 PM [vite] ✨ optimized dependencies changed. reloading
+1:19:03 PM [vite] page reload tailwind.config.ts

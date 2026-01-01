@@ -4,8 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import Market from "./pages/Market";
-import Barn from "./pages/Barn";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { GameProvider } from "./context/GameContext";
@@ -34,22 +32,6 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Index />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/market"
-                  element={
-                    <ProtectedRoute>
-                      <Market />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/barn"
-                  element={
-                    <ProtectedRoute>
-                      <Barn />
                     </ProtectedRoute>
                   }
                 />

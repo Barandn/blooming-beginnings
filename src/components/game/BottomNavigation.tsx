@@ -1,22 +1,23 @@
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
-type NavItem = "garden" | "market" | "barn";
+type NavItem = "game" | "leaderboard" | "weekly";
 
 interface BottomNavigationProps {
-  activeItem: NavItem;
-  onItemClick: (item: NavItem) => void;
+  activeItem: string; // Changed to string to be flexible
+  onItemClick: (item: string) => void;
 }
 
 const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) => {
-  const [animatingItem, setAnimatingItem] = useState<NavItem | null>(null);
+  const [animatingItem, setAnimatingItem] = useState<string | null>(null);
 
   const navItems = [
-    { id: "garden" as NavItem, label: "Farm", emoji: "🌾" },
-    { id: "market" as NavItem, label: "Market", emoji: "🛒" },
-    { id: "barn" as NavItem, label: "Barn", emoji: "🏠" },
+    { id: "leaderboard", label: "Leaderboard", emoji: "🏆" },
+    { id: "game", label: "SİUU", emoji: "⚽" },
+    { id: "weekly", label: "Bonus", emoji: "🎁" },
   ];
 
-  const handleClick = (id: NavItem) => {
+  const handleClick = (id: string) => {
     if (id !== activeItem) {
       setAnimatingItem(id);
       onItemClick(id);
@@ -31,9 +32,9 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
   }, [animatingItem]);
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/40 px-3 py-2.5">
-        <div className="flex items-center gap-1">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
+      <div className="bg-black/80 backdrop-blur-xl rounded-full shadow-2xl border border-white/10 px-2 py-2 w-full">
+        <div className="flex items-center justify-between">
           {navItems.map((item) => {
             const isActive = activeItem === item.id;
             const isAnimating = animatingItem === item.id;
@@ -42,30 +43,27 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
               <button
                 key={item.id}
                 onClick={() => handleClick(item.id)}
-                className={`relative flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-300 ease-out ${
-                  isActive
-                    ? "bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/30"
-                    : "hover:bg-slate-100/80 active:scale-95"
-                }`}
+                className={cn(
+                    "relative flex flex-col items-center justify-center flex-1 py-3 rounded-full transition-all duration-300",
+                    isActive ? "bg-green-600 shadow-lg shadow-green-900/50" : "hover:bg-white/5 active:scale-95"
+                )}
               >
                 <span
-                  className={`text-2xl transition-all duration-300 ${
-                    isAnimating ? "animate-nav-pop" : ""
-                  } ${isActive ? "scale-110 drop-shadow-md" : ""}`}
+                  className={cn(
+                    "text-2xl transition-all duration-300",
+                    isAnimating ? "animate-bounce" : "",
+                    isActive ? "scale-110" : "opacity-50 grayscale"
+                  )}
                 >
                   {item.emoji}
                 </span>
 
-                <span className={`text-[10px] font-bold mt-0.5 transition-all duration-300 ${
-                  isActive ? "text-white" : "text-slate-500"
-                }`}>
+                <span className={cn(
+                    "text-[10px] font-bold mt-1 uppercase tracking-wide transition-all duration-300",
+                     isActive ? "text-white" : "text-white/40"
+                )}>
                   {item.label}
                 </span>
-
-                {/* Active indicator dot */}
-                {isActive && (
-                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full shadow-sm" />
-                )}
               </button>
             );
           })}
