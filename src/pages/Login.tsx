@@ -7,7 +7,7 @@ import { Wallet, Trophy } from "lucide-react";
 import { MiniKit } from "@worldcoin/minikit-js";
 
 const Login = () => {
-  const { login, isAuthenticating, isAuthenticated } = useAuth();
+  const { login, isVerifying, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,10 +68,10 @@ const Login = () => {
 
             <Button
               onClick={handleConnectWallet}
-              disabled={isAuthenticating}
+              disabled={isVerifying}
               className="w-full h-14 text-lg font-bold bg-white text-green-900 hover:bg-green-50 shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
             >
-              {isAuthenticating ? (
+              {isVerifying ? (
                 <span className="animate-pulse">Connecting...</span>
               ) : (
                 <span className="flex items-center gap-2">

@@ -251,7 +251,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
       if (isAuthenticated()) {
           submitScore({
-              gameType: "siuu_match",
+              gameType: "card_match",
               score: bonus,
               monthlyProfit: user.monthlyScore + bonus,
               gameStartedAt: game.gameStartedAt,
