@@ -12,7 +12,7 @@ import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants.js';
 
 // Request validation schema
 const scoreSchema = z.object({
-  gameType: z.enum(['barn_game', 'harvest', 'daily_farming']),
+  gameType: z.enum(['card_match']),
   score: z.number().int().min(0),
   monthlyProfit: z.number().int().min(0),
   sessionId: z.string().uuid().optional(),
