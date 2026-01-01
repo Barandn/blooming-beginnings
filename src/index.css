@@ -577,9 +577,9 @@
     justify-content: center;
   }
 
-  /* Card Back (initial state) */
+  /* Card Back (initial state) - Football Blue */
   .card-back {
-    background: linear-gradient(145deg, #16a34a 0%, #15803d 50%, #166534 100%);
+    background: linear-gradient(145deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
     border: 3px solid rgba(255, 255, 255, 0.3);
     box-shadow:
       0 4px 15px rgba(0, 0, 0, 0.3),
@@ -595,11 +595,11 @@
     border-radius: 0.5rem;
   }
 
-  /* Card Front (emoji side) */
+  /* Card Front (emoji side) - Football Blue border */
   .card-front {
     transform: rotateY(180deg);
     background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-    border: 3px solid #22c55e;
+    border: 3px solid #2563eb;
     box-shadow:
       0 4px 15px rgba(0, 0, 0, 0.15),
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -832,11 +832,11 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   }
 
-  /* Modern glow effect for active states */
+  /* Modern glow effect for active states - Football Blue */
   .modern-glow {
     box-shadow:
-      0 0 20px rgba(74, 222, 128, 0.3),
-      0 0 40px rgba(74, 222, 128, 0.1);
+      0 0 20px rgba(37, 99, 235, 0.3),
+      0 0 40px rgba(37, 99, 235, 0.1);
   }
 
   /* Soft pulse animation for modern feel */

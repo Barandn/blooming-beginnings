@@ -3,11 +3,21 @@ import { useGame } from "@/context/GameContext";
 import { Loader2 } from "lucide-react";
 import { getLeaderboard } from "@/lib/minikit/api"; // Mock/Real API
 
+// Format time as MM:SS:ms
+const formatTime = (ms: number): string => {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const centiseconds = Math.floor((ms % 1000) / 10);
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`;
+};
+
 // Types for Leaderboard
 interface LeaderboardEntry {
   rank: number;
   userId: string; // "0x1234...5678"
   score: number;
+  moves: number;
+  elapsedTime: number; // in milliseconds
   isCurrentUser: boolean;
 }
 
@@ -23,21 +33,28 @@ const Leaderboard = () => {
               // Mock Data Generation if API fails or for initial dev
               // In production: const data = await getLeaderboard("2025-01");
 
-              // We simulate "fetching" and mixing in current user if they are top
+              // We simulate "fetching" with moves and time data
               const mockData: LeaderboardEntry[] = Array.from({ length: 10 }).map((_, i) => ({
-                  rank: i + 1,
+                  rank: 0, // Will be calculated after sorting
                   userId: `0x${Math.random().toString(16).substr(2, 8)}...`,
                   score: Math.floor(10000 - (i * 500) + Math.random() * 100),
+                  moves: 8 + Math.floor(i * 0.5) + Math.floor(Math.random() * 3), // 8-15 moves range
+                  elapsedTime: 15000 + (i * 5000) + Math.floor(Math.random() * 10000), // 15-70 seconds range
                   isCurrentUser: false
               }));
 
-              // Check if user should be in top 10 (locally)
-              // In real app, the backend returns the sorted list including user position
+              // Sort: first by moves (ascending), then by time (ascending)
+              mockData.sort((a, b) => {
+                  if (a.moves !== b.moves) {
+                      return a.moves - b.moves; // Lower moves = better
+                  }
+                  return a.elapsedTime - b.elapsedTime; // Lower time = better
+              });
 
-              // Add current user for demo if they have score
-              if (user.monthlyScore > 0) {
-                   // This logic is just for display if backend isn't ready
-              }
+              // Assign ranks after sorting
+              mockData.forEach((entry, index) => {
+                  entry.rank = index + 1;
+              });
 
               setEntries(mockData);
 
@@ -60,7 +77,7 @@ const Leaderboard = () => {
     <div className="flex flex-col items-center p-4 min-h-[70vh] w-full max-w-md mx-auto">
        <div className="text-center mb-6">
            <h1 className="text-2xl font-bold text-white uppercase tracking-widest">World League</h1>
-           <div className="bg-green-600 text-white px-4 py-1 rounded-full text-sm font-bold mt-2 inline-block shadow-lg">
+           <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold mt-2 inline-block shadow-lg">
                {monthName} '{year.toString().slice(2)} Season
            </div>
        </div>
@@ -69,34 +86,38 @@ const Leaderboard = () => {
 
        <div className="w-full bg-black/20 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden">
            {/* Header */}
-           <div className="grid grid-cols-12 gap-2 p-4 border-b border-white/10 text-xs font-bold text-white/50 uppercase">
-               <div className="col-span-2 text-center">Rank</div>
-               <div className="col-span-7">Player</div>
-               <div className="col-span-3 text-right">Score</div>
+           <div className="grid grid-cols-12 gap-1 p-3 border-b border-white/10 text-xs font-bold text-white/50 uppercase">
+               <div className="col-span-1 text-center">#</div>
+               <div className="col-span-4">Player</div>
+               <div className="col-span-3 text-center">Moves</div>
+               <div className="col-span-4 text-right">Time</div>
            </div>
 
            {/* List */}
            {loading ? (
                <div className="p-8 flex justify-center">
-                   <Loader2 className="animate-spin text-green-500" />
+                   <Loader2 className="animate-spin text-blue-500" />
                </div>
            ) : (
                <div className="max-h-[50vh] overflow-y-auto">
                    {entries.map((entry) => (
                        <div
                          key={entry.rank}
-                         className={`grid grid-cols-12 gap-2 p-4 border-b border-white/5 items-center ${
-                             entry.isCurrentUser ? "bg-green-500/20" : ""
+                         className={`grid grid-cols-12 gap-1 p-3 border-b border-white/5 items-center ${
+                             entry.isCurrentUser ? "bg-blue-500/20" : ""
                          }`}
                        >
-                           <div className="col-span-2 text-center font-bold text-white">
-                               {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : `#${entry.rank}`}
+                           <div className="col-span-1 text-center font-bold text-white text-sm">
+                               {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
                            </div>
-                           <div className="col-span-7 font-mono text-sm text-white/90 truncate">
+                           <div className="col-span-4 font-mono text-xs text-white/90 truncate">
                                {entry.userId}
                            </div>
-                           <div className="col-span-3 text-right font-bold text-green-400">
-                               {entry.score.toLocaleString()}
+                           <div className="col-span-3 text-center font-bold text-blue-400 text-sm">
+                               {entry.moves}
+                           </div>
+                           <div className="col-span-4 text-right font-mono text-blue-300 text-xs">
+                               {formatTime(entry.elapsedTime)}
                            </div>
                        </div>
                    ))}
@@ -105,13 +126,13 @@ const Leaderboard = () => {
        </div>
 
        {/* Current User Stat if not in top list (Sticky bottom) */}
-       <div className="mt-4 w-full bg-gradient-to-r from-green-900 to-green-800 p-4 rounded-xl border border-green-500/30 flex justify-between items-center shadow-lg">
+       <div className="mt-4 w-full bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-xl border border-blue-500/30 flex justify-between items-center shadow-lg">
            <div>
-               <p className="text-xs text-green-300 uppercase">Your Season Score</p>
+               <p className="text-xs text-blue-300 uppercase">Your Season Score</p>
                <p className="text-xl font-bold text-white">{user.monthlyScore.toLocaleString()}</p>
            </div>
            <div className="text-right">
-               <p className="text-xs text-green-300 uppercase">Rank</p>
+               <p className="text-xs text-blue-300 uppercase">Rank</p>
                <p className="text-xl font-bold text-white">--</p>
                {/* Rank would come from API in real implementation */}
            </div>
