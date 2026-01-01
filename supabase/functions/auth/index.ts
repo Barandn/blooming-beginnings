@@ -22,7 +22,15 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/auth/, '');
+  // Parse path - Supabase edge functions receive path after function name
+  // e.g., /auth/siwe/nonce or just /siwe/nonce depending on invocation
+  let path = url.pathname;
+  
+  // Remove function name prefix if present
+  path = path.replace(/^\/auth/, '');
+  
+  // Log for debugging
+  console.log("Auth function called:", { method: req.method, fullPath: url.pathname, parsedPath: path });
 
   try {
     const supabase = createClient(
@@ -30,8 +38,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // GET /auth/siwe/nonce - Generate nonce for SIWE
-    if (req.method === "GET" && path === "/siwe/nonce") {
+    // GET /siwe/nonce - Generate nonce for SIWE
+    if (req.method === "GET" && (path === "/siwe/nonce" || path === "" || path === "/")) {
       const nonce = generateNonce();
       const expiresIn = 5 * 60 * 1000; // 5 minutes
       

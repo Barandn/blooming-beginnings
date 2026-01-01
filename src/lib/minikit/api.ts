@@ -123,7 +123,9 @@ export interface SiweNonceResponse {
 }
 
 export async function getSiweNonce(): Promise<ApiResponse<SiweNonceResponse>> {
-  return apiCall<SiweNonceResponse>('/auth/siwe/nonce');
+  return apiCall<SiweNonceResponse>('/auth/siwe/nonce', {
+    method: 'GET',
+  });
 }
 
 export interface SiweVerifyRequest {
