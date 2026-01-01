@@ -18,6 +18,7 @@ export interface GameSession {
   score: number;
   moves: number;
   gameStartedAt: number; // Timestamp
+  elapsedTime: number; // Elapsed time in milliseconds
   isComplete: boolean;
 }
 
@@ -54,6 +55,7 @@ const INITIAL_GAME: GameSession = {
   score: 0,
   moves: 0,
   gameStartedAt: 0,
+  elapsedTime: 0,
   isComplete: false,
 };
 
@@ -95,6 +97,9 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   // Ref to track if win has been processed to prevent double rewards
   const winProcessedRef = useRef(false);
+
+  // Timer ref for interval
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- Initialization ---
   useEffect(() => {
@@ -211,6 +216,25 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  // Timer effect - updates elapsed time every 10ms
+  useEffect(() => {
+    if (game.gameStartedAt > 0 && !game.isComplete) {
+      timerRef.current = setInterval(() => {
+        setGame(prev => ({
+          ...prev,
+          elapsedTime: Date.now() - prev.gameStartedAt,
+        }));
+      }, 10);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [game.gameStartedAt, game.isComplete]);
+
   // Flip back unmatched cards
   useEffect(() => {
     if (game.flippedCards.length === 2) {
@@ -262,10 +286,10 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         monthlyProfit: user.monthlyScore + bonus,
         gameStartedAt: game.gameStartedAt,
         gameEndedAt: Date.now(),
-        validationData: { moves: game.moves },
+        validationData: { moves: game.moves, elapsedTime: game.elapsedTime },
       });
     }
-  }, [game.gameStartedAt, game.moves, user.monthlyScore]);
+  }, [game.gameStartedAt, game.moves, game.elapsedTime, user.monthlyScore]);
 
   // Watch for Win
   useEffect(() => {

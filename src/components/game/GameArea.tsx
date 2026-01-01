@@ -2,6 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useGame, Card } from "@/context/GameContext";
 import { cn } from "@/lib/utils";
 
+// Format time as MM:SS:ms
+const formatTime = (ms: number): string => {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const centiseconds = Math.floor((ms % 1000) / 10);
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`;
+};
+
 // Confetti component for win celebration
 const Confetti = () => {
   const confettiPieces = useMemo(() => {
@@ -126,19 +134,19 @@ const StartScreen = ({ onStart }: { onStart: () => void }) => (
       <h2 className="text-4xl font-black text-white tracking-wider drop-shadow-lg">
         SİUU GAME
       </h2>
-      <p className="text-green-100 text-center max-w-xs text-sm opacity-90">
+      <p className="text-blue-100 text-center max-w-xs text-sm opacity-90">
         Find all matching pairs to win coins and climb the monthly leaderboard!
       </p>
     </div>
 
     <button
       onClick={onStart}
-      className="start-pulse px-10 py-4 bg-white text-green-700 font-black text-xl rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform duration-200"
+      className="start-pulse px-10 py-4 bg-white text-blue-700 font-black text-xl rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform duration-200"
     >
       ⚽ KICK OFF
     </button>
 
-    <div className="flex gap-6 text-green-200 text-sm">
+    <div className="flex gap-6 text-blue-200 text-sm">
       <div className="flex items-center gap-2">
         <span>🎯</span>
         <span>8 Pairs</span>
@@ -152,7 +160,7 @@ const StartScreen = ({ onStart }: { onStart: () => void }) => (
 );
 
 // Win Screen Component
-const WinScreen = ({ moves, onPlayAgain }: { moves: number; onPlayAgain: () => void }) => (
+const WinScreen = ({ moves, elapsedTime, onPlayAgain }: { moves: number; elapsedTime: number; onPlayAgain: () => void }) => (
   <div className="flex flex-col items-center justify-center h-[60vh] space-y-6 animate-in zoom-in duration-500 px-4">
     <Confetti />
 
@@ -165,20 +173,24 @@ const WinScreen = ({ moves, onPlayAgain }: { moves: number; onPlayAgain: () => v
       <p className="text-white text-lg opacity-90">You found all pairs!</p>
     </div>
 
-    <div className="flex gap-4">
-      <div className="bg-white/10 backdrop-blur-sm px-6 py-4 rounded-2xl text-center border border-white/20">
-        <p className="text-xs text-green-200 uppercase tracking-wider">Moves</p>
-        <p className="text-3xl font-bold text-white">{moves}</p>
+    <div className="flex gap-3 flex-wrap justify-center">
+      <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
+        <p className="text-xs text-blue-200 uppercase tracking-wider">Moves</p>
+        <p className="text-2xl font-bold text-white">{moves}</p>
       </div>
-      <div className="bg-white/10 backdrop-blur-sm px-6 py-4 rounded-2xl text-center border border-white/20">
-        <p className="text-xs text-green-200 uppercase tracking-wider">Reward</p>
-        <p className="text-3xl font-bold text-yellow-400">+100</p>
+      <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
+        <p className="text-xs text-blue-200 uppercase tracking-wider">Time</p>
+        <p className="text-2xl font-bold text-white font-mono">{formatTime(elapsedTime)}</p>
+      </div>
+      <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
+        <p className="text-xs text-blue-200 uppercase tracking-wider">Reward</p>
+        <p className="text-2xl font-bold text-yellow-400">+100</p>
       </div>
     </div>
 
     <button
       onClick={onPlayAgain}
-      className="px-10 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-lg rounded-full shadow-xl hover:from-green-600 hover:to-green-700 hover:scale-105 active:scale-95 transition-all duration-200"
+      className="px-10 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg rounded-full shadow-xl hover:from-blue-600 hover:to-blue-700 hover:scale-105 active:scale-95 transition-all duration-200"
     >
       🔄 Play Again
     </button>
@@ -233,7 +245,7 @@ const GameArea = () => {
 
   // Show win screen
   if (game.isComplete) {
-    return <WinScreen moves={game.moves} onPlayAgain={resetGame} />;
+    return <WinScreen moves={game.moves} elapsedTime={game.elapsedTime} onPlayAgain={resetGame} />;
   }
 
   // Game board
@@ -242,10 +254,20 @@ const GameArea = () => {
       {/* Score Header */}
       <div className="score-header flex justify-between items-center mb-5 p-4 rounded-2xl">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">👟</span>
+          <span className="text-xl">👟</span>
           <div>
-            <p className="text-xs text-green-200 uppercase tracking-wider">Moves</p>
-            <p className="text-xl font-bold text-white">{game.moves}</p>
+            <p className="text-xs text-blue-200 uppercase tracking-wider">Moves</p>
+            <p className="text-lg font-bold text-white">{game.moves}</p>
+          </div>
+        </div>
+
+        <div className="h-10 w-px bg-white/20" />
+
+        <div className="flex items-center gap-2">
+          <span className="text-xl">⏱️</span>
+          <div>
+            <p className="text-xs text-blue-200 uppercase tracking-wider">Time</p>
+            <p className="text-lg font-bold text-white font-mono">{formatTime(game.elapsedTime)}</p>
           </div>
         </div>
 
@@ -253,17 +275,17 @@ const GameArea = () => {
 
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <p className="text-xs text-green-200 uppercase tracking-wider">Matched</p>
-            <p className="text-xl font-bold text-white">{game.matchedPairs} / 8</p>
+            <p className="text-xs text-blue-200 uppercase tracking-wider">Matched</p>
+            <p className="text-lg font-bold text-white">{game.matchedPairs}/8</p>
           </div>
-          <span className="text-2xl">🥅</span>
+          <span className="text-xl">🥅</span>
         </div>
       </div>
 
       {/* Progress Bar */}
       <div className="mb-5 bg-black/20 rounded-full h-2 overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-500 ease-out rounded-full"
+          className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out rounded-full"
           style={{ width: `${(game.matchedPairs / 8) * 100}%` }}
         />
       </div>
@@ -282,7 +304,7 @@ const GameArea = () => {
       </div>
 
       {/* Hint */}
-      <p className="text-center text-green-200/60 text-xs mt-4">
+      <p className="text-center text-blue-200/60 text-xs mt-4">
         Tap cards to find matching pairs
       </p>
     </div>
