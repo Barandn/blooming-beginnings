@@ -413,6 +413,10 @@ export function getStoredUser(): LoginResponse['user'] | null {
   }
 }
 
+export function getUserData() {
+    return getStoredUser();
+}
+
 export function isAuthenticated(): boolean {
   return !!getStoredToken();
 }
