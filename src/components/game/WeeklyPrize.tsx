@@ -24,7 +24,7 @@ const WeeklyPrize = () => {
     <div className="flex flex-col items-center p-6 min-h-[70vh]">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Weekly Training</h1>
-        <p className="text-green-100">Login 7 days in a row for the Golden Ball!</p>
+        <p className="text-blue-100">Login 7 days in a row for the Golden Ball!</p>
       </div>
 
       <div className="w-full max-w-sm space-y-4">
@@ -39,7 +39,7 @@ const WeeklyPrize = () => {
               className={cn(
                 "relative flex items-center p-4 rounded-xl border-2 transition-all",
                 isCompleted
-                  ? "bg-green-500/20 border-green-400"
+                  ? "bg-blue-500/20 border-blue-400"
                   : "bg-black/20 border-white/10",
                 isFinal && "border-yellow-400 bg-yellow-400/10"
               )}
@@ -47,7 +47,7 @@ const WeeklyPrize = () => {
               {/* Checkmark or Number */}
               <div className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4",
-                  isCompleted ? "bg-green-500 text-white" : "bg-white/10 text-white/50",
+                  isCompleted ? "bg-blue-500 text-white" : "bg-white/10 text-white/50",
                   isFinal && !isCompleted && "bg-yellow-400/20 text-yellow-400"
               )}>
                   {isCompleted ? "✓" : day}

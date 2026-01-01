@@ -24,9 +24,9 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#0a0f0d]">
+    <div className="min-h-screen relative overflow-hidden bg-[#0a0d0f]">
       {/* Background Texture (Pitch) */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-900/20 via-[#050a06] to-black -z-10" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-[#050a10] to-black -z-10" />
       
       {/* Decorative Lines */}
       <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none -z-10">

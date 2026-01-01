@@ -20,7 +20,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Show loading state while checking auth
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-emerald-800 via-emerald-600 to-green-500">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-800 via-blue-600 to-blue-500">
         <div className="text-center">
           <div className="w-16 h-16 bg-white/20 backdrop-blur-lg rounded-2xl flex items-center justify-center mx-auto mb-4 animate-soft-pulse">
             <span className="text-4xl">🌱</span>
