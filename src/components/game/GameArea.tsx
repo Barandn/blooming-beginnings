@@ -152,6 +152,10 @@ const StartScreen = ({ onStart }: { onStart: () => void }) => (
         <span>8 Pairs</span>
       </div>
       <div className="flex items-center gap-2">
+        <span>⏱️</span>
+        <span>90 Seconds</span>
+      </div>
+      <div className="flex items-center gap-2">
         <span>🏆</span>
         <span>100 Coins</span>
       </div>
@@ -193,6 +197,38 @@ const WinScreen = ({ moves, elapsedTime, onPlayAgain }: { moves: number; elapsed
       className="px-10 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg rounded-full shadow-xl hover:from-blue-600 hover:to-blue-700 hover:scale-105 active:scale-95 transition-all duration-200"
     >
       🔄 Play Again
+    </button>
+  </div>
+);
+
+// Time Out Screen Component
+const TimeOutScreen = ({ moves, matchedPairs, onPlayAgain }: { moves: number; matchedPairs: number; onPlayAgain: () => void }) => (
+  <div className="flex flex-col items-center justify-center h-[60vh] space-y-6 animate-in zoom-in duration-500 px-4">
+    <div className="text-8xl animate-pulse">⏰</div>
+
+    <div className="text-center space-y-2">
+      <h2 className="text-5xl font-black text-red-400 drop-shadow-lg tracking-wide">
+        TIME'S UP!
+      </h2>
+      <p className="text-white text-lg opacity-90">You ran out of time!</p>
+    </div>
+
+    <div className="flex gap-3 flex-wrap justify-center">
+      <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
+        <p className="text-xs text-blue-200 uppercase tracking-wider">Moves</p>
+        <p className="text-2xl font-bold text-white">{moves}</p>
+      </div>
+      <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
+        <p className="text-xs text-blue-200 uppercase tracking-wider">Matched</p>
+        <p className="text-2xl font-bold text-white">{matchedPairs}/8</p>
+      </div>
+    </div>
+
+    <button
+      onClick={onPlayAgain}
+      className="px-10 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold text-lg rounded-full shadow-xl hover:from-red-600 hover:to-red-700 hover:scale-105 active:scale-95 transition-all duration-200"
+    >
+      🔄 Try Again
     </button>
   </div>
 );
@@ -239,8 +275,13 @@ const GameArea = () => {
   }, [flipCard, isProcessing]);
 
   // Show start screen
-  if (!game.gameStartedAt && !game.isComplete) {
+  if (!game.gameStartedAt && !game.isComplete && !game.isTimeOut) {
     return <StartScreen onStart={startGame} />;
+  }
+
+  // Show time out screen
+  if (game.isTimeOut) {
+    return <TimeOutScreen moves={game.moves} matchedPairs={game.matchedPairs} onPlayAgain={resetGame} />;
   }
 
   // Show win screen
@@ -266,8 +307,11 @@ const GameArea = () => {
         <div className="flex items-center gap-2">
           <span className="text-xl">⏱️</span>
           <div>
-            <p className="text-xs text-blue-200 uppercase tracking-wider">Time</p>
-            <p className="text-lg font-bold text-white font-mono">{formatTime(game.elapsedTime)}</p>
+            <p className="text-xs text-blue-200 uppercase tracking-wider">Time Left</p>
+            <p className={cn(
+              "text-lg font-bold font-mono",
+              game.remainingTime <= 10000 ? "text-red-400 animate-pulse" : "text-white"
+            )}>{formatTime(game.remainingTime)}</p>
           </div>
         </div>
 
