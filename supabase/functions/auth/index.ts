@@ -187,10 +187,11 @@ serve(async (req) => {
       { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
+    // Log detailed error server-side only
     console.error("Auth error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
+    // Return generic error to client - no internal details exposed
     return new Response(
-      JSON.stringify({ status: "error", error: message }),
+      JSON.stringify({ status: "error", error: "An error occurred processing your request", errorCode: "AUTH_ERROR" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

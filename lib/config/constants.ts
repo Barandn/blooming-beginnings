@@ -77,8 +77,9 @@ export const TOKEN_CONFIG = {
 
 // Session Configuration
 export const SESSION_CONFIG = {
-  // JWT secret for signing tokens
-  jwtSecret: process.env.JWT_SECRET || '',
+  // JWT secret for signing tokens - MUST be set via environment variable
+  // Do not provide fallback to prevent insecure defaults
+  jwtSecret: process.env.JWT_SECRET,
 
   // Session duration (7 days)
   sessionDuration: 7 * 24 * 60 * 60 * 1000,
@@ -86,6 +87,16 @@ export const SESSION_CONFIG = {
   // Token expiry for JWT
   tokenExpiry: '7d',
 } as const;
+
+// Validate critical security configuration at startup
+export function validateSecurityConfig(): void {
+  if (!SESSION_CONFIG.jwtSecret) {
+    throw new Error('JWT_SECRET environment variable is required but not set');
+  }
+  if (SESSION_CONFIG.jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long');
+  }
+}
 
 // Security Configuration
 export const SECURITY_CONFIG = {
