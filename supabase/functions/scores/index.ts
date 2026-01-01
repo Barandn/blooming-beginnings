@@ -6,6 +6,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Game validation configuration - enforced server-side
+const GAME_VALIDATION = {
+  garden_game: {
+    maxDailyScore: 100000,
+    maxMonthlyProfit: 10000000,
+    minGameTime: 10, // seconds
+    maxScorePerSecond: 100,
+  },
+  barn_game: {
+    maxDailyScore: 1000,
+    maxMonthlyProfit: 50000,
+    minGameTime: 5, // seconds
+    maxScorePerSecond: 50,
+  },
+} as const;
+
+// Rate limiting configuration
+const RATE_LIMIT = {
+  maxSubmissionsPerMinute: 10,
+  maxSubmissionsPerHour: 60,
+};
+
 // Helper to verify session
 async function verifySession(supabase: any, authHeader: string | null) {
   if (!authHeader?.startsWith("Bearer ")) {
@@ -30,6 +52,114 @@ async function verifySession(supabase: any, authHeader: string | null) {
     .maybeSingle();
 
   return session;
+}
+
+// Check rate limiting
+async function checkRateLimit(supabase: any, userId: string): Promise<{ allowed: boolean; reason?: string }> {
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  // Check submissions in last minute
+  const { count: lastMinuteCount } = await supabase
+    .from("game_scores")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", oneMinuteAgo);
+
+  if ((lastMinuteCount ?? 0) >= RATE_LIMIT.maxSubmissionsPerMinute) {
+    return { allowed: false, reason: "Too many submissions per minute. Please wait." };
+  }
+
+  // Check submissions in last hour
+  const { count: lastHourCount } = await supabase
+    .from("game_scores")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", oneHourAgo);
+
+  if ((lastHourCount ?? 0) >= RATE_LIMIT.maxSubmissionsPerHour) {
+    return { allowed: false, reason: "Too many submissions per hour. Please wait." };
+  }
+
+  return { allowed: true };
+}
+
+// Validate score based on game type
+function validateScore(
+  gameType: string,
+  score: number,
+  monthlyProfit: number,
+  timeTaken: number | null
+): { valid: boolean; reason?: string } {
+  const config = GAME_VALIDATION[gameType as keyof typeof GAME_VALIDATION];
+  
+  if (!config) {
+    return { valid: false, reason: `Unknown game type: ${gameType}` };
+  }
+
+  // Check score bounds
+  if (score < 0) {
+    return { valid: false, reason: "Score cannot be negative" };
+  }
+  
+  if (score > config.maxDailyScore) {
+    return { valid: false, reason: `Score exceeds maximum allowed (${config.maxDailyScore})` };
+  }
+
+  // Check monthly profit bounds
+  if (monthlyProfit < 0) {
+    return { valid: false, reason: "Monthly profit cannot be negative" };
+  }
+  
+  if (monthlyProfit > config.maxMonthlyProfit) {
+    return { valid: false, reason: `Monthly profit exceeds maximum allowed (${config.maxMonthlyProfit})` };
+  }
+
+  // Check minimum game time - BLOCK submissions that are too fast
+  if (timeTaken !== null && timeTaken < config.minGameTime) {
+    return { valid: false, reason: `Game completed too quickly (minimum ${config.minGameTime}s required)` };
+  }
+
+  // Check score per second rate
+  if (timeTaken !== null && timeTaken > 0) {
+    const scorePerSecond = score / timeTaken;
+    if (scorePerSecond > config.maxScorePerSecond) {
+      return { valid: false, reason: "Score rate exceeds possible limits" };
+    }
+  }
+
+  return { valid: true };
+}
+
+// Validate sessionId exists and belongs to user
+async function validateSession(
+  supabase: any,
+  sessionId: string | null,
+  userId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  if (!sessionId) {
+    // Session ID is optional but recommended
+    return { valid: true };
+  }
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(sessionId)) {
+    return { valid: false, reason: "Invalid session ID format" };
+  }
+
+  // Check if session belongs to user
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("user_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (session && session.user_id !== userId) {
+    return { valid: false, reason: "Session does not belong to user" };
+  }
+
+  return { valid: true };
 }
 
 serve(async (req) => {
@@ -61,13 +191,31 @@ serve(async (req) => {
     }
 
     const userId = session.users.id;
+    
+    // Rate limiting check
+    const rateLimitResult = await checkRateLimit(supabase, userId);
+    if (!rateLimitResult.allowed) {
+      console.log(`Rate limit exceeded for user ${userId}: ${rateLimitResult.reason}`);
+      return new Response(
+        JSON.stringify({ status: "error", error: rateLimitResult.reason }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const body = await req.json();
     const { gameType, score, monthlyProfit, sessionId, gameStartedAt, gameEndedAt, validationData } = body;
 
-    // Basic validation
-    if (!gameType || typeof score !== "number") {
+    // Input type validation
+    if (!gameType || typeof gameType !== "string") {
       return new Response(
-        JSON.stringify({ status: "error", error: "Invalid score data" }),
+        JSON.stringify({ status: "error", error: "gameType must be a non-empty string" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (typeof score !== "number" || !Number.isFinite(score)) {
+      return new Response(
+        JSON.stringify({ status: "error", error: "score must be a valid number" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -77,23 +225,30 @@ serve(async (req) => {
       ? Math.floor((gameEndedAt - gameStartedAt) / 1000)
       : null;
 
+    // Comprehensive score validation
+    const scoreValidation = validateScore(gameType, score, monthlyProfit || 0, timeTaken);
+    if (!scoreValidation.valid) {
+      console.log(`Score validation failed for user ${userId}: ${scoreValidation.reason}`);
+      return new Response(
+        JSON.stringify({ status: "error", error: scoreValidation.reason }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Session validation
+    const sessionValidation = await validateSession(supabase, sessionId, userId);
+    if (!sessionValidation.valid) {
+      console.log(`Session validation failed for user ${userId}: ${sessionValidation.reason}`);
+      return new Response(
+        JSON.stringify({ status: "error", error: sessionValidation.reason }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get current leaderboard period (YYYY-MM)
     const leaderboardPeriod = new Date().toISOString().slice(0, 7);
 
-    // Anti-cheat flags
-    const flags: string[] = [];
-    
-    // Check for suspicious time (too fast)
-    if (timeTaken !== null && timeTaken < 5) {
-      flags.push("SUSPICIOUS_TIME");
-    }
-    
-    // Check for impossible scores
-    if (gameType === "barn_game" && score > 1000) {
-      flags.push("IMPOSSIBLE_SCORE");
-    }
-
-    // Insert score
+    // Insert score (all validation passed)
     const { data: scoreRecord, error } = await supabase
       .from("game_scores")
       .insert({
@@ -105,13 +260,15 @@ serve(async (req) => {
         time_taken: timeTaken,
         game_started_at: gameStartedAt ? new Date(gameStartedAt).toISOString() : null,
         validation_data: validationData ? JSON.stringify(validationData) : null,
-        is_validated: flags.length === 0,
+        is_validated: true, // All validation passed
         leaderboard_period: leaderboardPeriod,
       })
       .select()
       .single();
 
     if (error) throw error;
+
+    console.log(`Score submitted successfully for user ${userId}: ${score} in ${gameType}`);
 
     return new Response(
       JSON.stringify({
@@ -121,7 +278,6 @@ serve(async (req) => {
           score: scoreRecord.score,
           monthlyProfit: scoreRecord.monthly_profit,
           leaderboardPeriod: scoreRecord.leaderboard_period,
-          flags: flags.length > 0 ? flags : undefined,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
