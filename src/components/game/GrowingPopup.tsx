@@ -69,9 +69,9 @@ const GrowingPopup = ({
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-5 py-3">
-          {/* Mahsul görünümü */}
+          {/* Crop view */}
           <div className="relative">
-            {/* Su damlası animasyonu */}
+            {/* Water droplet animation */}
             {isWatering && (
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-0 left-1/4 animate-water">
@@ -86,7 +86,7 @@ const GrowingPopup = ({
               </div>
             )}
 
-            {/* Gübre parıltısı */}
+            {/* Fertilizer sparkle */}
             {isFertilizing && (
               <div className="absolute inset-0 pointer-events-none">
                 <Sparkles className="absolute top-0 left-0 w-4 h-4 text-yellow-400 animate-star-burst" />
@@ -105,13 +105,13 @@ const GrowingPopup = ({
             </div>
           </div>
 
-          {/* Durum mesajı */}
+          {/* Status message */}
           <div className="text-center space-y-2">
             <p className={`font-medium ${isThirsty ? "text-red-600 animate-pulse" : "text-green-700"}`}>
               {isThirsty ? "💧 I'm thirsty! Help me!" : "🌱 Growing nicely..."}
             </p>
 
-            {/* İlerleme çubuğu */}
+            {/* Progress bar */}
             <div className="w-48 mx-auto">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>Growth</span>
@@ -129,7 +129,7 @@ const GrowingPopup = ({
             </div>
           </div>
 
-          {/* Aksiyon butonları */}
+          {/* Action buttons */}
           <div className="flex flex-col w-full gap-3">
             <Button
               className={`w-full h-14 text-lg gap-2 touch-feedback transition-all duration-200 ${

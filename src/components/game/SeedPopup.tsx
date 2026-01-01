@@ -27,7 +27,7 @@ const SeedPopup = ({ isOpen, onClose, selectedPlotId }: SeedPopupProps) => {
     if (selectedPlotId !== null) {
       setPlantingId(plantId);
 
-      // Kısa animasyon sonrası ekme işlemi
+      // Planting process after short animation
       setTimeout(() => {
         plantSeed(selectedPlotId, plantId);
         setPlantingId(null);
