@@ -153,10 +153,11 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
+    // Log detailed error server-side only
     console.error("User profile error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
+    // Return generic error to client - no internal details exposed
     return new Response(
-      JSON.stringify({ status: "error", error: message }),
+      JSON.stringify({ status: "error", error: "An error occurred processing your request", errorCode: "USER_PROFILE_ERROR" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
