@@ -13,23 +13,14 @@ function generateNonce(): string {
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Simple in-memory nonce store (in production, use Redis or DB)
-const nonceStore = new Map<string, { expiresAt: number }>();
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   const url = new URL(req.url);
-  // Parse path - Supabase edge functions receive path after function name
-  // e.g., /auth/siwe/nonce or just /siwe/nonce depending on invocation
-  let path = url.pathname;
+  let path = url.pathname.replace(/^\/auth/, '');
   
-  // Remove function name prefix if present
-  path = path.replace(/^\/auth/, '');
-  
-  // Log for debugging
   console.log("Auth function called:", { method: req.method, fullPath: url.pathname, parsedPath: path });
 
   try {
@@ -42,15 +33,28 @@ serve(async (req) => {
     if (req.method === "GET" && (path === "/siwe/nonce" || path === "" || path === "/")) {
       const nonce = generateNonce();
       const expiresIn = 5 * 60 * 1000; // 5 minutes
+      const expiresAt = new Date(Date.now() + expiresIn).toISOString();
       
-      nonceStore.set(nonce, { expiresAt: Date.now() + expiresIn });
+      // Clean up expired nonces first
+      await supabase
+        .from("siwe_nonces")
+        .delete()
+        .lt("expires_at", new Date().toISOString());
       
-      // Clean up expired nonces
-      for (const [key, value] of nonceStore.entries()) {
-        if (value.expiresAt < Date.now()) {
-          nonceStore.delete(key);
-        }
+      // Store nonce in database (persisted across edge function instances)
+      const { error: insertError } = await supabase
+        .from("siwe_nonces")
+        .insert({ nonce, expires_at: expiresAt });
+      
+      if (insertError) {
+        console.error("Failed to store nonce:", insertError);
+        return new Response(
+          JSON.stringify({ status: "error", error: "Failed to generate nonce", errorCode: "NONCE_STORE_ERROR" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+      
+      console.log("Nonce generated and stored:", { nonce: nonce.substring(0, 8) + "...", expiresAt });
 
       return new Response(
         JSON.stringify({
@@ -61,7 +65,7 @@ serve(async (req) => {
       );
     }
 
-    // POST /auth/siwe/verify - Verify SIWE signature
+    // POST /siwe/verify - Verify SIWE signature
     if (req.method === "POST" && path === "/siwe/verify") {
       const { message, signature, address, nonce } = await req.json();
 
@@ -72,20 +76,45 @@ serve(async (req) => {
         );
       }
 
-      // Verify nonce exists and is not expired
-      const nonceData = nonceStore.get(nonce);
-      if (!nonceData || nonceData.expiresAt < Date.now()) {
+      // Verify nonce exists in database and is not expired or consumed
+      const { data: nonceData, error: nonceError } = await supabase
+        .from("siwe_nonces")
+        .select("*")
+        .eq("nonce", nonce)
+        .is("consumed_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (nonceError) {
+        console.error("Nonce lookup error:", nonceError);
+        return new Response(
+          JSON.stringify({ status: "error", error: "Nonce verification failed", errorCode: "NONCE_LOOKUP_ERROR" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!nonceData) {
+        console.log("Invalid or expired nonce:", { nonce: nonce.substring(0, 8) + "..." });
         return new Response(
           JSON.stringify({ status: "error", error: "Invalid or expired nonce" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      // Remove used nonce
-      nonceStore.delete(nonce);
+      // Mark nonce as consumed
+      const { error: consumeError } = await supabase
+        .from("siwe_nonces")
+        .update({ consumed_at: new Date().toISOString() })
+        .eq("nonce", nonce);
+
+      if (consumeError) {
+        console.error("Failed to consume nonce:", consumeError);
+        // Continue anyway - nonce was valid at check time
+      }
+      
+      console.log("Nonce consumed successfully:", { nonce: nonce.substring(0, 8) + "..." });
 
       // For World App, we trust the signature from MiniKit
-      // In production, you should verify the SIWE message signature
       const normalizedAddress = address.toLowerCase();
 
       // Check if user exists
@@ -115,7 +144,7 @@ serve(async (req) => {
           .from("users")
           .insert({
             wallet_address: normalizedAddress,
-            nullifier_hash: `wallet_${normalizedAddress}`, // Using wallet as unique identifier
+            nullifier_hash: `wallet_${normalizedAddress}`,
             verification_level: "wallet",
           })
           .select()
@@ -165,7 +194,7 @@ serve(async (req) => {
       );
     }
 
-    // POST /auth/logout - Invalidate session
+    // POST /logout - Invalidate session
     if (req.method === "POST" && path === "/logout") {
       const authHeader = req.headers.get("Authorization");
       if (authHeader?.startsWith("Bearer ")) {
@@ -195,9 +224,7 @@ serve(async (req) => {
       { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
-    // Log detailed error server-side only
     console.error("Auth error:", error);
-    // Return generic error to client - no internal details exposed
     return new Response(
       JSON.stringify({ status: "error", error: "An error occurred processing your request", errorCode: "AUTH_ERROR" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
