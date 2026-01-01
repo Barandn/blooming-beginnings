@@ -93,9 +93,9 @@
     animation: pulse-glow 2s ease-in-out infinite;
   }
 
-  /* GPU Hızlandırmalı Animasyonlar - Mobil Uyumlu */
+  /* GPU Accelerated Animations - Mobile Compatible */
 
-  /* Yumuşak parıltı efekti */
+  /* Soft glow effect */
   @keyframes pulse-glow {
     0%, 100% {
       box-shadow: 0 0 15px hsl(var(--harvest-glow));
@@ -105,7 +105,7 @@
     }
   }
 
-  /* Doğal sıçrama - spring efekti */
+  /* Natural bounce - spring effect */
   @keyframes bounce-soft {
     0%, 100% {
       transform: translateY(0) scale(1);
@@ -121,7 +121,7 @@
     }
   }
 
-  /* Gelişmiş su damlası animasyonu */
+  /* Advanced water drop animation */
   @keyframes water-drop {
     0% {
       transform: translateY(-15px) scale(0.8);
@@ -137,7 +137,7 @@
     }
   }
 
-  /* Su sıçrama efekti */
+  /* Water splash effect */
   @keyframes water-splash {
     0% {
       transform: scale(0) translateY(0);
@@ -153,7 +153,7 @@
     }
   }
 
-  /* Dalga efekti */
+  /* Ripple effect */
   @keyframes ripple {
     0% {
       transform: scale(0);
@@ -165,7 +165,7 @@
     }
   }
 
-  /* Büyüme animasyonu - nefes alır gibi */
+  /* Growth animation - breathing effect */
   @keyframes grow {
     0%, 100% {
       transform: scale(1);
@@ -175,7 +175,7 @@
     }
   }
 
-  /* Navigasyon pop efekti */
+  /* Navigation pop effect */
   @keyframes nav-pop {
     0% {
       transform: scale(1);
@@ -188,7 +188,7 @@
     }
   }
 
-  /* Parıltı efekti */
+  /* Sparkle effect */
   @keyframes sparkle {
     0%, 100% {
       opacity: 0.2;
@@ -200,7 +200,7 @@
     }
   }
 
-  /* Tohum ekme animasyonu - toprağa düşme */
+  /* Seed planting animation - dropping to soil */
   @keyframes seed-plant {
     0% {
       transform: translateY(-30px) scale(0.5) rotate(-10deg);
@@ -222,7 +222,7 @@
     }
   }
 
-  /* Filiz çıkma animasyonu */
+  /* Sprout emerging animation */
   @keyframes sprout-up {
     0% {
       transform: translateY(10px) scale(0.3);
@@ -244,7 +244,7 @@
     }
   }
 
-  /* Hasat patlaması - konfeti efekti */
+  /* Harvest burst - confetti effect */
   @keyframes harvest-burst {
     0% {
       transform: scale(1);
@@ -260,7 +260,7 @@
     }
   }
 
-  /* Hasat parçacık animasyonu */
+  /* Harvest particle animation */
   @keyframes harvest-particle {
     0% {
       transform: translate(0, 0) scale(1);
@@ -272,7 +272,7 @@
     }
   }
 
-  /* Ödül sayısı animasyonu */
+  /* Reward count animation */
   @keyframes reward-pop {
     0% {
       transform: scale(0) rotate(-10deg);
@@ -291,7 +291,7 @@
     }
   }
 
-  /* Hafif sallanma - dikkat çekme */
+  /* Light wiggle - attention grabbing */
   @keyframes wiggle {
     0%, 100% {
       transform: rotate(0deg);
@@ -304,7 +304,7 @@
     }
   }
 
-  /* Susuzluk titreme efekti */
+  /* Thirsty shake effect */
   @keyframes thirsty-shake {
     0%, 100% {
       transform: translateX(0);
@@ -323,7 +323,7 @@
     }
   }
 
-  /* Popup açılma animasyonu */
+  /* Popup opening animation */
   @keyframes popup-enter {
     0% {
       transform: scale(0.9) translateY(10px);
@@ -335,7 +335,7 @@
     }
   }
 
-  /* Buton basma efekti */
+  /* Button press effect */
   @keyframes button-press {
     0% {
       transform: scale(1);
@@ -348,7 +348,7 @@
     }
   }
 
-  /* Yıldız patlaması */
+  /* Star burst */
   @keyframes star-burst {
     0% {
       transform: scale(0) rotate(0deg);
@@ -364,7 +364,7 @@
     }
   }
 
-  /* Altın parıltısı */
+  /* Golden shine */
   @keyframes golden-shine {
     0% {
       background-position: -100% 0;
@@ -455,7 +455,7 @@
     will-change: transform, opacity;
   }
 
-  /* Altın parıltı efekti */
+  /* Golden glow effect */
   .golden-shine {
     background: linear-gradient(
       90deg,
@@ -467,7 +467,7 @@
     animation: golden-shine 2s ease-in-out infinite;
   }
 
-  /* Dokunma geri bildirimi - mobil için */
+  /* Touch feedback - for mobile */
   .touch-feedback {
     transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     -webkit-tap-highlight-color: transparent;
@@ -477,7 +477,7 @@
     transform: scale(0.95);
   }
 
-  /* Plot etkileşim animasyonu */
+  /* Plot interaction animation */
   .plot-interactive {
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: transform;
@@ -492,7 +492,7 @@
     transform: scale(0.92);
   }
 
-  /* Hazır durumu için özel parıltı */
+  /* Special glow for ready state */
   .ready-glow {
     position: relative;
   }
@@ -507,7 +507,7 @@
     pointer-events: none;
   }
 
-  /* Konfeti parçacıkları için konteyner */
+  /* Confetti particles container */
   .confetti-container {
     position: absolute;
     inset: 0;

@@ -93,7 +93,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
         <DialogHeader>
           <DialogTitle className="text-center text-2xl text-green-800 flex items-center justify-center gap-2">
             <Sparkles className="w-6 h-6 text-yellow-500 animate-sparkle" />
-            <span>Hasat Zamanı!</span>
+            <span>Harvest Time!</span>
             <Sparkles className="w-6 h-6 text-yellow-500 animate-sparkle" style={{ animationDelay: "0.3s" }} />
           </DialogTitle>
         </DialogHeader>
@@ -117,9 +117,9 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
           {/* Başlık */}
           <div className="text-center space-y-1">
             <h3 className="text-xl font-bold text-green-900 animate-reward-pop" style={{ animationDelay: "0.1s" }}>
-              Muhteşem Hasat!
+              Amazing Harvest!
             </h3>
-            <p className="text-green-700 text-sm">Mahsulünle harika ilgilendin 🌟</p>
+            <p className="text-green-700 text-sm">You took great care of your crop 🌟</p>
           </div>
 
           {/* Ödül kartları */}
@@ -138,7 +138,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
                 </div>
               </div>
               <div className="text-center">
-                <p className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider">Elmas</p>
+                <p className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider">Diamonds</p>
                 <p className="text-2xl font-black text-cyan-700 tabular-nums">+{diamondReward}</p>
               </div>
             </div>
@@ -158,7 +158,7 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
               </div>
               <div className="text-center">
                 <p className="text-[10px] font-bold text-yellow-600 uppercase tracking-wider">B&G Coin</p>
-                <p className="text-lg font-bold text-yellow-700">Sürpriz! ✨</p>
+                <p className="text-lg font-bold text-yellow-700">Surprise! ✨</p>
               </div>
             </div>
           </div>
@@ -177,12 +177,12 @@ const HarvestPopup = ({ isOpen, onClose, onClaim, flowerEmoji, seedCost }: Harve
             {isClaiming ? (
               <span className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 animate-spin" />
-                Toplanıyor...
+                Collecting...
               </span>
             ) : (
               <span className="flex items-center gap-2">
                 <span>🎉</span>
-                <span>Ödülleri Al</span>
+                <span>Claim Rewards</span>
                 <span>🎉</span>
               </span>
             )}

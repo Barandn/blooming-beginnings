@@ -270,7 +270,7 @@ serve(async (req) => {
           data: {
             purchaseId: purchase.id,
             attemptsGranted: 10,
-            message: "10 yeni eşleştirme hakkı kazandınız!",
+            message: "You earned 10 new matching attempts!",
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
