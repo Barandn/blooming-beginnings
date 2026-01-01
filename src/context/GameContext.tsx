@@ -19,7 +19,9 @@ export interface GameSession {
   moves: number;
   gameStartedAt: number; // Timestamp
   elapsedTime: number; // Elapsed time in milliseconds
+  remainingTime: number; // Remaining time in milliseconds (countdown from 90s)
   isComplete: boolean;
+  isTimeOut: boolean; // True if player ran out of time
 }
 
 export interface UserState {
@@ -47,6 +49,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟"];
 const GAME_PAIRS = 8; // 4x4 grid
+const TIME_LIMIT = 90000; // 90 seconds in milliseconds
 
 const INITIAL_GAME: GameSession = {
   cards: [],
@@ -56,7 +59,9 @@ const INITIAL_GAME: GameSession = {
   moves: 0,
   gameStartedAt: 0,
   elapsedTime: 0,
+  remainingTime: TIME_LIMIT,
   isComplete: false,
+  isTimeOut: false,
 };
 
 const INITIAL_USER: UserState = {
@@ -150,6 +155,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       ...INITIAL_GAME,
       cards: createDeck(),
       gameStartedAt: Date.now(),
+      remainingTime: TIME_LIMIT,
     });
   }, []);
 
@@ -162,6 +168,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     setGame(prev => {
       // Guard clauses
       if (prev.isComplete) return prev;
+      if (prev.isTimeOut) return prev;
       if (prev.flippedCards.length >= 2) return prev;
 
       const cardIndex = prev.cards.findIndex(c => c.id === cardId);
@@ -216,14 +223,30 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Timer effect - updates elapsed time every 10ms
+  // Timer effect - updates elapsed time and remaining time every 10ms
   useEffect(() => {
-    if (game.gameStartedAt > 0 && !game.isComplete) {
+    if (game.gameStartedAt > 0 && !game.isComplete && !game.isTimeOut) {
       timerRef.current = setInterval(() => {
-        setGame(prev => ({
-          ...prev,
-          elapsedTime: Date.now() - prev.gameStartedAt,
-        }));
+        setGame(prev => {
+          const elapsed = Date.now() - prev.gameStartedAt;
+          const remaining = Math.max(0, TIME_LIMIT - elapsed);
+
+          // Check if time has run out
+          if (remaining <= 0) {
+            return {
+              ...prev,
+              elapsedTime: elapsed,
+              remainingTime: 0,
+              isTimeOut: true,
+            };
+          }
+
+          return {
+            ...prev,
+            elapsedTime: elapsed,
+            remainingTime: remaining,
+          };
+        });
       }, 10);
     }
 
@@ -233,7 +256,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         timerRef.current = null;
       }
     };
-  }, [game.gameStartedAt, game.isComplete]);
+  }, [game.gameStartedAt, game.isComplete, game.isTimeOut]);
 
   // Flip back unmatched cards
   useEffect(() => {
