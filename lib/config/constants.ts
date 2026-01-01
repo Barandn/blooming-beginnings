@@ -139,19 +139,12 @@ export const BARN_GAME_CONFIG = {
 
 // Game Configuration for Score Validation
 export const GAME_VALIDATION = {
-  // Barn game settings
-  barnGame: {
+  // Card match game settings
+  cardMatch: {
     maxAttempts: 10,
     maxMatchesPerDay: 10,
     rewardPerMatch: 500, // BNG coins
     minTimeBetweenFlips: 500, // ms
-  },
-
-  // Harvest settings
-  harvest: {
-    minGrowthCycles: 3,
-    maxGrowthCycles: 12,
-    minTimeBetweenHarvests: 60 * 1000, // 1 minute minimum
   },
 
   // Score bounds for validation

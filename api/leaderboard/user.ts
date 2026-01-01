@@ -65,7 +65,7 @@ export default async function handler(
 
     // Get additional stats
     const monthlyProfit = await getUserMonthlyProfit(auth.user.id, period);
-    const barnBestScore = await getUserBestScore(auth.user.id, 'barn_game');
+    const cardMatchBestScore = await getUserBestScore(auth.user.id, 'card_match');
 
     return res.status(200).json({
       status: API_STATUS.SUCCESS,
@@ -79,7 +79,7 @@ export default async function handler(
         } : null,
         stats: {
           monthlyProfit,
-          barnGameBestScore: barnBestScore,
+          cardMatchBestScore: cardMatchBestScore,
         },
         surroundingEntries,
       },

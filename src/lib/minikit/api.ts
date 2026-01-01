@@ -225,7 +225,7 @@ export async function verifyWorldID(
 // ============================
 
 export interface SubmitScoreRequest {
-  gameType: 'barn_game' | 'harvest' | 'daily_farming';
+  gameType: 'card_match';
   score: number;
   monthlyProfit: number;
   sessionId?: string;
@@ -339,7 +339,7 @@ export interface UserLeaderboardResponse {
   } | null;
   stats: {
     monthlyProfit: number;
-    barnGameBestScore: number;
+    cardMatchBestScore: number;
   };
   surroundingEntries: Array<LeaderboardEntry & { isCurrentUser: boolean }>;
 }

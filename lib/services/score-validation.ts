@@ -11,7 +11,7 @@ import { GAME_VALIDATION, SECURITY_CONFIG, ERROR_MESSAGES } from '../config/cons
 // Types
 export interface ScoreSubmission {
   userId: string;
-  gameType: 'barn_game' | 'harvest' | 'daily_farming';
+  gameType: 'card_match';
   score: number;
   monthlyProfit: number;
   sessionId?: string;
@@ -104,16 +104,16 @@ export function validateScoreBounds(
   }
 
   // Game-specific validation
-  if (gameType === 'barn_game') {
-    const barnConfig = GAME_VALIDATION.barnGame;
+  if (gameType === 'card_match') {
+    const cardMatchConfig = GAME_VALIDATION.cardMatch;
 
     // Max possible score is matches * reward
-    const maxPossibleScore = barnConfig.maxMatchesPerDay * barnConfig.rewardPerMatch;
+    const maxPossibleScore = cardMatchConfig.maxMatchesPerDay * cardMatchConfig.rewardPerMatch;
     if (score > maxPossibleScore) {
-      flags.push('exceeded_barn_max');
+      flags.push('exceeded_card_match_max');
       return {
         valid: false,
-        error: 'Barn game score exceeds maximum possible',
+        error: 'Card match game score exceeds maximum possible',
         flags,
       };
     }
@@ -208,23 +208,23 @@ export async function getTodayScores(
 }
 
 /**
- * Validate barn game specific rules
+ * Validate card match game specific rules
  *
  * @param submission - Score submission
  * @param todayScores - Previous scores today
  * @returns Validation result
  */
-function validateBarnGameRules(
+function validateCardMatchRules(
   submission: ScoreSubmission,
   todayScores: GameScore[]
 ): { valid: boolean; error?: string } {
-  const config = GAME_VALIDATION.barnGame;
+  const config = GAME_VALIDATION.cardMatch;
 
   // Check daily attempts limit
   if (todayScores.length >= config.maxAttempts) {
     return {
       valid: false,
-      error: 'Daily barn game limit reached',
+      error: 'Daily card match game limit reached',
     };
   }
 
@@ -311,13 +311,13 @@ export async function validateAndSaveScore(
   const todayScores = await getTodayScores(submission.userId, submission.gameType);
 
   // Step 6: Game-specific validation
-  if (submission.gameType === 'barn_game') {
-    const barnResult = validateBarnGameRules(submission, todayScores);
-    if (!barnResult.valid) {
+  if (submission.gameType === 'card_match') {
+    const cardMatchResult = validateCardMatchRules(submission, todayScores);
+    if (!cardMatchResult.valid) {
       return {
         valid: false,
-        error: barnResult.error,
-        errorCode: 'barn_game_limit',
+        error: cardMatchResult.error,
+        errorCode: 'card_match_limit',
       };
     }
   }

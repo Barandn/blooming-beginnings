@@ -112,7 +112,7 @@ export const gameScores = pgTable('game_scores', {
   // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 
-  // Game type (barn_game, harvest, etc.)
+  // Game type (card_match, etc.)
   gameType: varchar('game_type', { length: 50 }).notNull(),
 
   // Score value
