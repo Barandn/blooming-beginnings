@@ -11,9 +11,25 @@ const BARN_PRICES = {
   WLD: "0.1",
   USDC: "0.25",
 };
+// Merchant wallet for payments - loaded from environment variable
+const MERCHANT_WALLET = Deno.env.get("BARN_GAME_RECIPIENT_ADDRESS");
 
-// Merchant wallet for payments
-const MERCHANT_WALLET = "0x0000000000000000000000000000000000000000"; // Replace with actual wallet
+// Validate merchant wallet at startup
+function validateMerchantWallet(): string {
+  const wallet = MERCHANT_WALLET;
+  if (!wallet) {
+    throw new Error("BARN_GAME_RECIPIENT_ADDRESS environment variable is not set");
+  }
+  // Basic Ethereum address validation
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+    throw new Error("BARN_GAME_RECIPIENT_ADDRESS is not a valid Ethereum address");
+  }
+  // Reject zero address
+  if (wallet === "0x0000000000000000000000000000000000000000") {
+    throw new Error("BARN_GAME_RECIPIENT_ADDRESS cannot be the zero address");
+  }
+  return wallet;
+}
 
 // Helper to verify session
 async function verifySession(supabase: any, authHeader: string | null) {
@@ -136,6 +152,18 @@ serve(async (req) => {
 
     // POST /barn/initiate-payment - Start payment flow
     if (req.method === "POST" && path === "/initiate-payment") {
+      // Validate merchant wallet before processing payment
+      let validatedWallet: string;
+      try {
+        validatedWallet = validateMerchantWallet();
+      } catch (walletError) {
+        console.error("Merchant wallet validation failed:", walletError);
+        return new Response(
+          JSON.stringify({ status: "error", error: "Payment system not configured" }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const { tokenSymbol, itemType } = await req.json();
 
       if (!["WLD", "USDC"].includes(tokenSymbol)) {
@@ -164,7 +192,7 @@ serve(async (req) => {
           status: "success",
           data: {
             referenceId,
-            merchantWallet: MERCHANT_WALLET,
+            merchantWallet: validatedWallet,
             amount,
             tokenSymbol,
             expiresAt: expiresAt.getTime(),
