@@ -1,16 +1,118 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ethers } from "https://esm.sh/ethers@6.13.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ERC-1271 interface for smart contract wallet signature verification
+const ERC1271_ABI = [
+  "function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)"
+];
+const ERC1271_MAGIC_VALUE = "0x1626ba7e";
+
 // Generate a random nonce
 function generateNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Parse SIWE message to extract fields
+function parseSiweMessage(message: string): {
+  domain?: string;
+  address?: string;
+  statement?: string;
+  uri?: string;
+  nonce?: string;
+  issuedAt?: string;
+  expirationTime?: string;
+} {
+  const lines = message.split('\n');
+  const result: Record<string, string> = {};
+  
+  // First line contains domain
+  if (lines[0]) {
+    const domainMatch = lines[0].match(/^(.+) wants you to sign in with your Ethereum account:$/);
+    if (domainMatch) {
+      result.domain = domainMatch[1];
+    }
+  }
+  
+  // Second line contains address
+  if (lines[1]) {
+    result.address = lines[1].trim();
+  }
+  
+  // Parse remaining fields
+  for (const line of lines) {
+    if (line.startsWith('Nonce: ')) {
+      result.nonce = line.slice(7);
+    } else if (line.startsWith('Issued At: ')) {
+      result.issuedAt = line.slice(11);
+    } else if (line.startsWith('Expiration Time: ')) {
+      result.expirationTime = line.slice(17);
+    } else if (line.startsWith('URI: ')) {
+      result.uri = line.slice(5);
+    }
+  }
+  
+  return result;
+}
+
+// Verify signature using ERC-1271 for smart contract wallets
+async function verifyERC1271Signature(
+  address: string, 
+  message: string, 
+  signature: string
+): Promise<boolean> {
+  try {
+    const rpcUrl = Deno.env.get("WORLDCHAIN_RPC_URL") || "https://worldchain-mainnet.g.alchemy.com/public";
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    const contract = new ethers.Contract(address, ERC1271_ABI, provider);
+    const messageHash = ethers.hashMessage(message);
+    
+    const result = await contract.isValidSignature(messageHash, signature);
+    return result === ERC1271_MAGIC_VALUE;
+  } catch (error) {
+    console.log("ERC-1271 verification failed:", error);
+    return false;
+  }
+}
+
+// Verify SIWE signature - supports both EOA and smart contract wallets
+async function verifySiweSignature(
+  address: string,
+  message: string,
+  signature: string
+): Promise<{ valid: boolean; recoveredAddress?: string; error?: string }> {
+  try {
+    // First, try standard EOA signature verification
+    try {
+      const recoveredAddress = ethers.verifyMessage(message, signature);
+      if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+        console.log("EOA signature verified successfully");
+        return { valid: true, recoveredAddress };
+      }
+    } catch (eoaError) {
+      console.log("EOA verification failed, trying ERC-1271:", eoaError);
+    }
+    
+    // If EOA verification fails, try ERC-1271 (smart contract wallet like World App)
+    const isValidContract = await verifyERC1271Signature(address, message, signature);
+    if (isValidContract) {
+      console.log("ERC-1271 signature verified successfully");
+      return { valid: true, recoveredAddress: address };
+    }
+    
+    return { valid: false, error: "Signature verification failed" };
+  } catch (error) {
+    console.error("Signature verification error:", error);
+    return { valid: false, error: "Signature verification error" };
+  }
 }
 
 serve(async (req) => {
@@ -76,6 +178,46 @@ serve(async (req) => {
         );
       }
 
+      // Validate address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return new Response(
+          JSON.stringify({ status: "error", error: "Invalid address format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Parse and validate SIWE message
+      const parsedMessage = parseSiweMessage(message);
+      
+      // Verify address in message matches provided address
+      if (parsedMessage.address?.toLowerCase() !== address.toLowerCase()) {
+        console.log("Address mismatch:", { messageAddress: parsedMessage.address, providedAddress: address });
+        return new Response(
+          JSON.stringify({ status: "error", error: "Address mismatch in message" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify nonce in message matches provided nonce
+      if (parsedMessage.nonce !== nonce) {
+        console.log("Nonce mismatch:", { messageNonce: parsedMessage.nonce, providedNonce: nonce });
+        return new Response(
+          JSON.stringify({ status: "error", error: "Nonce mismatch in message" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check message expiration if present
+      if (parsedMessage.expirationTime) {
+        const expirationDate = new Date(parsedMessage.expirationTime);
+        if (expirationDate < new Date()) {
+          return new Response(
+            JSON.stringify({ status: "error", error: "Message has expired" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       // Verify nonce exists in database and is not expired or consumed
       const { data: nonceData, error: nonceError } = await supabase
         .from("siwe_nonces")
@@ -100,8 +242,21 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // CRITICAL: Verify the signature cryptographically
+      const signatureResult = await verifySiweSignature(address, message, signature);
       
-      // Mark nonce as consumed
+      if (!signatureResult.valid) {
+        console.log("Signature verification failed for address:", address);
+        return new Response(
+          JSON.stringify({ status: "error", error: "Invalid signature" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      console.log("Signature verified successfully for address:", address);
+      
+      // Mark nonce as consumed AFTER successful signature verification
       const { error: consumeError } = await supabase
         .from("siwe_nonces")
         .update({ consumed_at: new Date().toISOString() })
@@ -109,12 +264,11 @@ serve(async (req) => {
 
       if (consumeError) {
         console.error("Failed to consume nonce:", consumeError);
-        // Continue anyway - nonce was valid at check time
+        // Continue anyway - signature was valid
       }
       
       console.log("Nonce consumed successfully:", { nonce: nonce.substring(0, 8) + "..." });
 
-      // For World App, we trust the signature from MiniKit
       const normalizedAddress = address.toLowerCase();
 
       // Check if user exists
