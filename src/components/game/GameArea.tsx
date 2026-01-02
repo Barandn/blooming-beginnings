@@ -238,9 +238,10 @@ const BoosterBar = () => {
 const MirrorEffectOverlay = () => {
   return (
     <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
-      <div className="absolute inset-0 bg-blue-500/10 animate-pulse" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="text-6xl animate-spin-slow">🪞</div>
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-400/20 to-purple-400/20 animate-pulse" />
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full font-bold text-lg shadow-lg flex items-center gap-2">
+        <span className="text-xl">🪞</span>
+        <span>Kartlar görünüyor!</span>
       </div>
     </div>
   );
@@ -351,7 +352,7 @@ const CardComponent = React.memo(({
           {/* Mirror peek overlay - shows emoji on card back */}
           {showMirrorEmoji && (
             <div className="absolute inset-0 flex items-center justify-center mirror-emoji-overlay">
-              <span className="text-3xl opacity-60 drop-shadow-lg">{card.emoji}</span>
+              <span className="text-4xl drop-shadow-lg" style={{ filter: 'brightness(1.1)' }}>{card.emoji}</span>
             </div>
           )}
         </div>

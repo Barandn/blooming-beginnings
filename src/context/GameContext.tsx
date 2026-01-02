@@ -46,7 +46,7 @@ export const BOOSTER_INFO: Record<BoosterType, BoosterInfo> = {
   mirror: {
     id: 'mirror',
     name: 'Ayna',
-    description: '0.5 saniye tüm kartları göster',
+    description: '1 saniye tüm kartları göster',
     icon: '🪞',
     price: 50,
   },
@@ -335,13 +335,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     // Handle each booster type
     switch (boosterType) {
       case 'mirror':
-        // Show all cards for 0.5 seconds (handled in UI component)
+        // Show all cards for 1 second (handled in UI component)
         setTimeout(() => {
           setGame(prev => ({
             ...prev,
             boosterEffects: { ...prev.boosterEffects, mirrorActive: false },
           }));
-        }, 500);
+        }, 1000);
         break;
 
       case 'magnet':
