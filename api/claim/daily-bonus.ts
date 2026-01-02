@@ -1,18 +1,13 @@
 /**
  * POST /api/claim/daily-bonus
- * Claim daily token bonus with World ID verification
- * Enforces 24-hour cooldown and Orb-only policy
+ * Claim daily token bonus with JWT authentication
+ * Enforces 24-hour cooldown
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { z } from 'zod';
 import { db, claimTransactions, dailyBonusClaims } from '../../lib/db/index.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
-import {
-  verifyWorldIDWithOrbPolicy,
-  type WorldIDProof,
-} from '../../lib/services/worldid.js';
 import {
   getTokenDistributionService,
   formatTokenAmount,
@@ -20,21 +15,9 @@ import {
 import { rateLimitCheck } from '../../lib/middleware/rate-limit.js';
 import {
   API_STATUS,
-  WORLD_ID,
   TOKEN_CONFIG,
   ERROR_MESSAGES,
 } from '../../lib/config/constants.js';
-
-// Request validation schema
-const claimSchema = z.object({
-  proof: z.object({
-    proof: z.string(),
-    merkle_root: z.string(),
-    nullifier_hash: z.string(),
-    verification_level: z.enum(['orb', 'device']),
-  }),
-  signal: z.string().optional(),
-});
 
 /**
  * Get today's date string in YYYY-MM-DD format
@@ -126,7 +109,7 @@ export default async function handler(
   if (rateLimited) return rateLimited;
 
   try {
-    // Authenticate user
+    // Authenticate user via JWT
     const auth = await getAuthenticatedUser(req.headers.authorization || null);
     if (!auth.user) {
       return res.status(401).json({
@@ -134,18 +117,6 @@ export default async function handler(
         error: auth.error || ERROR_MESSAGES.UNAUTHORIZED,
       });
     }
-
-    // Validate request body
-    const parseResult = claimSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({
-        status: API_STATUS.ERROR,
-        error: ERROR_MESSAGES.INVALID_REQUEST,
-        details: parseResult.error.errors,
-      });
-    }
-
-    const { proof, signal } = parseResult.data;
 
     // Step 1: Check if already claimed today
     const alreadyClaimed = await hasClaimedToday(auth.user.id);
@@ -171,31 +142,7 @@ export default async function handler(
       });
     }
 
-    // Step 3: Verify World ID proof for this claim
-    const verifyResult = await verifyWorldIDWithOrbPolicy(
-      proof as WorldIDProof,
-      WORLD_ID.dailyBonusAction,
-      signal || auth.user.walletAddress
-    );
-
-    if (!verifyResult.success) {
-      return res.status(400).json({
-        status: API_STATUS.ERROR,
-        error: verifyResult.error,
-        errorCode: verifyResult.errorCode,
-      });
-    }
-
-    // Step 4: Verify nullifier matches user
-    if (verifyResult.nullifier_hash !== auth.user.nullifierHash) {
-      return res.status(400).json({
-        status: API_STATUS.ERROR,
-        error: 'World ID does not match registered user',
-        errorCode: 'nullifier_mismatch',
-      });
-    }
-
-    // Step 5: Create pending transaction record
+    // Step 3: Create pending transaction record
     const [transaction] = await db
       .insert(claimTransactions)
       .values({
@@ -207,7 +154,7 @@ export default async function handler(
       } as typeof claimTransactions.$inferInsert)
       .returning();
 
-    // Step 6: Execute token transfer
+    // Step 4: Execute token transfer
     const distributionService = getTokenDistributionService();
 
     if (!distributionService.isReady()) {
@@ -261,7 +208,7 @@ export default async function handler(
       });
     }
 
-    // Step 7: Update transaction as confirmed
+    // Step 5: Update transaction as confirmed
     await db
       .update(claimTransactions)
       .set({
@@ -272,7 +219,7 @@ export default async function handler(
       } as Partial<typeof claimTransactions.$inferInsert>)
       .where(eq(claimTransactions.id, transaction.id));
 
-    // Step 8: Record daily bonus claim
+    // Step 6: Record daily bonus claim
     await db.insert(dailyBonusClaims).values({
       userId: auth.user.id,
       claimDate: getTodayDate(),

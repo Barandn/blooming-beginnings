@@ -22,34 +22,6 @@ export function getMiniKit() {
   return MiniKit;
 }
 
-// Verification levels
-export const VerificationLevel = {
-  Orb: 'orb',
-  Device: 'device',
-} as const;
-
-export type VerificationLevelType = typeof VerificationLevel[keyof typeof VerificationLevel];
-
-// Verify command types
-export interface VerifyCommandInput {
-  action: string;
-  signal?: string;
-  verification_level?: VerificationLevelType;
-}
-
-export interface VerifyCommandResult {
-  status: 'success' | 'error';
-  proof?: string;
-  merkle_root?: string;
-  nullifier_hash?: string;
-  verification_level?: VerificationLevelType;
-  version?: number;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
 // Wallet auth types
 export interface WalletAuthInput {
   nonce: string;
@@ -106,42 +78,6 @@ export interface SendTransactionResult {
     code: string;
     message: string;
   };
-}
-
-/**
- * Request World ID verification
- * Triggers the World App verification flow
- */
-export async function requestVerification(
-  action: string,
-  signal?: string
-): Promise<VerifyCommandResult> {
-  const minikit = getMiniKit();
-
-  try {
-    const result = await minikit.commandsAsync.verify({
-      action,
-      signal,
-      verification_level: 'orb' as any, // Enforce Orb-only
-    });
-    
-    return {
-      status: 'success',
-      proof: (result.finalPayload as any)?.proof,
-      merkle_root: (result.finalPayload as any)?.merkle_root,
-      nullifier_hash: (result.finalPayload as any)?.nullifier_hash,
-      verification_level: (result.finalPayload as any)?.verification_level,
-    };
-  } catch (error) {
-    console.error('Verification request failed:', error);
-    return {
-      status: 'error',
-      error: {
-        code: 'request_failed',
-        message: error instanceof Error ? error.message : 'Verification request failed',
-      },
-    };
-  }
 }
 
 /**

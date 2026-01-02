@@ -7,12 +7,9 @@ import { Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
 import {
   isMiniKitAvailable,
   isInWorldApp,
-  requestVerification,
   getMiniKit,
-  type VerifyCommandResult,
 } from './index';
 import {
-  verifyWorldID,
   getUserProfile,
   claimDailyBonus,
   isAuthenticated,
@@ -22,7 +19,6 @@ import {
   initiatePayment,
   purchaseBarnGameAttempts,
   type UserProfileResponse,
-  type WorldIDProof,
   type BarnGameStatusResponse,
 } from './api';
 
@@ -55,82 +51,6 @@ export function useMiniKit(): UseMiniKitReturn {
   }, []);
 
   return { isAvailable, isInApp, isLoading };
-}
-
-// ============================
-// useWorldIDAuth Hook
-// ============================
-
-interface UseWorldIDAuthReturn {
-  isAuthenticated: boolean;
-  isVerifying: boolean;
-  user: ReturnType<typeof getStoredUser>;
-  error: string | null;
-  verify: (walletAddress: string) => Promise<boolean>;
-  logout: () => void;
-}
-
-export function useWorldIDAuth(): UseWorldIDAuthReturn {
-  const [isAuth, setIsAuth] = useState(isAuthenticated());
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [user, setUser] = useState(getStoredUser());
-  const [error, setError] = useState<string | null>(null);
-
-  const verify = useCallback(async (walletAddress: string): Promise<boolean> => {
-    setIsVerifying(true);
-    setError(null);
-
-    try {
-      const verifyResult = await requestVerification('verify-human', walletAddress);
-
-      if (verifyResult.status !== 'success' || !verifyResult.proof) {
-        setError(verifyResult.error?.message || 'Verification failed');
-        return false;
-      }
-
-      const proof: WorldIDProof = {
-        proof: verifyResult.proof,
-        merkle_root: verifyResult.merkle_root!,
-        nullifier_hash: verifyResult.nullifier_hash!,
-        verification_level: verifyResult.verification_level as 'orb' | 'device',
-      };
-
-      const result = await verifyWorldID({
-        proof,
-        walletAddress,
-      });
-
-      if (result.status !== 'success' || !result.data) {
-        setError(result.error || 'Backend verification failed');
-        return false;
-      }
-
-      setUser(result.data.user);
-      setIsAuth(true);
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return false;
-    } finally {
-      setIsVerifying(false);
-    }
-  }, []);
-
-  const logout = useCallback(() => {
-    clearAuthState();
-    setUser(null);
-    setIsAuth(false);
-    setError(null);
-  }, []);
-
-  return {
-    isAuthenticated: isAuth,
-    isVerifying,
-    user,
-    error,
-    verify,
-    logout,
-  };
 }
 
 // ============================
@@ -192,7 +112,7 @@ interface UseDailyBonusReturn {
   amount: string;
   isClaiming: boolean;
   error: string | null;
-  claim: (walletAddress: string) => Promise<{
+  claim: () => Promise<{
     success: boolean;
     txHash?: string;
     explorerUrl?: string;
@@ -225,29 +145,13 @@ export function useDailyBonus(profile: UserProfileResponse | null): UseDailyBonu
     return () => clearInterval(interval);
   }, [profile?.dailyBonus]);
 
-  const claim = useCallback(async (walletAddress: string) => {
+  const claim = useCallback(async () => {
     setIsClaiming(true);
     setError(null);
 
     try {
-      const verifyResult = await requestVerification('claim-daily-bonus', walletAddress);
-
-      if (verifyResult.status !== 'success' || !verifyResult.proof) {
-        setError(verifyResult.error?.message || 'Verification failed');
-        return { success: false };
-      }
-
-      const proof: WorldIDProof = {
-        proof: verifyResult.proof,
-        merkle_root: verifyResult.merkle_root!,
-        nullifier_hash: verifyResult.nullifier_hash!,
-        verification_level: verifyResult.verification_level as 'orb' | 'device',
-      };
-
-      const result = await claimDailyBonus({
-        proof,
-        signal: walletAddress,
-      });
+      // Daily bonus now uses JWT auth instead of deprecated World ID
+      const result = await claimDailyBonus();
 
       if (result.status !== 'success' || !result.data) {
         setError(result.error || 'Claim failed');
