@@ -1,8 +1,9 @@
-import { Coins } from "lucide-react";
 import { useGame } from "@/context/GameContext";
+import { useProfile } from "@/hooks/useProfile";
 
 const GameHeader = () => {
   const { user } = useGame();
+  const { profile } = useProfile();
 
   const formatId = (id: string) => {
     if (!id || id === "guest") return "Guest";
@@ -11,6 +12,9 @@ const GameHeader = () => {
     }
     return id;
   };
+
+  // Format token balance for display
+  const tokenBalance = profile?.stats?.totalTokensClaimed || "0";
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 px-4 py-4 bg-gradient-to-b from-black/80 to-transparent">
@@ -30,14 +34,27 @@ const GameHeader = () => {
             </div>
         </div>
 
-        {/* Coins (Single Currency) */}
-        <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
-            <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center shadow-inner">
-                <span className="text-black font-bold text-xs">$</span>
-            </div>
-            <span className="font-bold text-white text-lg font-mono">
-                {user.coins.toLocaleString()}
-            </span>
+        {/* Currency Display */}
+        <div className="flex items-center gap-2">
+          {/* Token Balance (Blockchain) */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/40 to-blue-600/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-purple-400/30 shadow-lg">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 flex items-center justify-center shadow-inner">
+                  <span className="text-white font-bold text-[10px]">B</span>
+              </div>
+              <span className="font-bold text-white text-sm font-mono">
+                  {parseFloat(tokenBalance).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+          </div>
+
+          {/* Game Coins (Local) */}
+          <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+              <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center shadow-inner">
+                  <span className="text-black font-bold text-[10px]">$</span>
+              </div>
+              <span className="font-bold text-white text-sm font-mono">
+                  {user.coins.toLocaleString()}
+              </span>
+          </div>
         </div>
       </div>
     </div>

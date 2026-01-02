@@ -125,11 +125,13 @@ export const SECURITY_CONFIG = {
 export const BARN_GAME_CONFIG = {
   // Play Pass pricing - 1 WLD for 1 hour unlimited play
   purchasePriceWLD: '1', // 1 WLD for Play Pass
+  purchasePriceUSDC: '1', // 1 USDC for Play Pass (fallback)
   playPassDuration: 1 * 60 * 60 * 1000, // 1 hour in ms
   cooldownDuration: 12 * 60 * 60 * 1000, // 12 hours cooldown in ms
   // Token addresses on World Chain
   tokenAddresses: {
     WLD: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', // WLD on World Chain
+    USDC: '0x79A02482A880bCE3F13e09Da970dC34db4CD24d1', // USDC on World Chain
   },
   // Recipient wallet for payments
   recipientAddress: process.env.BARN_GAME_RECIPIENT_ADDRESS || '',
@@ -142,6 +144,7 @@ export const GAME_VALIDATION = {
     rewardPerMatch: 500, // BNG coins
     minTimeBetweenFlips: 500, // ms
     maxGamesPerHour: 60, // Anti-cheat: max games in 1 hour with Play Pass
+    maxAttempts: 100, // Max daily attempts (alias for backward compatibility)
   },
 
   // Score bounds for validation

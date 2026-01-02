@@ -1,6 +1,7 @@
 /**
  * POST /api/scores/submit
  * Submit game score with server-side validation
+ * Distributes token rewards on successful game completion
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -8,7 +9,10 @@ import { z } from 'zod';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import { validateAndSaveScore, type ScoreSubmission } from '../../lib/services/score-validation.js';
 import { clearLeaderboardCache } from '../../lib/services/leaderboard.js';
-import { API_STATUS, ERROR_MESSAGES } from '../../lib/config/constants.js';
+import { getTokenDistributionService, formatTokenAmount } from '../../lib/services/token-distribution.js';
+import { db, claimTransactions } from '../../lib/db/index.js';
+import { eq } from 'drizzle-orm';
+import { API_STATUS, ERROR_MESSAGES, TOKEN_CONFIG } from '../../lib/config/constants.js';
 
 // Request validation schema
 const scoreSchema = z.object({
@@ -91,6 +95,75 @@ export default async function handler(
     // Clear leaderboard cache since scores changed
     clearLeaderboardCache();
 
+    // Distribute game reward tokens
+    let rewardTxHash: string | undefined;
+    let rewardAmount: string | undefined;
+    let rewardError: string | undefined;
+
+    if (result.score && data.score > 0) {
+      try {
+        const distributionService = getTokenDistributionService();
+
+        if (distributionService.isReady()) {
+          // Calculate reward amount based on score
+          const rewardAmountWei = (BigInt(data.score) * TOKEN_CONFIG.gameRewardMultiplier).toString();
+
+          // Create pending transaction record
+          const [transaction] = await db
+            .insert(claimTransactions)
+            .values({
+              userId: auth.user.id,
+              claimType: 'game_reward',
+              amount: rewardAmountWei,
+              tokenAddress: TOKEN_CONFIG.tokenAddress,
+              status: 'pending',
+            } as typeof claimTransactions.$inferInsert)
+            .returning();
+
+          // Execute token transfer
+          const transferResult = await distributionService.distributeGameReward(
+            auth.user.walletAddress,
+            data.score,
+            auth.user.id
+          );
+
+          if (transferResult.success) {
+            // Update transaction as confirmed
+            await db
+              .update(claimTransactions)
+              .set({
+                status: 'confirmed',
+                txHash: transferResult.txHash,
+                blockNumber: transferResult.blockNumber,
+                confirmedAt: new Date(),
+              } as Partial<typeof claimTransactions.$inferInsert>)
+              .where(eq(claimTransactions.id, transaction.id));
+
+            rewardTxHash = transferResult.txHash;
+            rewardAmount = formatTokenAmount(rewardAmountWei);
+          } else {
+            // Update transaction as failed
+            await db
+              .update(claimTransactions)
+              .set({
+                status: 'failed',
+                errorMessage: transferResult.error,
+              } as Partial<typeof claimTransactions.$inferInsert>)
+              .where(eq(claimTransactions.id, transaction.id));
+
+            rewardError = transferResult.error;
+            console.error('Game reward distribution failed:', transferResult.error);
+          }
+        } else {
+          console.warn('Token distribution service not ready - skipping game reward');
+          rewardError = 'Token distribution not configured';
+        }
+      } catch (rewardErr) {
+        console.error('Error distributing game reward:', rewardErr);
+        rewardError = 'Failed to distribute reward';
+      }
+    }
+
     return res.status(200).json({
       status: API_STATUS.SUCCESS,
       data: {
@@ -99,6 +172,12 @@ export default async function handler(
         monthlyProfit: result.score?.monthlyProfit,
         leaderboardPeriod: result.score?.leaderboardPeriod,
         flags: result.flags,
+        reward: rewardTxHash ? {
+          amount: rewardAmount,
+          txHash: rewardTxHash,
+          explorerUrl: `https://worldscan.org/tx/${rewardTxHash}`,
+        } : undefined,
+        rewardError,
       },
     });
   } catch (error) {
