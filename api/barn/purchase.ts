@@ -1,6 +1,9 @@
 /**
  * POST /api/barn/purchase
- * Verify World App payment and grant game attempts
+ * Verify World App payment and grant Play Pass (1 hour unlimited play)
+ *
+ * Play Pass System:
+ * - 1 WLD = 1 hour unlimited play
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -20,7 +23,7 @@ import {
 const purchaseSchema = z.object({
   paymentReference: z.string().min(1),
   transactionId: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction ID format'),
-  tokenSymbol: z.enum(['WLD', 'USDC']),
+  tokenSymbol: z.literal('WLD'), // Only WLD supported for Play Pass
 });
 
 export default async function handler(
@@ -152,10 +155,10 @@ export default async function handler(
       });
     }
 
-    // Get purchase price based on token
-    const amount = tokenSymbol === 'WLD'
-      ? BARN_GAME_CONFIG.purchasePriceWLD
-      : BARN_GAME_CONFIG.purchasePriceUSDC;
+    const amount = BARN_GAME_CONFIG.purchasePriceWLD;
+    const playPassDuration = BARN_GAME_CONFIG.playPassDuration;
+    const now = Date.now();
+    const playPassExpiresAt = new Date(now + playPassDuration);
 
     // Mark payment reference as used
     await db
@@ -173,39 +176,39 @@ export default async function handler(
         amount: paymentVerification.amount || amount,
         tokenSymbol,
         status: 'confirmed',
-        attemptsGranted: BARN_GAME_CONFIG.attemptsPerPurchase,
+        playPassDurationMs: playPassDuration,
         confirmedAt: new Date(),
       } as typeof barnGamePurchases.$inferInsert)
       .returning();
 
-    // Get or create barn game attempts record
-    const [existingAttempts] = await db
+    // Get or create barn game record
+    const [existingRecord] = await db
       .select()
       .from(barnGameAttempts)
       .where(eq(barnGameAttempts.userId, auth.user.id))
       .limit(1);
 
-    if (existingAttempts) {
-      // Reset attempts and clear cooldown
+    if (existingRecord) {
+      // Grant Play Pass - clear cooldown and set expiration
       await db
         .update(barnGameAttempts)
         .set({
-          attemptsRemaining: BARN_GAME_CONFIG.attemptsPerPurchase,
-          cooldownStartedAt: null,
+          playPassExpiresAt,
+          playPassPurchasedAt: new Date(),
           cooldownEndsAt: null,
+          freeGameUsed: false,
           hasActiveGame: false,
-          totalCoinsWonToday: 0,
-          matchesFoundToday: 0,
           updatedAt: new Date(),
         } as Partial<typeof barnGameAttempts.$inferInsert>)
         .where(eq(barnGameAttempts.userId, auth.user.id));
     } else {
-      // Create new record
+      // Create new record with Play Pass
       await db
         .insert(barnGameAttempts)
         .values({
           userId: auth.user.id,
-          attemptsRemaining: BARN_GAME_CONFIG.attemptsPerPurchase,
+          playPassExpiresAt,
+          playPassPurchasedAt: new Date(),
         } as typeof barnGameAttempts.$inferInsert);
     }
 
@@ -213,8 +216,9 @@ export default async function handler(
       status: API_STATUS.SUCCESS,
       data: {
         purchaseId: purchase.id,
-        attemptsGranted: BARN_GAME_CONFIG.attemptsPerPurchase,
-        message: 'Game attempts successfully refilled!',
+        playPassExpiresAt: playPassExpiresAt.getTime(),
+        playPassDurationMs: playPassDuration,
+        message: 'Play Pass activated! You have 1 hour of unlimited play.',
       },
     });
   } catch (error) {

@@ -1,6 +1,10 @@
 /**
  * GET /api/barn/status
- * Get user's barn game status including attempts and cooldown
+ * Get user's barn game status including Play Pass and cooldown
+ *
+ * Play Pass System:
+ * - 1 WLD = 1 hour unlimited play
+ * - Or wait 12 hours cooldown for 1 free game
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -35,8 +39,8 @@ export default async function handler(
       });
     }
 
-    // Get barn game attempts record
-    const [attempts] = await db
+    // Get barn game record
+    const [record] = await db
       .select()
       .from(barnGameAttempts)
       .where(eq(barnGameAttempts.userId, auth.user.id))
@@ -44,85 +48,103 @@ export default async function handler(
 
     const now = Date.now();
 
-    // If no record exists, user has full attempts
-    if (!attempts) {
+    // If no record exists, user can play (first free game)
+    if (!record) {
       return res.status(200).json({
         status: API_STATUS.SUCCESS,
         data: {
-          attemptsRemaining: BARN_GAME_CONFIG.attemptsPerPurchase,
+          hasActivePass: false,
+          playPassExpiresAt: null,
+          playPassRemainingMs: 0,
           isInCooldown: false,
           cooldownEndsAt: null,
           cooldownRemainingMs: 0,
+          freeGameAvailable: true,
+          canPlay: true,
           totalCoinsWonToday: 0,
           matchesFoundToday: 0,
-          canPlay: true,
           purchasePrice: {
             WLD: BARN_GAME_CONFIG.purchasePriceWLD,
-            USDC: BARN_GAME_CONFIG.purchasePriceUSDC,
           },
+          playPassDurationMs: BARN_GAME_CONFIG.playPassDuration,
         },
       });
+    }
+
+    // Check if Play Pass is active
+    let hasActivePass = false;
+    let playPassRemainingMs = 0;
+    let playPassExpiresAtMs: number | null = null;
+
+    if (record.playPassExpiresAt) {
+      const passExpireTime = new Date(record.playPassExpiresAt).getTime();
+      if (now < passExpireTime) {
+        hasActivePass = true;
+        playPassRemainingMs = passExpireTime - now;
+        playPassExpiresAtMs = passExpireTime;
+      }
     }
 
     // Check if cooldown is active
     let isInCooldown = false;
     let cooldownRemainingMs = 0;
+    let cooldownEndsAtMs: number | null = null;
+    let freeGameAvailable = false;
 
-    if (attempts.cooldownEndsAt) {
-      const cooldownEndTime = new Date(attempts.cooldownEndsAt).getTime();
-      if (now < cooldownEndTime) {
-        isInCooldown = true;
-        cooldownRemainingMs = cooldownEndTime - now;
+    if (!hasActivePass) {
+      if (record.cooldownEndsAt) {
+        const cooldownEndTime = new Date(record.cooldownEndsAt).getTime();
+        if (now < cooldownEndTime) {
+          // Cooldown is still active
+          isInCooldown = true;
+          cooldownRemainingMs = cooldownEndTime - now;
+          cooldownEndsAtMs = cooldownEndTime;
+        } else {
+          // Cooldown expired - reset for free game
+          freeGameAvailable = !record.freeGameUsed;
+
+          // If cooldown expired and free game was used, reset the cycle
+          if (record.freeGameUsed) {
+            await db
+              .update(barnGameAttempts)
+              .set({
+                freeGameUsed: false,
+                cooldownEndsAt: null,
+                totalCoinsWonToday: 0,
+                matchesFoundToday: 0,
+                updatedAt: new Date(),
+              } as Partial<typeof barnGameAttempts.$inferInsert>)
+              .where(eq(barnGameAttempts.userId, auth.user.id));
+
+            freeGameAvailable = true;
+          }
+        }
       } else {
-        // Cooldown expired - reset attempts
-        await db
-          .update(barnGameAttempts)
-          .set({
-            attemptsRemaining: BARN_GAME_CONFIG.attemptsPerPurchase,
-            cooldownStartedAt: null,
-            cooldownEndsAt: null,
-            hasActiveGame: false,
-            totalCoinsWonToday: 0,
-            matchesFoundToday: 0,
-            updatedAt: new Date(),
-          } as Partial<typeof barnGameAttempts.$inferInsert>)
-          .where(eq(barnGameAttempts.userId, auth.user.id));
-
-        return res.status(200).json({
-          status: API_STATUS.SUCCESS,
-          data: {
-            attemptsRemaining: BARN_GAME_CONFIG.attemptsPerPurchase,
-            isInCooldown: false,
-            cooldownEndsAt: null,
-            cooldownRemainingMs: 0,
-            totalCoinsWonToday: 0,
-            matchesFoundToday: 0,
-            canPlay: true,
-            purchasePrice: {
-              WLD: BARN_GAME_CONFIG.purchasePriceWLD,
-              USDC: BARN_GAME_CONFIG.purchasePriceUSDC,
-            },
-          },
-        });
+        // No cooldown set - free game is available if not used
+        freeGameAvailable = !record.freeGameUsed;
       }
     }
 
-    const canPlay = !isInCooldown && attempts.attemptsRemaining > 0;
+    // Determine if user can play
+    const canPlay = hasActivePass || freeGameAvailable;
 
     return res.status(200).json({
       status: API_STATUS.SUCCESS,
       data: {
-        attemptsRemaining: attempts.attemptsRemaining,
+        hasActivePass,
+        playPassExpiresAt: playPassExpiresAtMs,
+        playPassRemainingMs,
         isInCooldown,
-        cooldownEndsAt: attempts.cooldownEndsAt ? new Date(attempts.cooldownEndsAt).getTime() : null,
+        cooldownEndsAt: cooldownEndsAtMs,
         cooldownRemainingMs,
-        totalCoinsWonToday: attempts.totalCoinsWonToday,
-        matchesFoundToday: attempts.matchesFoundToday,
+        freeGameAvailable,
         canPlay,
+        totalCoinsWonToday: record.totalCoinsWonToday,
+        matchesFoundToday: record.matchesFoundToday,
         purchasePrice: {
           WLD: BARN_GAME_CONFIG.purchasePriceWLD,
-          USDC: BARN_GAME_CONFIG.purchasePriceUSDC,
         },
+        playPassDurationMs: BARN_GAME_CONFIG.playPassDuration,
       },
     });
   } catch (error) {

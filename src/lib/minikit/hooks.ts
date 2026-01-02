@@ -360,14 +360,13 @@ export function useBarnGameStatus(): UseBarnGameStatusReturn {
 }
 
 // ============================
-// useBarnGamePurchase Hook
+// useBarnGamePurchase Hook (Play Pass)
 // ============================
 
 interface UseBarnGamePurchaseReturn {
   isPurchasing: boolean;
   error: string | null;
-  purchaseWithWLD: () => Promise<boolean>;
-  purchaseWithUSDC: () => Promise<boolean>;
+  purchasePlayPass: () => Promise<boolean>;
 }
 
 export function useBarnGamePurchase(
@@ -376,7 +375,7 @@ export function useBarnGamePurchase(
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const executePurchase = useCallback(async (tokenSymbol: 'WLD' | 'USDC'): Promise<boolean> => {
+  const purchasePlayPass = useCallback(async (): Promise<boolean> => {
     setIsPurchasing(true);
     setError(null);
 
@@ -389,8 +388,8 @@ export function useBarnGamePurchase(
       const minikit = getMiniKit();
 
       const initResult = await initiatePayment({
-        tokenSymbol,
-        itemType: 'barn_game_attempts',
+        tokenSymbol: 'WLD',
+        itemType: 'play_pass',
       });
 
       if (initResult.status !== 'success' || !initResult.data) {
@@ -400,23 +399,22 @@ export function useBarnGamePurchase(
 
       const { referenceId, merchantWallet, amount } = initResult.data;
 
-      const tokenEnum = tokenSymbol === 'WLD' ? Tokens.WLD : Tokens.USDC;
-      const tokenAmountDecimal = tokenToDecimals(parseFloat(amount), tokenEnum).toString();
+      const tokenAmountDecimal = tokenToDecimals(parseFloat(amount), Tokens.WLD).toString();
 
       const payResult = await minikit.commandsAsync.pay({
         reference: referenceId,
         to: merchantWallet,
         tokens: [
           {
-            symbol: tokenEnum,
+            symbol: Tokens.WLD,
             token_amount: tokenAmountDecimal,
           },
         ],
-        description: 'Card Game - 10 Matching Attempts',
+        description: 'Play Pass - 1 Hour Unlimited Play',
       });
 
       const payPayload = payResult.finalPayload as any;
-      
+
       if (!payPayload?.transaction_id) {
         setError('Payment failed');
         return false;
@@ -425,7 +423,7 @@ export function useBarnGamePurchase(
       const verifyResult = await purchaseBarnGameAttempts({
         paymentReference: referenceId,
         transactionId: payPayload.transaction_id,
-        tokenSymbol,
+        tokenSymbol: 'WLD',
       });
 
       if (verifyResult.status !== 'success') {
@@ -447,13 +445,9 @@ export function useBarnGamePurchase(
     }
   }, [onPurchaseSuccess]);
 
-  const purchaseWithWLD = useCallback(() => executePurchase('WLD'), [executePurchase]);
-  const purchaseWithUSDC = useCallback(() => executePurchase('USDC'), [executePurchase]);
-
   return {
     isPurchasing,
     error,
-    purchaseWithWLD,
-    purchaseWithUSDC,
+    purchasePlayPass,
   };
 }

@@ -253,9 +253,10 @@ export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) =
 }));
 
 /**
- * Barn Game Attempts Table
- * Tracks card matching game attempts and cooldowns
- * Supports instant refill via payment
+ * Barn Game Play Pass Table
+ * Tracks Play Pass system for card matching game
+ * - 1 WLD = 1 hour unlimited play
+ * - Or wait 12 hours cooldown for 1 free game
  */
 export const barnGameAttempts = pgTable('barn_game_attempts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -263,14 +264,17 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
   // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 
-  // Current attempts remaining (max 10)
-  attemptsRemaining: integer('attempts_remaining').notNull().default(10),
+  // Play Pass expiration time (null if no active pass)
+  playPassExpiresAt: timestamp('play_pass_expires_at'),
 
-  // When attempts were last used up (null if attempts available)
-  cooldownStartedAt: timestamp('cooldown_started_at'),
+  // When Play Pass was purchased
+  playPassPurchasedAt: timestamp('play_pass_purchased_at'),
 
-  // When cooldown ends (24 hours after cooldown started)
+  // When cooldown ends (12 hours after free game used)
   cooldownEndsAt: timestamp('cooldown_ends_at'),
+
+  // Whether free game was used in current cycle (resets when cooldown ends)
+  freeGameUsed: boolean('free_game_used').notNull().default(false),
 
   // Last game played date (YYYY-MM-DD format)
   lastPlayedDate: varchar('last_played_date', { length: 10 }),
@@ -293,7 +297,7 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
 
 /**
  * Barn Game Purchases Table
- * Records when users pay to refill attempts
+ * Records when users purchase Play Pass
  */
 export const barnGamePurchases = pgTable('barn_game_purchases', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -307,17 +311,17 @@ export const barnGamePurchases = pgTable('barn_game_purchases', {
   // Transaction ID from World App
   transactionId: varchar('transaction_id', { length: 100 }),
 
-  // Amount paid (in WLD or USDC)
+  // Amount paid (in WLD)
   amount: text('amount').notNull(),
 
-  // Token symbol (WLD, USDC)
+  // Token symbol (WLD)
   tokenSymbol: varchar('token_symbol', { length: 10 }).notNull(),
 
   // Status of purchase
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 
-  // Attempts granted
-  attemptsGranted: integer('attempts_granted').notNull().default(10),
+  // Play Pass duration granted in milliseconds (1 hour = 3600000)
+  playPassDurationMs: bigint('play_pass_duration_ms', { mode: 'number' }).notNull().default(3600000),
 
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),

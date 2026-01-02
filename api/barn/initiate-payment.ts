@@ -2,6 +2,9 @@
  * POST /api/barn/initiate-payment
  * Creates a secure payment reference ID for World App payments
  *
+ * Play Pass System:
+ * - 1 WLD = 1 hour unlimited play
+ *
  * This endpoint follows World App MiniKit best practices:
  * - Reference IDs are generated server-side (prevents manipulation)
  * - Includes expiration time to prevent replay attacks
@@ -22,8 +25,8 @@ import { randomBytes } from 'crypto';
 
 // Request validation schema
 const initiatePaymentSchema = z.object({
-  tokenSymbol: z.enum(['WLD', 'USDC']),
-  itemType: z.literal('barn_game_attempts'),
+  tokenSymbol: z.literal('WLD'), // Only WLD supported for Play Pass
+  itemType: z.literal('play_pass'),
 });
 
 // Payment reference expiration time (5 minutes)
@@ -82,10 +85,8 @@ export default async function handler(
     // Format matches World App expected format
     const referenceId = randomBytes(16).toString('hex');
 
-    // Get price based on token
-    const amount = tokenSymbol === 'WLD'
-      ? BARN_GAME_CONFIG.purchasePriceWLD
-      : BARN_GAME_CONFIG.purchasePriceUSDC;
+    // Get price (1 WLD for Play Pass)
+    const amount = BARN_GAME_CONFIG.purchasePriceWLD;
 
     // Calculate expiration time
     const expiresAt = Date.now() + REFERENCE_EXPIRY_MS;
@@ -111,6 +112,7 @@ export default async function handler(
         amount,
         tokenSymbol,
         expiresAt,
+        playPassDurationMs: BARN_GAME_CONFIG.playPassDuration,
       },
     });
   } catch (error) {
