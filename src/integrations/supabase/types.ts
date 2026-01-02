@@ -16,9 +16,10 @@ export type Database = {
     Tables: {
       barn_game_attempts: {
         Row: {
-          attempts_remaining: number
+          play_pass_expires_at: string | null
+          play_pass_purchased_at: string | null
           cooldown_ends_at: string | null
-          cooldown_started_at: string | null
+          free_game_used: boolean
           created_at: string
           has_active_game: boolean
           id: string
@@ -29,9 +30,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          attempts_remaining?: number
+          play_pass_expires_at?: string | null
+          play_pass_purchased_at?: string | null
           cooldown_ends_at?: string | null
-          cooldown_started_at?: string | null
+          free_game_used?: boolean
           created_at?: string
           has_active_game?: boolean
           id?: string
@@ -42,9 +44,10 @@ export type Database = {
           user_id: string
         }
         Update: {
-          attempts_remaining?: number
+          play_pass_expires_at?: string | null
+          play_pass_purchased_at?: string | null
           cooldown_ends_at?: string | null
-          cooldown_started_at?: string | null
+          free_game_used?: boolean
           created_at?: string
           has_active_game?: boolean
           id?: string
@@ -67,7 +70,7 @@ export type Database = {
       barn_game_purchases: {
         Row: {
           amount: string
-          attempts_granted: number
+          play_pass_duration_ms: number
           confirmed_at: string | null
           created_at: string
           id: string
@@ -79,7 +82,7 @@ export type Database = {
         }
         Insert: {
           amount: string
-          attempts_granted?: number
+          play_pass_duration_ms?: number
           confirmed_at?: string | null
           created_at?: string
           id?: string
@@ -91,7 +94,7 @@ export type Database = {
         }
         Update: {
           amount?: string
-          attempts_granted?: number
+          play_pass_duration_ms?: number
           confirmed_at?: string | null
           created_at?: string
           id?: string

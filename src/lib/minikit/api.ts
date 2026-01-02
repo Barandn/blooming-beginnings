@@ -427,21 +427,24 @@ export function clearAuthState(): void {
 }
 
 // ============================
-// Barn Game API
+// Barn Game API (Play Pass System)
 // ============================
 
 export interface BarnGameStatusResponse {
-  attemptsRemaining: number;
+  hasActivePass: boolean;
+  playPassExpiresAt: number | null;
+  playPassRemainingMs: number;
   isInCooldown: boolean;
   cooldownEndsAt: number | null;
   cooldownRemainingMs: number;
+  freeGameAvailable: boolean;
+  canPlay: boolean;
   totalCoinsWonToday: number;
   matchesFoundToday: number;
-  canPlay: boolean;
   purchasePrice: {
     WLD: string;
-    USDC: string;
   };
+  playPassDurationMs: number;
 }
 
 export async function getBarnGameStatus(): Promise<ApiResponse<BarnGameStatusResponse>> {
@@ -450,16 +453,17 @@ export async function getBarnGameStatus(): Promise<ApiResponse<BarnGameStatusRes
 
 // Initiate payment - gets reference ID from backend (secure)
 export interface InitiatePaymentRequest {
-  tokenSymbol: 'WLD' | 'USDC';
-  itemType: 'barn_game_attempts';
+  tokenSymbol: 'WLD';
+  itemType: 'play_pass';
 }
 
 export interface InitiatePaymentResponse {
   referenceId: string;
   merchantWallet: string;
   amount: string;
-  tokenSymbol: 'WLD' | 'USDC';
+  tokenSymbol: 'WLD';
   expiresAt: number;
+  playPassDurationMs: number;
 }
 
 export async function initiatePayment(
@@ -474,12 +478,13 @@ export async function initiatePayment(
 export interface BarnGamePurchaseRequest {
   paymentReference: string;
   transactionId: string;
-  tokenSymbol: 'WLD' | 'USDC';
+  tokenSymbol: 'WLD';
 }
 
 export interface BarnGamePurchaseResponse {
   purchaseId: string;
-  attemptsGranted: number;
+  playPassExpiresAt: number;
+  playPassDurationMs: number;
   message: string;
 }
 
@@ -489,5 +494,21 @@ export async function purchaseBarnGameAttempts(
   return apiCall<BarnGamePurchaseResponse>('/barn/purchase', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+// Use free game - starts 12h cooldown
+export interface UseFreeGameResponse {
+  freeGameUsed?: boolean;
+  hasActivePass?: boolean;
+  playPassExpiresAt?: number;
+  cooldownEndsAt?: number;
+  cooldownDurationMs?: number;
+  message: string;
+}
+
+export async function useFreeGame(): Promise<ApiResponse<UseFreeGameResponse>> {
+  return apiCall<UseFreeGameResponse>('/barn/use-free-game', {
+    method: 'POST',
   });
 }

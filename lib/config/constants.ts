@@ -121,17 +121,15 @@ export const SECURITY_CONFIG = {
   minGameActionTime: 1,
 } as const;
 
-// Barn Game Purchase Configuration
+// Barn Game Play Pass Configuration
 export const BARN_GAME_CONFIG = {
-  // Purchase prices for attempt refill (cooldown reset)
-  purchasePriceWLD: '0.03', // 0.03 WLD to reset 12h cooldown
-  purchasePriceUSDC: '0.10', // 0.10 USDC to reset 12h cooldown
-  attemptsPerPurchase: 10,
-  cooldownDuration: 12 * 60 * 60 * 1000, // 12 hours in ms
+  // Play Pass pricing - 1 WLD for 1 hour unlimited play
+  purchasePriceWLD: '1', // 1 WLD for Play Pass
+  playPassDuration: 1 * 60 * 60 * 1000, // 1 hour in ms
+  cooldownDuration: 12 * 60 * 60 * 1000, // 12 hours cooldown in ms
   // Token addresses on World Chain
   tokenAddresses: {
     WLD: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', // WLD on World Chain
-    USDC: '0x79A02482A880bCE3F13e09Da970dC34db4CD24d1', // USDC on World Chain
   },
   // Recipient wallet for payments
   recipientAddress: process.env.BARN_GAME_RECIPIENT_ADDRESS || '',
@@ -141,17 +139,16 @@ export const BARN_GAME_CONFIG = {
 export const GAME_VALIDATION = {
   // Card match game settings
   cardMatch: {
-    maxAttempts: 10,
-    maxMatchesPerDay: 10,
     rewardPerMatch: 500, // BNG coins
     minTimeBetweenFlips: 500, // ms
+    maxGamesPerHour: 60, // Anti-cheat: max games in 1 hour with Play Pass
   },
 
   // Score bounds for validation
   scoreBounds: {
     minScore: 0,
-    maxDailyScore: 100000,
-    maxMonthlyProfit: 10000000,
+    maxDailyScore: 500000, // Increased for unlimited play with Play Pass
+    maxMonthlyProfit: 50000000,
   },
 } as const;
 
