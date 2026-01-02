@@ -45,8 +45,8 @@ const Confetti = () => {
   );
 };
 
-// Booster Shop Component (Pre-game)
-const BoosterShop = ({ onContinue }: { onContinue: () => void }) => {
+// Booster Shop Popup Component (Modal)
+const BoosterShopPopup = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const { user, game, purchaseBooster, canPurchaseBooster } = useGame();
   const boosterTypes: BoosterType[] = ['mirror', 'magnet', 'hourglass', 'moves'];
   const [animatingBooster, setAnimatingBooster] = useState<BoosterType | null>(null);
@@ -58,110 +58,115 @@ const BoosterShop = ({ onContinue }: { onContinue: () => void }) => {
     }
   };
 
+  if (!isOpen) return null;
+
   const purchasedCount = boosterTypes.filter(b => game.boosters[b].purchased).length;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6 px-4 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="text-5xl animate-bounce">🎁</div>
-        <h2 className="text-2xl font-black text-white tracking-wider drop-shadow-lg">
-          BOOSTER SHOP
-        </h2>
-        <p className="text-blue-200 text-sm opacity-90">
-          Oyun başlamadan önce booster satın al!
-        </p>
-        <div className="flex items-center justify-center gap-2 bg-white/10 px-4 py-2 rounded-full">
-          <span className="text-yellow-400 text-lg">🪙</span>
-          <span className="text-white font-bold">{user.coins}</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="relative bg-gradient-to-b from-blue-800 to-blue-900 rounded-3xl p-6 max-w-sm w-full max-h-[85vh] overflow-y-auto border-2 border-white/20 shadow-2xl animate-in zoom-in-95 duration-300">
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
+        >
+          ✕
+        </button>
+
+        {/* Header */}
+        <div className="text-center space-y-2 mb-5">
+          <div className="text-4xl">🎁</div>
+          <h2 className="text-xl font-black text-white tracking-wider">
+            BOOSTER SHOP
+          </h2>
+          <div className="flex items-center justify-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+            <span className="text-yellow-400">🪙</span>
+            <span className="text-white font-bold">{user.coins}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Booster Grid */}
-      <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-        {boosterTypes.map((boosterType) => {
-          const info = BOOSTER_INFO[boosterType];
-          const isPurchased = game.boosters[boosterType].purchased;
-          const canPurchase = canPurchaseBooster(boosterType);
-          const isAnimating = animatingBooster === boosterType;
+        {/* Booster Grid */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {boosterTypes.map((boosterType) => {
+            const info = BOOSTER_INFO[boosterType];
+            const isPurchased = game.boosters[boosterType].purchased;
+            const canPurchase = canPurchaseBooster(boosterType);
+            const isAnimating = animatingBooster === boosterType;
 
-          return (
-            <button
-              key={boosterType}
-              onClick={() => handlePurchase(boosterType)}
-              disabled={isPurchased || !canPurchase}
-              className={cn(
-                "relative p-4 rounded-2xl border-2 transition-all duration-300",
-                "flex flex-col items-center gap-2",
-                isPurchased
-                  ? "bg-green-500/20 border-green-400/50"
-                  : canPurchase
-                    ? "bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/40 hover:scale-105 active:scale-95"
-                    : "bg-white/5 border-white/10 opacity-50",
-                isAnimating && "booster-purchase-anim"
-              )}
-            >
-              {/* Purchased Badge */}
-              {isPurchased && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
-                  ✓
-                </div>
-              )}
+            return (
+              <button
+                key={boosterType}
+                onClick={() => handlePurchase(boosterType)}
+                disabled={isPurchased || !canPurchase}
+                className={cn(
+                  "relative p-3 rounded-xl border-2 transition-all duration-300",
+                  "flex flex-col items-center gap-1",
+                  isPurchased
+                    ? "bg-green-500/20 border-green-400/50"
+                    : canPurchase
+                      ? "bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/40 hover:scale-105 active:scale-95"
+                      : "bg-white/5 border-white/10 opacity-50",
+                  isAnimating && "booster-purchase-anim"
+                )}
+              >
+                {/* Purchased Badge */}
+                {isPurchased && (
+                  <div className="absolute -top-2 -right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                    ✓
+                  </div>
+                )}
 
-              {/* Icon */}
-              <div className={cn(
-                "text-4xl transition-transform duration-300",
-                isAnimating && "animate-bounce"
-              )}>
-                {info.icon}
-              </div>
-
-              {/* Name */}
-              <div className="text-white font-bold text-sm">{info.name}</div>
-
-              {/* Description */}
-              <div className="text-blue-200 text-xs text-center opacity-80">
-                {info.description}
-              </div>
-
-              {/* Price */}
-              {!isPurchased && (
+                {/* Icon */}
                 <div className={cn(
-                  "flex items-center gap-1 px-3 py-1 rounded-full mt-1",
-                  canPurchase ? "bg-yellow-500/20" : "bg-red-500/20"
+                  "text-3xl transition-transform duration-300",
+                  isAnimating && "animate-bounce"
                 )}>
-                  <span className="text-yellow-400 text-sm">🪙</span>
-                  <span className={cn(
-                    "font-bold text-sm",
-                    canPurchase ? "text-yellow-400" : "text-red-400"
-                  )}>
-                    {info.price}
-                  </span>
+                  {info.icon}
                 </div>
-              )}
-            </button>
-          );
-        })}
+
+                {/* Name */}
+                <div className="text-white font-bold text-xs">{info.name}</div>
+
+                {/* Description */}
+                <div className="text-blue-200 text-[10px] text-center opacity-80 leading-tight">
+                  {info.description}
+                </div>
+
+                {/* Price */}
+                {!isPurchased && (
+                  <div className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-full mt-1",
+                    canPurchase ? "bg-yellow-500/20" : "bg-red-500/20"
+                  )}>
+                    <span className="text-yellow-400 text-xs">🪙</span>
+                    <span className={cn(
+                      "font-bold text-xs",
+                      canPurchase ? "text-yellow-400" : "text-red-400"
+                    )}>
+                      {info.price}
+                    </span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full transition-colors"
+        >
+          {purchasedCount > 0 ? `Tamam (${purchasedCount} Booster)` : "Kapat"}
+        </button>
       </div>
-
-      {/* Continue Button */}
-      <button
-        onClick={onContinue}
-        className={cn(
-          "px-10 py-4 font-black text-xl rounded-full shadow-xl",
-          "hover:scale-105 active:scale-95 transition-all duration-200",
-          purchasedCount > 0
-            ? "bg-gradient-to-r from-green-500 to-green-600 text-white start-pulse"
-            : "bg-white text-blue-700 start-pulse"
-        )}
-      >
-        {purchasedCount > 0 ? `⚽ BAŞLA (${purchasedCount} Booster)` : "⚽ DEVAM ET"}
-      </button>
-
-      {/* Skip Info */}
-      <p className="text-blue-200/60 text-xs text-center">
-        Booster almadan da devam edebilirsin
-      </p>
     </div>
   );
 };
@@ -377,8 +382,12 @@ const CardComponent = React.memo(({
 CardComponent.displayName = 'CardComponent';
 
 // Start Screen Component
-const StartScreen = ({ onStart }: { onStart: () => void }) => (
-  <div className="flex flex-col items-center justify-center h-[60vh] space-y-8 px-4">
+const StartScreen = ({ onStart, onOpenBoosterShop, purchasedBoostersCount }: {
+  onStart: () => void;
+  onOpenBoosterShop: () => void;
+  purchasedBoostersCount: number;
+}) => (
+  <div className="flex flex-col items-center justify-center h-[60vh] space-y-6 px-4">
     <div className="relative">
       <div className="text-7xl animate-bounce">⚽</div>
       <div className="absolute -top-2 -right-2 text-3xl animate-pulse">✨</div>
@@ -392,6 +401,30 @@ const StartScreen = ({ onStart }: { onStart: () => void }) => (
         Find all matching pairs to win coins and climb the monthly leaderboard!
       </p>
     </div>
+
+    {/* Booster Shop Button */}
+    <button
+      onClick={onOpenBoosterShop}
+      className={cn(
+        "flex items-center gap-2 px-6 py-3 rounded-full border-2 transition-all duration-300",
+        "hover:scale-105 active:scale-95",
+        purchasedBoostersCount > 0
+          ? "bg-green-500/20 border-green-400/50 text-white"
+          : "bg-white/10 border-white/30 text-white hover:bg-white/20"
+      )}
+    >
+      <span className="text-xl">🎁</span>
+      <span className="font-bold">
+        {purchasedBoostersCount > 0
+          ? `${purchasedBoostersCount} Booster Hazır`
+          : "Booster Satın Al"}
+      </span>
+      {purchasedBoostersCount > 0 && (
+        <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-xs">
+          ✓
+        </div>
+      )}
+    </button>
 
     <button
       onClick={onStart}
@@ -492,7 +525,11 @@ const GameArea = () => {
   const { game, startGame, flipCard, resetGame } = useGame();
   const [shakingCards, setShakingCards] = useState<number[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showBoosterShop, setShowBoosterShop] = useState(true); // Show shop before game
+  const [isBoosterShopOpen, setIsBoosterShopOpen] = useState(false);
+
+  // Calculate purchased boosters count
+  const boosterTypes: BoosterType[] = ['mirror', 'magnet', 'hourglass', 'moves'];
+  const purchasedBoostersCount = boosterTypes.filter(b => game.boosters[b].purchased).length;
 
   // Handle card shake for non-matching pairs
   useEffect(() => {
@@ -523,21 +560,18 @@ const GameArea = () => {
     }
   }, [game.flippedCards.length, game.boosterEffects.magnetActive]);
 
-  // Reset booster shop state when game resets
-  useEffect(() => {
-    if (!game.gameStartedAt && !game.isComplete && !game.isTimeOut) {
-      setShowBoosterShop(true);
-    }
-  }, [game.gameStartedAt, game.isComplete, game.isTimeOut]);
-
   const handleFlipCard = useCallback((cardId: number) => {
     if (!isProcessing && !game.boosterEffects.mirrorActive) {
       flipCard(cardId);
     }
   }, [flipCard, isProcessing, game.boosterEffects.mirrorActive]);
 
-  const handleContinueFromShop = useCallback(() => {
-    setShowBoosterShop(false);
+  const handleOpenBoosterShop = useCallback(() => {
+    setIsBoosterShopOpen(true);
+  }, []);
+
+  const handleCloseBoosterShop = useCallback(() => {
+    setIsBoosterShopOpen(false);
   }, []);
 
   const handleStartGame = useCallback(() => {
@@ -546,17 +580,23 @@ const GameArea = () => {
 
   const handlePlayAgain = useCallback(() => {
     resetGame();
-    setShowBoosterShop(true);
   }, [resetGame]);
 
-  // Show booster shop first (before game starts)
-  if (!game.gameStartedAt && !game.isComplete && !game.isTimeOut && showBoosterShop) {
-    return <BoosterShop onContinue={handleContinueFromShop} />;
-  }
-
-  // Show start screen after booster shop
+  // Show start screen (with booster popup)
   if (!game.gameStartedAt && !game.isComplete && !game.isTimeOut) {
-    return <StartScreen onStart={handleStartGame} />;
+    return (
+      <>
+        <StartScreen
+          onStart={handleStartGame}
+          onOpenBoosterShop={handleOpenBoosterShop}
+          purchasedBoostersCount={purchasedBoostersCount}
+        />
+        <BoosterShopPopup
+          isOpen={isBoosterShopOpen}
+          onClose={handleCloseBoosterShop}
+        />
+      </>
+    );
   }
 
   // Show time out screen
