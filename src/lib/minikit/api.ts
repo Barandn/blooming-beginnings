@@ -240,6 +240,12 @@ export interface SubmitScoreResponse {
   monthlyProfit: number;
   leaderboardPeriod: string;
   flags?: string[];
+  reward?: {
+    amount: string;
+    txHash: string;
+    explorerUrl: string;
+  };
+  rewardError?: string;
 }
 
 export async function submitScore(
