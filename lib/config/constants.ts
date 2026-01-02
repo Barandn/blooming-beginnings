@@ -123,11 +123,11 @@ export const SECURITY_CONFIG = {
 
 // Barn Game Purchase Configuration
 export const BARN_GAME_CONFIG = {
-  // Purchase prices for attempt refill
-  purchasePriceWLD: '0.1', // 0.1 WLD
-  purchasePriceUSDC: '0.25', // 0.25 USDC
+  // Purchase prices for attempt refill (cooldown reset)
+  purchasePriceWLD: '0.03', // 0.03 WLD to reset 12h cooldown
+  purchasePriceUSDC: '0.10', // 0.10 USDC to reset 12h cooldown
   attemptsPerPurchase: 10,
-  cooldownDuration: 24 * 60 * 60 * 1000, // 24 hours in ms
+  cooldownDuration: 12 * 60 * 60 * 1000, // 12 hours in ms
   // Token addresses on World Chain
   tokenAddresses: {
     WLD: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', // WLD on World Chain

@@ -6,10 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Barn game prices
+// Barn game prices (for 12h cooldown reset)
 const BARN_PRICES = {
-  WLD: "0.1",
-  USDC: "0.25",
+  WLD: "0.03",
+  USDC: "0.10",
 };
 // Merchant wallet for payments - loaded from environment variable
 const MERCHANT_WALLET = Deno.env.get("BARN_GAME_RECIPIENT_ADDRESS");
