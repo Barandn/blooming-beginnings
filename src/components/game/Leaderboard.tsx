@@ -1,65 +1,67 @@
 import React, { useEffect, useState } from "react";
 import { useGame } from "@/context/GameContext";
 import { Loader2 } from "lucide-react";
-import { getLeaderboard } from "@/lib/minikit/api"; // Mock/Real API
-
-// Format time as MM:SS:ms
-const formatTime = (ms: number): string => {
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`;
-};
+import { getLeaderboard, getUserLeaderboard } from "@/lib/minikit/api";
 
 // Types for Leaderboard
 interface LeaderboardEntry {
   rank: number;
-  userId: string; // "0x1234...5678"
-  score: number;
-  moves: number;
-  elapsedTime: number; // in milliseconds
-  isCurrentUser: boolean;
+  walletAddress: string;
+  monthlyProfit: number;
+  totalScore: number;
+  gamesPlayed: number;
 }
+
+// WLD Rewards for top 8 positions
+const getWldReward = (rank: number): number | null => {
+  switch (rank) {
+    case 1: return 40;
+    case 2: return 30;
+    case 3: return 20;
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    case 8: return 10;
+    default: return null;
+  }
+};
 
 const Leaderboard = () => {
   const { user } = useGame();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
       const fetchLeaderboard = async () => {
           setLoading(true);
+          setError(null);
           try {
-              // Mock Data Generation if API fails or for initial dev
-              // In production: const data = await getLeaderboard("2025-01");
+              // Fetch leaderboard from real API
+              const response = await getLeaderboard(undefined, 10, 0, true);
 
-              // We simulate "fetching" with moves and time data
-              const mockData: LeaderboardEntry[] = Array.from({ length: 10 }).map((_, i) => ({
-                  rank: 0, // Will be calculated after sorting
-                  userId: `0x${Math.random().toString(16).substr(2, 8)}...`,
-                  score: Math.floor(10000 - (i * 500) + Math.random() * 100),
-                  moves: 8 + Math.floor(i * 0.5) + Math.floor(Math.random() * 3), // 8-15 moves range
-                  elapsedTime: 15000 + (i * 5000) + Math.floor(Math.random() * 10000), // 15-70 seconds range
-                  isCurrentUser: false
-              }));
+              if (response.status === 'success' && response.data) {
+                  const leaderboardEntries: LeaderboardEntry[] = response.data.entries.map((entry) => ({
+                      rank: entry.rank,
+                      walletAddress: entry.walletAddress,
+                      monthlyProfit: entry.monthlyProfit,
+                      totalScore: entry.totalScore,
+                      gamesPlayed: entry.gamesPlayed,
+                  }));
+                  setEntries(leaderboardEntries);
 
-              // Sort: first by moves (ascending), then by time (ascending)
-              mockData.sort((a, b) => {
-                  if (a.moves !== b.moves) {
-                      return a.moves - b.moves; // Lower moves = better
+                  // Get user's rank if available
+                  if (response.data.user?.rank) {
+                      setUserRank(response.data.user.rank);
                   }
-                  return a.elapsedTime - b.elapsedTime; // Lower time = better
-              });
-
-              // Assign ranks after sorting
-              mockData.forEach((entry, index) => {
-                  entry.rank = index + 1;
-              });
-
-              setEntries(mockData);
-
+              } else {
+                  setError(response.error || 'Failed to load leaderboard');
+              }
           } catch (e) {
-              console.error(e);
+              console.error('Leaderboard fetch error:', e);
+              setError('Network error - please try again');
           } finally {
               setLoading(false);
           }
@@ -89,8 +91,8 @@ const Leaderboard = () => {
            <div className="grid grid-cols-12 gap-1 p-3 border-b border-white/10 text-xs font-bold text-white/50 uppercase">
                <div className="col-span-1 text-center">#</div>
                <div className="col-span-4">Player</div>
-               <div className="col-span-3 text-center">Moves</div>
-               <div className="col-span-4 text-right">Time</div>
+               <div className="col-span-3 text-center">Score</div>
+               <div className="col-span-4 text-right">Reward</div>
            </div>
 
            {/* List */}
@@ -98,29 +100,44 @@ const Leaderboard = () => {
                <div className="p-8 flex justify-center">
                    <Loader2 className="animate-spin text-blue-500" />
                </div>
+           ) : error ? (
+               <div className="p-8 text-center text-red-400 text-sm">
+                   {error}
+               </div>
+           ) : entries.length === 0 ? (
+               <div className="p-8 text-center text-white/50 text-sm">
+                   No players yet this season. Be the first!
+               </div>
            ) : (
                <div className="max-h-[50vh] overflow-y-auto">
-                   {entries.map((entry) => (
-                       <div
-                         key={entry.rank}
-                         className={`grid grid-cols-12 gap-1 p-3 border-b border-white/5 items-center ${
-                             entry.isCurrentUser ? "bg-blue-500/20" : ""
-                         }`}
-                       >
-                           <div className="col-span-1 text-center font-bold text-white text-sm">
-                               {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                   {entries.map((entry) => {
+                       const reward = getWldReward(entry.rank);
+                       return (
+                           <div
+                             key={entry.rank}
+                             className="grid grid-cols-12 gap-1 p-3 border-b border-white/5 items-center"
+                           >
+                               <div className="col-span-1 text-center font-bold text-white text-sm">
+                                   {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                               </div>
+                               <div className="col-span-4 font-mono text-xs text-white/90 truncate">
+                                   {entry.walletAddress}
+                               </div>
+                               <div className="col-span-3 text-center font-bold text-blue-400 text-sm">
+                                   {entry.monthlyProfit.toLocaleString()}
+                               </div>
+                               <div className="col-span-4 text-right">
+                                   {reward ? (
+                                       <span className="inline-flex items-center gap-1 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-bold border border-yellow-500/30">
+                                           🌐 {reward} WLD
+                                       </span>
+                                   ) : (
+                                       <span className="text-white/30 text-xs">-</span>
+                                   )}
+                               </div>
                            </div>
-                           <div className="col-span-4 font-mono text-xs text-white/90 truncate">
-                               {entry.userId}
-                           </div>
-                           <div className="col-span-3 text-center font-bold text-blue-400 text-sm">
-                               {entry.moves}
-                           </div>
-                           <div className="col-span-4 text-right font-mono text-blue-300 text-xs">
-                               {formatTime(entry.elapsedTime)}
-                           </div>
-                       </div>
-                   ))}
+                       );
+                   })}
                </div>
            )}
        </div>
@@ -133,8 +150,12 @@ const Leaderboard = () => {
            </div>
            <div className="text-right">
                <p className="text-xs text-blue-300 uppercase">Rank</p>
-               <p className="text-xl font-bold text-white">--</p>
-               {/* Rank would come from API in real implementation */}
+               <p className="text-xl font-bold text-white">{userRank || '--'}</p>
+               {userRank && userRank <= 8 && (
+                   <p className="text-xs text-yellow-400 mt-1">
+                       🌐 {getWldReward(userRank)} WLD Prize!
+                   </p>
+               )}
            </div>
        </div>
     </div>
