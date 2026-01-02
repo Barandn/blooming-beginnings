@@ -7,8 +7,16 @@ import { ethers } from 'ethers';
 import { SignJWT, jwtVerify } from 'jose';
 import { db, users, sessions, type User, type Session } from '../db';
 import { eq, and, gt } from 'drizzle-orm';
-import { SESSION_CONFIG, ERROR_MESSAGES } from '../config/constants';
+import { SESSION_CONFIG, ERROR_MESSAGES, validateSecurityConfig } from '../config/constants';
 import crypto from 'crypto';
+
+// Validate security config on module load
+try {
+  validateSecurityConfig();
+} catch (error) {
+  console.error('[Auth] Security configuration error:', error);
+  // Don't throw here to allow graceful error handling in API routes
+}
 
 // Types
 export interface AuthPayload {
@@ -102,11 +110,15 @@ export function validateMessageTimestamp(
 
 /**
  * Get JWT secret as Uint8Array
+ * Throws if JWT_SECRET is not properly configured
  */
 function getJwtSecret(): Uint8Array {
   const secret = SESSION_CONFIG.jwtSecret;
   if (!secret) {
-    throw new Error('JWT_SECRET not configured');
+    throw new Error('JWT_SECRET environment variable is required but not set. Please configure it in your environment.');
+  }
+  if (secret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long for security.');
   }
   return new TextEncoder().encode(secret);
 }

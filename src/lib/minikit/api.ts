@@ -1,6 +1,14 @@
-// Use backend functions as API base
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+/**
+ * API Configuration
+ * Backend runs on Supabase Edge Functions
+ * URL format: ${SUPABASE_URL}/functions/v1/{functionName}
+ *
+ * Required environment variables:
+ * - VITE_SUPABASE_URL: Supabase project URL
+ * - VITE_SUPABASE_PUBLISHABLE_KEY: Supabase anon/public key
+ */
+const API_BASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 // API Response type
 interface ApiResponse<T> {
@@ -16,26 +24,28 @@ async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('auth_token');
-  const authToken = token || SUPABASE_ANON_KEY;
+  const authToken = token || API_KEY;
 
-  if (!SUPABASE_URL) {
-    return { status: 'error', error: 'Backend URL missing' };
+  if (!API_BASE_URL) {
+    console.error('[API] VITE_SUPABASE_URL environment variable is not set');
+    return { status: 'error', error: 'Backend URL not configured' };
   }
-  if (!SUPABASE_ANON_KEY) {
-    return { status: 'error', error: 'Backend key missing' };
+  if (!API_KEY) {
+    console.error('[API] VITE_SUPABASE_PUBLISHABLE_KEY environment variable is not set');
+    return { status: 'error', error: 'API key not configured' };
   }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: SUPABASE_ANON_KEY,
+    apikey: API_KEY,
     Authorization: `Bearer ${authToken}`,
     ...(options.headers as Record<string, string>),
   };
 
-  // Determine function name from endpoint
+  // Build API URL: /auth/login -> /functions/v1/auth/login
   const functionName = endpoint.split('/')[1] || 'auth';
   const subPath = endpoint.replace(`/${functionName}`, '') || '';
-  const url = `${SUPABASE_URL}/functions/v1/${functionName}${subPath}`;
+  const url = `${API_BASE_URL}/functions/v1/${functionName}${subPath}`;
 
   try {
     const response = await fetch(url, {
@@ -167,60 +177,6 @@ export async function verifySiwe(
 }
 
 // ============================
-// World ID Verification API (DEPRECATED)
-// ============================
-// NOTE: World ID Sign-In is deprecated as of September 2025
-// and will be shut down on January 31, 2026.
-// Use SIWE (Wallet Auth) instead for new implementations.
-
-export interface WorldIDProof {
-  proof: string;
-  merkle_root: string;
-  nullifier_hash: string;
-  verification_level: 'orb' | 'device';
-}
-
-export interface VerifyWorldIDRequest {
-  proof: WorldIDProof;
-  walletAddress: string;
-  action?: string;
-  signal?: string;
-}
-
-export interface VerifyWorldIDResponse {
-  isNewUser: boolean;
-  token: string;
-  user: {
-    id: string;
-    walletAddress: string;
-    verificationLevel: string;
-    createdAt: string;
-  };
-  expiresAt: string;
-}
-
-/**
- * @deprecated World ID Sign-In is deprecated. Use verifySiwe() instead.
- * Reference: https://docs.world.org/world-id/sign-in/deprecation
- */
-export async function verifyWorldID(
-  data: VerifyWorldIDRequest
-): Promise<ApiResponse<VerifyWorldIDResponse>> {
-  const result = await apiCall<VerifyWorldIDResponse>('/verify/world-id', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-
-  // Save token and user if successful
-  if (result.status === 'success' && result.data) {
-    localStorage.setItem('auth_token', result.data.token);
-    localStorage.setItem('user', JSON.stringify(result.data.user));
-  }
-
-  return result;
-}
-
-// ============================
 // Score Submission API
 // ============================
 
@@ -261,11 +217,6 @@ export async function submitScore(
 // Daily Bonus API
 // ============================
 
-export interface ClaimDailyBonusRequest {
-  proof: WorldIDProof;
-  signal?: string;
-}
-
 export interface ClaimDailyBonusResponse {
   claimId: string;
   amount: string;
@@ -274,12 +225,10 @@ export interface ClaimDailyBonusResponse {
   explorerUrl?: string;
 }
 
-export async function claimDailyBonus(
-  data: ClaimDailyBonusRequest
-): Promise<ApiResponse<ClaimDailyBonusResponse>> {
+// Daily bonus now uses JWT authentication instead of deprecated World ID
+export async function claimDailyBonus(): Promise<ApiResponse<ClaimDailyBonusResponse>> {
   return apiCall<ClaimDailyBonusResponse>('/claim/daily-bonus', {
     method: 'POST',
-    body: JSON.stringify(data),
   });
 }
 
