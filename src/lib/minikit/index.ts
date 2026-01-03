@@ -92,8 +92,8 @@ export async function requestWalletAuth(nonce: string): Promise<WalletAuthResult
       nonce,
       statement: 'Sign in to Blooming Beginnings',
     });
-    
-    const payload = result.finalPayload as any;
+
+    const payload = result.finalPayload as { message?: string; signature?: string; address?: string };
     
     return {
       status: 'success',
@@ -179,7 +179,7 @@ export async function claimTokens(params: ClaimParams): Promise<SendTransactionR
       ],
     });
 
-    const payload = result.finalPayload as any;
+    const payload = result.finalPayload as { status?: string; transaction_id?: string; error_code?: string; error_message?: string };
 
     if (payload?.status === 'success') {
       return {

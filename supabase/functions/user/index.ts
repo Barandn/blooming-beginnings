@@ -6,8 +6,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Supabase client type
+type SupabaseClient = ReturnType<typeof createClient>;
+
+// Score type
+interface GameScore {
+  score: number;
+  monthly_profit: number;
+}
+
+// Claim type
+interface ClaimTransaction {
+  amount: string;
+  status: string;
+  id?: string;
+  claim_type?: string;
+  tx_hash?: string;
+  created_at?: string;
+}
+
 // Helper to verify session
-async function verifySession(supabase: any, authHeader: string | null) {
+async function verifySession(supabase: SupabaseClient, authHeader: string | null) {
   if (!authHeader?.startsWith("Bearer ")) {
     return null;
   }
@@ -83,12 +102,12 @@ serve(async (req) => {
       .limit(10);
 
     // Calculate stats
-    const totalScore = scores?.reduce((sum: number, s: any) => sum + s.score, 0) || 0;
+    const totalScore = (scores as GameScore[] | null)?.reduce((sum: number, s: GameScore) => sum + s.score, 0) || 0;
     const bestScore = scores?.length
-      ? Math.max(...scores.map((s: any) => s.score))
+      ? Math.max(...(scores as GameScore[]).map((s: GameScore) => s.score))
       : 0;
-    const totalTokensClaimed = claims?.reduce(
-      (sum: string, c: any) => (BigInt(sum) + BigInt(c.amount)).toString(),
+    const totalTokensClaimed = (claims as ClaimTransaction[] | null)?.reduce(
+      (sum: string, c: ClaimTransaction) => (BigInt(sum) + BigInt(c.amount)).toString(),
       "0"
     ) || "0";
 
@@ -101,7 +120,7 @@ serve(async (req) => {
       .eq("leaderboard_period", currentMonth);
 
     const currentMonthProfit = monthScores?.length
-      ? Math.max(...monthScores.map((s: any) => s.monthly_profit))
+      ? Math.max(...(monthScores as GameScore[]).map((s: GameScore) => s.monthly_profit))
       : 0;
 
     // Daily bonus cooldown
@@ -137,7 +156,7 @@ serve(async (req) => {
             cooldownRemainingMs,
             amount: "100",
           },
-          recentTransactions: (recentTxs || []).map((tx: any) => ({
+          recentTransactions: ((recentTxs || []) as ClaimTransaction[]).map((tx: ClaimTransaction) => ({
             id: tx.id,
             type: tx.claim_type,
             amount: tx.amount,

@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
-      const walletPayload = walletAuthResult.finalPayload as any;
+      const walletPayload = walletAuthResult.finalPayload as { signature?: string; error_code?: string; message?: string; address?: string };
 
       if (!walletPayload?.signature) {
         const errorMessage = walletPayload?.error_code === 'user_rejected'

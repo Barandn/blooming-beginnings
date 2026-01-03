@@ -70,7 +70,7 @@ serve(async (req) => {
         existing.gamesPlayed++;
       } else {
         userScores.set(userId, {
-          walletAddress: (score.users as any).wallet_address,
+          walletAddress: (score.users as { wallet_address: string }).wallet_address,
           monthlyProfit: score.monthly_profit,
           totalScore: score.score,
           gamesPlayed: 1,

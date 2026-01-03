@@ -121,7 +121,7 @@ interface GameContextType {
   isLoading: boolean;
   // Booster functions
   purchaseBooster: (boosterType: BoosterType) => boolean;
-  useBooster: (boosterType: BoosterType) => boolean;
+  activateBooster: (boosterType: BoosterType) => boolean;
   canPurchaseBooster: (boosterType: BoosterType) => boolean;
   canUseBooster: (boosterType: BoosterType) => boolean;
 }
@@ -316,7 +316,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     return true;
   }, [game]);
 
-  const useBooster = useCallback((boosterType: BoosterType): boolean => {
+  const activateBooster = useCallback((boosterType: BoosterType): boolean => {
     if (!canUseBooster(boosterType)) return false;
 
     // Mark as used and activate effect
@@ -617,10 +617,10 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     // Booster functions
     purchaseBooster,
-    useBooster,
+    activateBooster,
     canPurchaseBooster,
     canUseBooster,
-  }), [user, game, startGame, flipCard, claimDailyBonus, resetGame, isLoading, purchaseBooster, useBooster, canPurchaseBooster, canUseBooster]);
+  }), [user, game, startGame, flipCard, claimDailyBonus, resetGame, isLoading, purchaseBooster, activateBooster, canPurchaseBooster, canUseBooster]);
 
   return (
     <GameContext.Provider value={contextValue}>
