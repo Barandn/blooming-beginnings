@@ -214,7 +214,48 @@ export async function submitScore(
 }
 
 // ============================
-// Daily Bonus API
+// Gasless Claim API (Signature-based)
+// ============================
+
+export interface ClaimSignatureResponse {
+  signature: string;
+  amount: string;
+  claimType: number;
+  nonce: number;
+  deadline: number;
+  contractAddress: string;
+}
+
+// Get signature for gasless claim
+export async function getClaimSignature(
+  claimType: 'daily_bonus' | 'game_reward',
+  score?: number
+): Promise<ApiResponse<ClaimSignatureResponse>> {
+  return apiCall<ClaimSignatureResponse>('/claim/signature', {
+    method: 'POST',
+    body: JSON.stringify({ claimType, score }),
+  });
+}
+
+// Record a successful claim after on-chain transaction
+export interface RecordClaimResponse {
+  claimId: string;
+  message: string;
+}
+
+export async function recordClaim(
+  claimType: 'daily_bonus' | 'game_reward',
+  amount: string,
+  txHash: string
+): Promise<ApiResponse<RecordClaimResponse>> {
+  return apiCall<RecordClaimResponse>('/claim/record', {
+    method: 'POST',
+    body: JSON.stringify({ claimType, amount, txHash }),
+  });
+}
+
+// ============================
+// Daily Bonus API (Legacy - kept for backward compatibility)
 // ============================
 
 export interface ClaimDailyBonusResponse {
@@ -225,11 +266,130 @@ export interface ClaimDailyBonusResponse {
   explorerUrl?: string;
 }
 
-// Daily bonus now uses JWT authentication instead of deprecated World ID
-export async function claimDailyBonus(): Promise<ApiResponse<ClaimDailyBonusResponse>> {
+// Legacy: Direct backend transfer (deprecated, use gasless claim instead)
+export async function claimDailyBonusLegacy(): Promise<ApiResponse<ClaimDailyBonusResponse>> {
   return apiCall<ClaimDailyBonusResponse>('/claim/daily-bonus', {
     method: 'POST',
   });
+}
+
+// Gasless claim interface
+export interface GaslessClaimResult {
+  success: boolean;
+  txHash?: string;
+  amount?: string;
+  explorerUrl?: string;
+  error?: string;
+}
+
+/**
+ * Claim daily bonus using gasless transaction via MiniKit
+ * Flow: Backend signature → MiniKit sendTransaction → Record claim
+ */
+export async function claimDailyBonus(): Promise<GaslessClaimResult> {
+  // Dynamically import MiniKit functions to avoid circular dependencies
+  const { claimTokens, isMiniKitAvailable, ClaimType } = await import('./index');
+
+  // Check if MiniKit is available
+  if (!isMiniKitAvailable()) {
+    return {
+      success: false,
+      error: 'MiniKit is not available. Please open this app in World App.',
+    };
+  }
+
+  // Step 1: Get signature from backend
+  const signatureResponse = await getClaimSignature('daily_bonus');
+
+  if (signatureResponse.status !== 'success' || !signatureResponse.data) {
+    return {
+      success: false,
+      error: signatureResponse.error || 'Failed to get claim signature',
+    };
+  }
+
+  const { signature, amount, claimType, deadline, contractAddress } = signatureResponse.data;
+
+  // Step 2: Send transaction via MiniKit (World App sponsors gas)
+  const txResult = await claimTokens({
+    amount,
+    claimType: claimType as ClaimType,
+    deadline,
+    signature,
+    contractAddress,
+  });
+
+  if (txResult.status !== 'success' || !txResult.transaction_id) {
+    return {
+      success: false,
+      error: txResult.error?.message || 'Transaction failed',
+    };
+  }
+
+  // Step 3: Record the claim in backend
+  await recordClaim('daily_bonus', amount, txResult.transaction_id);
+
+  return {
+    success: true,
+    txHash: txResult.transaction_id,
+    amount,
+    explorerUrl: `https://worldscan.org/tx/${txResult.transaction_id}`,
+  };
+}
+
+/**
+ * Claim game reward using gasless transaction via MiniKit
+ * Flow: Backend signature → MiniKit sendTransaction → Record claim
+ */
+export async function claimGameReward(score: number): Promise<GaslessClaimResult> {
+  // Dynamically import MiniKit functions to avoid circular dependencies
+  const { claimTokens, isMiniKitAvailable, ClaimType } = await import('./index');
+
+  // Check if MiniKit is available
+  if (!isMiniKitAvailable()) {
+    return {
+      success: false,
+      error: 'MiniKit is not available. Please open this app in World App.',
+    };
+  }
+
+  // Step 1: Get signature from backend
+  const signatureResponse = await getClaimSignature('game_reward', score);
+
+  if (signatureResponse.status !== 'success' || !signatureResponse.data) {
+    return {
+      success: false,
+      error: signatureResponse.error || 'Failed to get claim signature',
+    };
+  }
+
+  const { signature, amount, claimType, deadline, contractAddress } = signatureResponse.data;
+
+  // Step 2: Send transaction via MiniKit (World App sponsors gas)
+  const txResult = await claimTokens({
+    amount,
+    claimType: claimType as ClaimType,
+    deadline,
+    signature,
+    contractAddress,
+  });
+
+  if (txResult.status !== 'success' || !txResult.transaction_id) {
+    return {
+      success: false,
+      error: txResult.error?.message || 'Transaction failed',
+    };
+  }
+
+  // Step 3: Record the claim in backend
+  await recordClaim('game_reward', amount, txResult.transaction_id);
+
+  return {
+    success: true,
+    txHash: txResult.transaction_id,
+    amount,
+    explorerUrl: `https://worldscan.org/tx/${txResult.transaction_id}`,
+  };
 }
 
 // ============================
