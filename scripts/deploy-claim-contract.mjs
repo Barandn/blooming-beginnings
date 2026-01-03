@@ -25,7 +25,7 @@ const __dirname = path.dirname(__filename);
 const NETWORKS = {
   mainnet: {
     name: "World Chain Mainnet",
-    rpcUrl: "https://worldchain-mainnet.g.alchemy.com/public",
+    rpcUrl: process.env.WORLD_CHAIN_RPC_URL || "https://rpc.worldchain.io",
     chainId: 480,
     explorer: "https://worldscan.org",
   },
