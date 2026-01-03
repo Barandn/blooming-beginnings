@@ -163,7 +163,7 @@ export default async function handler(
     // Mark payment reference as used
     await db
       .update(paymentReferences)
-      .set({ status: 'completed' })
+      .set({ status: 'completed' } as Partial<typeof paymentReferences.$inferInsert>)
       .where(eq(paymentReferences.referenceId, paymentReference));
 
     // Record the verified purchase

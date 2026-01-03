@@ -15,8 +15,8 @@ import {
   ClaimType,
 } from '../../lib/services/claim-signature';
 import { db } from '../../lib/db';
-import { dailyClaims, users } from '../../lib/db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { dailyBonusClaims, users } from '../../lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 // CORS headers
 const corsHeaders = {
@@ -81,13 +81,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const todayStr = today.toISOString().split('T')[0];
       const existingClaim = await db
         .select()
-        .from(dailyClaims)
+        .from(dailyBonusClaims)
         .where(
           and(
-            eq(dailyClaims.userId, user.id),
-            gte(dailyClaims.claimedAt, today)
+            eq(dailyBonusClaims.userId, user.id),
+            eq(dailyBonusClaims.claimDate, todayStr)
           )
         )
         .limit(1);

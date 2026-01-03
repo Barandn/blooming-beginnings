@@ -145,6 +145,7 @@ export const GAME_VALIDATION = {
     minTimeBetweenFlips: 500, // ms
     maxGamesPerHour: 60, // Anti-cheat: max games in 1 hour with Play Pass
     maxAttempts: 100, // Max daily attempts (alias for backward compatibility)
+    maxMatchesPerDay: 1000, // Maximum matches per day for anti-cheat validation
   },
 
   // Score bounds for validation
