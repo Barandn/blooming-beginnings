@@ -20,7 +20,7 @@ const MIN_CONFIRMATIONS = 2;
 export interface PaymentVerificationResult {
   verified: boolean;
   error?: string;
-  errorCode?: 'invalid_tx' | 'wrong_recipient' | 'insufficient_amount' | 'wrong_token' | 'pending' | 'network_error';
+  errorCode?: 'invalid_tx' | 'wrong_recipient' | 'insufficient_amount' | 'wrong_token' | 'pending' | 'network_error' | 'failed';
   txHash?: string;
   from?: string;
   to?: string;
@@ -343,7 +343,7 @@ export async function verifyPaymentWithPortalAPI(
       throw new Error(`Portal API returned ${response.status}`);
     }
 
-    const transaction: DeveloperPortalTransactionResponse = await response.json();
+    const transaction = await response.json() as DeveloperPortalTransactionResponse;
 
     // Verify reference ID matches
     if (transaction.reference !== expectedReference) {
