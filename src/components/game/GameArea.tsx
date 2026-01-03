@@ -179,7 +179,7 @@ const BoosterShopPopup = ({ onClose }: { onClose: () => void }) => {
 
 // In-Game Booster Bar Component
 const BoosterBar = () => {
-  const { game, useBooster, canUseBooster } = useGame();
+  const { game, activateBooster, canUseBooster } = useGame();
   const boosterTypes: BoosterType[] = ['mirror', 'magnet', 'hourglass', 'moves'];
 
   // Only show if any booster is purchased and not all are used
@@ -205,7 +205,7 @@ const BoosterBar = () => {
         return (
           <button
             key={boosterType}
-            onClick={() => useBooster(boosterType)}
+            onClick={() => activateBooster(boosterType)}
             disabled={!canUse || isUsed}
             className={cn(
               "relative p-3 rounded-xl border-2 transition-all duration-300",

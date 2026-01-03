@@ -158,7 +158,7 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  let path = url.pathname.replace(/^\/auth/, '');
+  const path = url.pathname.replace(/^\/auth/, '');
   
   console.log("Auth function called:", { method: req.method, fullPath: url.pathname, parsedPath: path });
 

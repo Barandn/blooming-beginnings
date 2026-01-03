@@ -28,8 +28,11 @@ const RATE_LIMIT = {
   maxSubmissionsPerHour: 60,
 };
 
+// Supabase client type
+type SupabaseClient = ReturnType<typeof createClient>;
+
 // Helper to verify session
-async function verifySession(supabase: any, authHeader: string | null) {
+async function verifySession(supabase: SupabaseClient, authHeader: string | null) {
   if (!authHeader?.startsWith("Bearer ")) {
     return null;
   }
@@ -55,7 +58,7 @@ async function verifySession(supabase: any, authHeader: string | null) {
 }
 
 // Check rate limiting
-async function checkRateLimit(supabase: any, userId: string): Promise<{ allowed: boolean; reason?: string }> {
+async function checkRateLimit(supabase: SupabaseClient, userId: string): Promise<{ allowed: boolean; reason?: string }> {
   const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
@@ -133,7 +136,7 @@ function validateScore(
 
 // Validate sessionId exists and belongs to user
 async function validateSession(
-  supabase: any,
+  supabase: SupabaseClient,
   sessionId: string | null,
   userId: string
 ): Promise<{ valid: boolean; reason?: string }> {

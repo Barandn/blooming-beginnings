@@ -31,8 +31,11 @@ function validateMerchantWallet(): string {
   return wallet;
 }
 
+// Supabase client type
+type SupabaseClient = ReturnType<typeof createClient>;
+
 // Helper to verify session
-async function verifySession(supabase: any, authHeader: string | null) {
+async function verifySession(supabase: SupabaseClient, authHeader: string | null) {
   if (!authHeader?.startsWith("Bearer ")) {
     return null;
   }

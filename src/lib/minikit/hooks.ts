@@ -317,7 +317,7 @@ export function useBarnGamePurchase(
         description: 'Play Pass - 1 Hour Unlimited Play',
       });
 
-      const payPayload = payResult.finalPayload as any;
+      const payPayload = payResult.finalPayload as { transaction_id?: string; status?: string };
 
       if (!payPayload?.transaction_id) {
         setError('Payment failed');
