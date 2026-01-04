@@ -1,14 +1,8 @@
 /**
  * API Configuration
- * Backend runs on Supabase Edge Functions
- * URL format: ${SUPABASE_URL}/functions/v1/{functionName}
- *
- * Required environment variables:
- * - VITE_SUPABASE_URL: Supabase project URL
- * - VITE_SUPABASE_PUBLISHABLE_KEY: Supabase anon/public key
+ * Backend runs on Vercel API Routes
+ * URL format: /api/{endpoint}
  */
-const API_BASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 // API Response type
 interface ApiResponse<T> {
@@ -24,28 +18,15 @@ async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('auth_token');
-  const authToken = token || API_KEY;
-
-  if (!API_BASE_URL) {
-    console.error('[API] VITE_SUPABASE_URL environment variable is not set');
-    return { status: 'error', error: 'Backend URL not configured' };
-  }
-  if (!API_KEY) {
-    console.error('[API] VITE_SUPABASE_PUBLISHABLE_KEY environment variable is not set');
-    return { status: 'error', error: 'API key not configured' };
-  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: API_KEY,
-    Authorization: `Bearer ${authToken}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string>),
   };
 
-  // Build API URL: /auth/login -> /functions/v1/auth/login
-  const functionName = endpoint.split('/')[1] || 'auth';
-  const subPath = endpoint.replace(`/${functionName}`, '') || '';
-  const url = `${API_BASE_URL}/functions/v1/${functionName}${subPath}`;
+  // Build API URL for Vercel API routes: /auth/login -> /api/auth/login
+  const url = `/api${endpoint}`;
 
   try {
     const response = await fetch(url, {
