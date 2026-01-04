@@ -90,19 +90,35 @@ async function apiCall<T>(
       /did not match the expected pattern/i.test(message) ||
       /Failed to execute 'fetch'/i.test(message);
 
-    if (isHeaderPatternError) {
-      // Assume stored token is corrupt; force re-login.
+    if (isHeaderPatternError && token) {
+      // Token might be corrupt; clear it and retry the request WITHOUT token
+      console.warn('[Auth] Header pattern error detected, clearing token and retrying...');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
 
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.assign('/login');
-      }
+      // Retry the same request without Authorization header
+      try {
+        const retryHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...(options.headers as Record<string, string>),
+        };
+        const retryResponse = await fetch(url, { ...options, headers: retryHeaders });
+        const retryData = await retryResponse.json();
 
-      return {
-        status: 'error',
-        error: 'Oturum bilgin bozulmus. Lutfen tekrar giris yap.',
-      };
+        if (!retryResponse.ok) {
+          return {
+            status: 'error',
+            error: retryData.error || 'Request failed',
+            errorCode: retryData.errorCode,
+          };
+        }
+        return retryData;
+      } catch (retryError) {
+        return {
+          status: 'error',
+          error: retryError instanceof Error ? retryError.message : 'Network error',
+        };
+      }
     }
 
     return {
