@@ -435,8 +435,18 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         title: "Ücretsiz Oyun Başladı!",
         description: "Bir sonraki ücretsiz oyun için 12 saat beklemeniz gerekecek.",
       });
+      return;
     }
-  }, [barnStatus]);
+
+    // Fallback: If we reach here, something is wrong with state sync
+    // Refresh barn status and show error
+    await refreshBarnStatus();
+    toast({
+      title: "Oyun Başlatılamadı",
+      description: "Lütfen tekrar deneyin.",
+      variant: "destructive",
+    });
+  }, [barnStatus, refreshBarnStatus]);
 
   const resetGame = useCallback(async () => {
     winProcessedRef.current = false;
