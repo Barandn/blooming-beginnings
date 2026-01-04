@@ -17,7 +17,7 @@ function safeMiniKitIsInstalled(): boolean {
 }
 
 const Login = () => {
-  const { login, isVerifying, isAuthenticated } = useAuth();
+  const { login, isVerifying, isAuthenticated, isLoading, error, clearError } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,7 +28,10 @@ const Login = () => {
 
   // Handle wallet connection
   const handleConnectWallet = async () => {
-    await login();
+    clearError();
+    console.log('[Login] KICK OFF clicked, calling login()...');
+    const result = await login();
+    console.log('[Login] login() returned:', result);
   };
 
   return (
@@ -76,12 +79,21 @@ const Login = () => {
               </div>
             )}
 
+            {/* Error Message Display */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center mb-4">
+                <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
             <Button
               onClick={handleConnectWallet}
-              disabled={isVerifying}
-              className="w-full h-14 text-lg font-bold bg-white text-blue-900 hover:bg-blue-50 shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
+              disabled={isVerifying || isLoading}
+              className="w-full h-14 text-lg font-bold bg-white text-blue-900 hover:bg-blue-50 shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              {isVerifying ? (
+              {isLoading ? (
+                <span className="animate-pulse">Loading...</span>
+              ) : isVerifying ? (
                 <span className="animate-pulse">Connecting...</span>
               ) : (
                 <span className="flex items-center gap-2">
