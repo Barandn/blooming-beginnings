@@ -106,9 +106,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { nonce } = nonceResult.data;
 
       // Step 2: Request Wallet Auth from MiniKit
-      const walletAuthPayload = {
+      const walletAuthPayload: any = {
         nonce,
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        // MiniKit internally serializes dates; on some versions passing a Date object
+        // can trigger a "string did not match expected pattern" error.
+        // We pass ISO string for compatibility.
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         statement: 'Blooming Beginnings uygulamasina giris yap',
       };
 
