@@ -21,24 +21,30 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     // MiniKit.install() sets up the bridge between the mini app and World App
     const initMiniKit = async () => {
       try {
-        // Install the MiniKit SDK
-        // NOTE: Wallet Auth can fail if appId is missing.
-        const appId = (import.meta as any).env?.VITE_WORLD_APP_ID as string | undefined;
+        // Install the MiniKit SDK with App ID
+        // App ID is REQUIRED for wallet auth to work properly in World App
+        const appId = import.meta.env.VITE_WORLD_APP_ID as string | undefined;
+        
+        console.log('[MiniKit] Initializing with appId:', appId ? `${appId.slice(0, 10)}...` : 'MISSING');
+        
         if (appId) {
-          MiniKit.install({ appId } as any);
+          MiniKit.install(appId as `app_${string}`);
+          console.log('[MiniKit] SDK installed with App ID');
         } else {
           MiniKit.install();
-          console.warn('[MiniKit] Missing VITE_WORLD_APP_ID; wallet auth may fail in World App');
+          console.warn('[MiniKit] WARNING: Missing VITE_WORLD_APP_ID - wallet auth WILL FAIL in World App');
         }
 
-        console.log('[MiniKit] SDK installed successfully');
-        console.log('[MiniKit] isInstalled:', (() => {
+        // Safe check for isInstalled
+        const installed = (() => {
           try {
             return MiniKit.isInstalled();
           } catch {
             return false;
           }
-        })());
+        })();
+        
+        console.log('[MiniKit] isInstalled:', installed);
       } catch (error) {
         console.error('[MiniKit] Failed to install SDK:', error);
       } finally {
