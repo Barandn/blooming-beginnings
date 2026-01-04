@@ -16,10 +16,9 @@ export type Database = {
     Tables: {
       barn_game_attempts: {
         Row: {
-          play_pass_expires_at: string | null
-          play_pass_purchased_at: string | null
+          attempts_remaining: number
           cooldown_ends_at: string | null
-          free_game_used: boolean
+          cooldown_started_at: string | null
           created_at: string
           has_active_game: boolean
           id: string
@@ -30,10 +29,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          play_pass_expires_at?: string | null
-          play_pass_purchased_at?: string | null
+          attempts_remaining?: number
           cooldown_ends_at?: string | null
-          free_game_used?: boolean
+          cooldown_started_at?: string | null
           created_at?: string
           has_active_game?: boolean
           id?: string
@@ -44,10 +42,9 @@ export type Database = {
           user_id: string
         }
         Update: {
-          play_pass_expires_at?: string | null
-          play_pass_purchased_at?: string | null
+          attempts_remaining?: number
           cooldown_ends_at?: string | null
-          free_game_used?: boolean
+          cooldown_started_at?: string | null
           created_at?: string
           has_active_game?: boolean
           id?: string
@@ -70,7 +67,7 @@ export type Database = {
       barn_game_purchases: {
         Row: {
           amount: string
-          play_pass_duration_ms: number
+          attempts_granted: number
           confirmed_at: string | null
           created_at: string
           id: string
@@ -82,7 +79,7 @@ export type Database = {
         }
         Insert: {
           amount: string
-          play_pass_duration_ms?: number
+          attempts_granted?: number
           confirmed_at?: string | null
           created_at?: string
           id?: string
@@ -94,7 +91,7 @@ export type Database = {
         }
         Update: {
           amount?: string
-          play_pass_duration_ms?: number
+          attempts_granted?: number
           confirmed_at?: string | null
           created_at?: string
           id?: string

@@ -64,13 +64,17 @@ serve(async (req) => {
       const userId = score.user_id;
       const existing = userScores.get(userId);
       
+      // users is returned as a single object from inner join
+      const usersData = score.users as unknown as { wallet_address: string } | null;
+      const walletAddress = usersData?.wallet_address || '';
+      
       if (existing) {
         existing.monthlyProfit = Math.max(existing.monthlyProfit, score.monthly_profit);
         existing.totalScore += score.score;
         existing.gamesPlayed++;
       } else {
         userScores.set(userId, {
-          walletAddress: (score.users as { wallet_address: string }).wallet_address,
+          walletAddress,
           monthlyProfit: score.monthly_profit,
           totalScore: score.score,
           gamesPlayed: 1,

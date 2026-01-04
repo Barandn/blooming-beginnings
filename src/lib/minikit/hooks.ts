@@ -151,17 +151,18 @@ export function useDailyBonus(profile: UserProfileResponse | null): UseDailyBonu
 
     try {
       // Daily bonus now uses JWT auth instead of deprecated World ID
+      // claimDailyBonus returns GaslessClaimResult directly
       const result = await claimDailyBonus();
 
-      if (result.status !== 'success' || !result.data) {
+      if (!result.success) {
         setError(result.error || 'Claim failed');
         return { success: false };
       }
 
       return {
         success: true,
-        txHash: result.data.txHash,
-        explorerUrl: result.data.explorerUrl,
+        txHash: result.txHash,
+        explorerUrl: result.explorerUrl,
       };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

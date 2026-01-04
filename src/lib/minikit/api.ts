@@ -313,7 +313,7 @@ export async function claimDailyBonus(): Promise<GaslessClaimResult> {
   // Step 2: Send transaction via MiniKit (World App sponsors gas)
   const txResult = await claimTokens({
     amount,
-    claimType: claimType as ClaimType,
+    claimType: claimType as typeof ClaimType[keyof typeof ClaimType],
     deadline,
     signature,
     contractAddress,
@@ -368,7 +368,7 @@ export async function claimGameReward(score: number): Promise<GaslessClaimResult
   // Step 2: Send transaction via MiniKit (World App sponsors gas)
   const txResult = await claimTokens({
     amount,
-    claimType: claimType as ClaimType,
+    claimType: claimType as typeof ClaimType[keyof typeof ClaimType],
     deadline,
     signature,
     contractAddress,
