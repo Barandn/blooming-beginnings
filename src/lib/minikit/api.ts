@@ -17,20 +17,51 @@ async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  let token = localStorage.getItem('auth_token');
+  const rawToken = localStorage.getItem('auth_token');
 
-  // Guard: avoid sending malformed tokens (prevents "did not match expected pattern" errors)
-  if (token && token.split('.').length !== 3) {
-    console.warn('[Auth] Ignoring malformed auth_token in localStorage');
+  const sanitizeBearerToken = (value: string | null): string | null => {
+    if (!value) return null;
+
+    // Common corrupt states seen in WebKit / embedded browsers
+    let t = value.trim();
+    if (!t || t === 'undefined' || t === 'null') return null;
+
+    // Remove accidental wrapping quotes
+    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+      t = t.slice(1, -1).trim();
+    }
+
+    // Block control chars / whitespace that can break Authorization header validation
+    // (RFC 7230: no CTL in header values)
+    if (/[\r\n\t\f\v\0]/.test(t) || /\s/.test(t)) return null;
+
+    // Heuristic: our token is a JWT (3 segments). If not, treat as invalid.
+    if (t.split('.').length !== 3) return null;
+
+    return t;
+  };
+
+  let token = sanitizeBearerToken(rawToken);
+  if (rawToken && !token) {
+    console.warn('[Auth] Clearing malformed auth_token in localStorage');
     localStorage.removeItem('auth_token');
-    token = null;
   }
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers as Record<string, string>),
-  };
+  let headers: Record<string, string>;
+  try {
+    headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers as Record<string, string>),
+    };
+  } catch {
+    // If header construction itself fails for any reason, nuke token and retry without it
+    localStorage.removeItem('auth_token');
+    headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
+  }
 
   // Build API URL for Vercel API routes: /auth/login -> /api/auth/login
   const url = `/api${endpoint}`;
@@ -53,9 +84,30 @@ async function apiCall<T>(
 
     return data;
   } catch (error) {
+    // WebKit can throw: DOMException: "The string did not match the expected pattern"
+    const message = error instanceof Error ? error.message : String(error);
+    const isHeaderPatternError =
+      /did not match the expected pattern/i.test(message) ||
+      /Failed to execute 'fetch'/i.test(message);
+
+    if (isHeaderPatternError) {
+      // Assume stored token is corrupt; force re-login.
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.assign('/login');
+      }
+
+      return {
+        status: 'error',
+        error: 'Oturum bilgin bozulmus. Lutfen tekrar giris yap.',
+      };
+    }
+
     return {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Network error',
+      error: message || 'Network error',
     };
   }
 }
