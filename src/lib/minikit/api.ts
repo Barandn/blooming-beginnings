@@ -17,7 +17,19 @@ async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const token = localStorage.getItem('auth_token');
+  let token = localStorage.getItem('auth_token');
+
+  // Basic validation to prevent "string did not match expected pattern" error
+  // which happens when invalid characters are passed in headers
+  if (token) {
+    token = token.trim();
+    if (!token || token === 'undefined' || token === 'null' || /[^A-Za-z0-9\-\._~\+\/]/.test(token)) {
+      console.warn('Invalid auth token found in storage, clearing...');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      token = null;
+    }
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -37,6 +49,12 @@ async function apiCall<T>(
     const data = await response.json();
 
     if (!response.ok) {
+      // Handle 401 Unauthorized by clearing invalid session
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+      }
+
       return {
         status: 'error',
         error: data.error || 'Request failed',
@@ -46,6 +64,17 @@ async function apiCall<T>(
 
     return data;
   } catch (error) {
+    // If the error is a DOMException (likely "string did not match expected pattern")
+    // or related to headers, we should clear the token
+    if (error instanceof Error &&
+        (error.name === 'DOMException' ||
+         error.message.includes('expected pattern') ||
+         error.message.includes('header'))) {
+      console.error('Fetch error related to headers/token. Clearing session.', error);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+    }
+
     return {
       status: 'error',
       error: error instanceof Error ? error.message : 'Network error',
