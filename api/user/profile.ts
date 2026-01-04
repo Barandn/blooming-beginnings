@@ -72,7 +72,7 @@ export default async function handler(
         )
       );
 
-    // Check daily bonus status
+    // Check daily bonus status from DB
     const [todayClaim] = await db
       .select()
       .from(dailyBonusClaims)
@@ -97,6 +97,19 @@ export default async function handler(
       )
       .orderBy(desc(claimTransactions.createdAt))
       .limit(1);
+
+    // Get user's streak data from DB
+    const [userStreakData] = await db
+      .select({
+        dailyStreakCount: sql<number>`COALESCE(daily_streak_count, 0)::integer`,
+        lastDailyClaimDate: sql<string | null>`last_daily_claim_date`,
+      })
+      .from(sql`users`)
+      .where(sql`id = ${user.id}`)
+      .limit(1);
+
+    const streakCount = userStreakData?.dailyStreakCount || 0;
+    const lastClaimDate = userStreakData?.lastDailyClaimDate || null;
 
     // Calculate cooldown
     let dailyBonusAvailable = !todayClaim;
@@ -157,6 +170,8 @@ export default async function handler(
           claimedToday: !!todayClaim,
           cooldownRemainingMs: cooldownRemaining,
           amount: formatTokenAmount(TOKEN_CONFIG.dailyBonusAmount),
+          streakCount: streakCount,
+          lastClaimDate: lastClaimDate,
         },
         recentTransactions: recentTransactions.map(tx => ({
           id: tx.id,

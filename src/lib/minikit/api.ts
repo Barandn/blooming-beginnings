@@ -242,6 +242,7 @@ export async function recordClaim(
 export interface ClaimDailyBonusResponse {
   claimId: string;
   amount: string;
+  streakDay?: number;
   txHash?: string;
   blockNumber?: number;
   explorerUrl?: string;
@@ -259,6 +260,7 @@ export interface GaslessClaimResult {
   success: boolean;
   txHash?: string;
   amount?: string;
+  streakDay?: number;
   explorerUrl?: string;
   error?: string;
 }
@@ -475,6 +477,8 @@ export interface UserProfileResponse {
     claimedToday: boolean;
     cooldownRemainingMs: number;
     amount: string;
+    streakCount: number;
+    lastClaimDate: string | null;
   };
   recentTransactions: Array<{
     id: string;
