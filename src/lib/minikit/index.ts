@@ -9,14 +9,24 @@ import { MiniKit, Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
 export { Tokens, tokenToDecimals };
 
 // Check if MiniKit is available (running inside World App)
-export function isMiniKitAvailable(): boolean {
+export function safeMiniKitIsInstalled(): boolean {
   if (typeof window === 'undefined') return false;
-  return MiniKit.isInstalled();
+  try {
+    return MiniKit.isInstalled();
+  } catch {
+    // MiniKit throws when not in World App; treat as not installed.
+    return false;
+  }
+}
+
+// Check if MiniKit is available (running inside World App)
+export function isMiniKitAvailable(): boolean {
+  return safeMiniKitIsInstalled();
 }
 
 // Get MiniKit instance - returns the MiniKit SDK
 export function getMiniKit() {
-  if (!MiniKit.isInstalled()) {
+  if (!safeMiniKitIsInstalled()) {
     throw new Error('MiniKit is not available. Please open this app in World App.');
   }
   return MiniKit;
@@ -117,8 +127,7 @@ export async function requestWalletAuth(nonce: string): Promise<WalletAuthResult
  * Check if running inside World App
  */
 export function isInWorldApp(): boolean {
-  if (typeof window === 'undefined') return false;
-  return MiniKit.isInstalled();
+  return safeMiniKitIsInstalled();
 }
 
 // TokenClaim contract ABI (only claimTokens function needed)

@@ -25,7 +25,13 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
         MiniKit.install();
 
         console.log('[MiniKit] SDK installed successfully');
-        console.log('[MiniKit] isInstalled:', MiniKit.isInstalled());
+        console.log('[MiniKit] isInstalled:', (() => {
+          try {
+            return MiniKit.isInstalled();
+          } catch {
+            return false;
+          }
+        })());
       } catch (error) {
         console.error('[MiniKit] Failed to install SDK:', error);
       } finally {
