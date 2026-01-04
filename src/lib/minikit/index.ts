@@ -163,6 +163,8 @@ export async function claimTokens(params: ClaimParams): Promise<SendTransactionR
   const minikit = getMiniKit();
 
   try {
+    // Note: MiniKit expects numeric types for uint256/uint8 args
+    // amount should be string (large number), claimType and deadline as numbers
     const result = await minikit.commandsAsync.sendTransaction({
       transaction: [
         {
@@ -170,10 +172,10 @@ export async function claimTokens(params: ClaimParams): Promise<SendTransactionR
           abi: TOKEN_CLAIM_ABI,
           functionName: 'claimTokens',
           args: [
-            params.amount,
-            params.claimType.toString(),
-            params.deadline.toString(),
-            params.signature,
+            params.amount, // uint256 - keep as string for large numbers
+            Number(params.claimType), // uint8 - convert to number
+            Number(params.deadline), // uint256 - convert to number (timestamp fits in JS number)
+            params.signature, // bytes - keep as hex string
           ],
         },
       ],
