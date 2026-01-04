@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Wallet, Trophy } from "lucide-react";
-import { MiniKit } from "@worldcoin/minikit-js";
+import { safeMiniKitIsInstalled } from "@/lib/minikit";
 
 const Login = () => {
   const { login, isVerifying, isAuthenticated } = useAuth();
@@ -58,7 +58,7 @@ const Login = () => {
           </div>
 
           <div className="space-y-4 pt-4">
-            {!MiniKit.isInstalled() && (
+            {!safeMiniKitIsInstalled() && (
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-center mb-4">
                 <p className="text-yellow-200 text-xs">
                   For best experience, open in World App

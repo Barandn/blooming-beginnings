@@ -17,7 +17,14 @@ async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const token = localStorage.getItem('auth_token');
+  let token = localStorage.getItem('auth_token');
+
+  // Guard: avoid sending malformed tokens (prevents "did not match expected pattern" errors)
+  if (token && token.split('.').length !== 3) {
+    console.warn('[Auth] Ignoring malformed auth_token in localStorage');
+    localStorage.removeItem('auth_token');
+    token = null;
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

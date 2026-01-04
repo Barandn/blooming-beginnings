@@ -15,6 +15,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { MiniKit } from '@worldcoin/minikit-js';
 import {
+  safeMiniKitIsInstalled,
+} from '@/lib/minikit';
+import {
   getSiweNonce,
   verifySiwe,
   isAuthenticated as checkAuth,
@@ -82,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Check if MiniKit is available
-      if (!MiniKit.isInstalled()) {
+      if (!safeMiniKitIsInstalled()) {
         setState(prev => ({
           ...prev,
           isVerifying: false,
