@@ -8,6 +8,7 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { MiniKit } from '@worldcoin/minikit-js';
+import { WORLD_APP_ID } from '@/config/worldApp';
 
 interface MiniKitProviderProps {
   children: ReactNode;
@@ -21,21 +22,14 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     // MiniKit.install() sets up the bridge between the mini app and World App
     const initMiniKit = async () => {
       try {
-        // Install the MiniKit SDK with App ID
-        // App ID is REQUIRED for wallet auth to work properly in World App
-        const appId = import.meta.env.VITE_WORLD_APP_ID as string | undefined;
-        
-        console.log('[MiniKit] Initializing with appId:', appId ? `${appId.slice(0, 10)}...` : 'MISSING');
-        
-        if (appId) {
-          MiniKit.install(appId as `app_${string}`);
-          console.log('[MiniKit] SDK installed with App ID');
-        } else {
-          MiniKit.install();
-          console.warn('[MiniKit] WARNING: Missing VITE_WORLD_APP_ID - wallet auth WILL FAIL in World App');
+        // Install the MiniKit SDK with App ID (required for Wallet Auth)
+        const { success } = MiniKit.install(WORLD_APP_ID);
+        console.log('[MiniKit] install success:', success, 'appId:', `${WORLD_APP_ID.slice(0, 10)}...`);
+
+        if (!success) {
+          console.warn('[MiniKit] install reported success=false; wallet auth may be unavailable');
         }
 
-        // Safe check for isInstalled
         const installed = (() => {
           try {
             return MiniKit.isInstalled();
@@ -43,7 +37,7 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
             return false;
           }
         })();
-        
+
         console.log('[MiniKit] isInstalled:', installed);
       } catch (error) {
         console.error('[MiniKit] Failed to install SDK:', error);
