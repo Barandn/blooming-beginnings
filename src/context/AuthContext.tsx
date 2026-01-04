@@ -88,11 +88,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Login with Wallet Auth (SIWE)
   const login = useCallback(async (): Promise<boolean> => {
+    console.log('[Auth] login() started');
     setState(prev => ({ ...prev, isVerifying: true, error: null }));
 
     try {
       // Check if MiniKit is available
-      if (!safeMiniKitIsInstalled()) {
+      const miniKitInstalled = safeMiniKitIsInstalled();
+      console.log('[Auth] MiniKit installed:', miniKitInstalled);
+      
+      if (!miniKitInstalled) {
+        console.log('[Auth] MiniKit not installed, setting error');
         setState(prev => ({
           ...prev,
           isVerifying: false,
@@ -102,13 +107,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Step 1: Get nonce from backend
+      console.log('[Auth] Step 1: Getting nonce from backend...');
       const nonceResult = await getSiweNonce();
+      console.log('[Auth] Nonce result:', nonceResult);
 
       if (nonceResult.status !== 'success' || !nonceResult.data) {
+        console.log('[Auth] Nonce failed:', nonceResult.error);
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: 'Nonce alinamadi. Lutfen tekrar deneyin.',
+          error: nonceResult.error || 'Nonce alinamadi. Lutfen tekrar deneyin.',
         }));
         return false;
       }
@@ -116,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { nonce } = nonceResult.data;
 
       // Step 2: Request Wallet Auth from MiniKit
+      console.log('[Auth] Step 2: Requesting Wallet Auth from MiniKit...');
       const walletAuthPayload: any = {
         nonce,
         // MiniKit internally serializes dates; on some versions passing a Date object
@@ -124,8 +133,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         statement: 'Blooming Beginnings uygulamasina giris yap',
       };
+      console.log('[Auth] Wallet auth payload:', walletAuthPayload);
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
+      console.log('[Auth] Wallet auth result:', walletAuthResult);
       const walletPayload = walletAuthResult.finalPayload as { signature?: string; error_code?: string; message?: string; address?: string };
 
       if (!walletPayload?.signature) {
