@@ -2,3 +2,18 @@ project_id = "vzbdnopczidncsgesddm"
 
 [functions.auth]
 verify_jwt = false
+
+[functions.leaderboard]
+verify_jwt = false
+
+[functions.barn]
+verify_jwt = false
+
+[functions.claim]
+verify_jwt = false
+
+[functions.scores]
+verify_jwt = false
+
+[functions.user]
+verify_jwt = false

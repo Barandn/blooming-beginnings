@@ -7,6 +7,10 @@
  * 2. claim_transactions - Token distribution log
  * 3. game_scores - Validated game scores for leaderboard
  * 4. sessions - User session management
+ * 5. siwe_nonces - SIWE authentication nonces
+ * 6. barn_game_attempts - Barn game play tracking
+ * 7. barn_game_purchases - Barn game purchases
+ * 8. payment_references - Payment reference IDs
  */
 
 import {
@@ -47,9 +51,6 @@ export const users = pgTable('users', {
   // Whether user is currently active
   isActive: boolean('is_active').notNull().default(true),
 
-  // Login Streak (for 7-day bonus)
-  streakCount: integer('streak_count').notNull().default(0),
-
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -58,6 +59,23 @@ export const users = pgTable('users', {
   uniqueIndex('users_nullifier_hash_idx').on(table.nullifierHash),
   index('users_wallet_address_idx').on(table.walletAddress),
 ]);
+
+/**
+ * SIWE Nonces Table
+ * Stores nonces for Sign-In With Ethereum authentication
+ */
+export const siweNonces = pgTable('siwe_nonces', {
+  nonce: text('nonce').primaryKey(),
+  
+  // When nonce expires (5 minutes)
+  expiresAt: timestamp('expires_at').notNull(),
+  
+  // When nonce was consumed (null if not yet used)
+  consumedAt: timestamp('consumed_at'),
+  
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
 
 /**
  * Claim Transactions Table
@@ -210,53 +228,11 @@ export const dailyBonusClaims = pgTable('daily_bonus_claims', {
   uniqueIndex('daily_bonus_claims_user_date_idx').on(table.userId, table.claimDate),
 ]);
 
-// Relations
-export const usersRelations = relations(users, ({ many, one }) => ({
-  claimTransactions: many(claimTransactions),
-  gameScores: many(gameScores),
-  sessions: many(sessions),
-  dailyBonusClaims: many(dailyBonusClaims),
-  barnGameAttempts: one(barnGameAttempts),
-  barnGamePurchases: many(barnGamePurchases),
-}));
-
-export const claimTransactionsRelations = relations(claimTransactions, ({ one }) => ({
-  user: one(users, {
-    fields: [claimTransactions.userId],
-    references: [users.id],
-  }),
-}));
-
-export const gameScoresRelations = relations(gameScores, ({ one }) => ({
-  user: one(users, {
-    fields: [gameScores.userId],
-    references: [users.id],
-  }),
-}));
-
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(users, {
-    fields: [sessions.userId],
-    references: [users.id],
-  }),
-}));
-
-export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) => ({
-  user: one(users, {
-    fields: [dailyBonusClaims.userId],
-    references: [users.id],
-  }),
-  transaction: one(claimTransactions, {
-    fields: [dailyBonusClaims.transactionId],
-    references: [claimTransactions.id],
-  }),
-}));
-
 /**
- * Barn Game Play Pass Table
- * Tracks Play Pass system for card matching game
- * - 1 WLD = 1 hour unlimited play
- * - Or wait 12 hours cooldown for 1 free game
+ * Barn Game Attempts Table
+ * Tracks attempts-based play system for card matching game
+ * - 10 attempts per purchase or cooldown reset
+ * - 12 hour cooldown when attempts run out
  */
 export const barnGameAttempts = pgTable('barn_game_attempts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -264,17 +240,14 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
   // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 
-  // Play Pass expiration time (null if no active pass)
-  playPassExpiresAt: timestamp('play_pass_expires_at'),
+  // Number of attempts remaining
+  attemptsRemaining: integer('attempts_remaining').notNull().default(10),
 
-  // When Play Pass was purchased
-  playPassPurchasedAt: timestamp('play_pass_purchased_at'),
+  // When cooldown started
+  cooldownStartedAt: timestamp('cooldown_started_at'),
 
-  // When cooldown ends (12 hours after free game used)
+  // When cooldown ends (12 hours after cooldown started)
   cooldownEndsAt: timestamp('cooldown_ends_at'),
-
-  // Whether free game was used in current cycle (resets when cooldown ends)
-  freeGameUsed: boolean('free_game_used').notNull().default(false),
 
   // Last game played date (YYYY-MM-DD format)
   lastPlayedDate: varchar('last_played_date', { length: 10 }),
@@ -297,7 +270,7 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
 
 /**
  * Barn Game Purchases Table
- * Records when users purchase Play Pass
+ * Records when users purchase attempts
  */
 export const barnGamePurchases = pgTable('barn_game_purchases', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -320,8 +293,8 @@ export const barnGamePurchases = pgTable('barn_game_purchases', {
   // Status of purchase
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 
-  // Play Pass duration granted in milliseconds (1 hour = 3600000)
-  playPassDurationMs: bigint('play_pass_duration_ms', { mode: 'number' }).notNull().default(3600000),
+  // Number of attempts granted
+  attemptsGranted: integer('attempts_granted').notNull().default(10),
 
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -368,6 +341,48 @@ export const paymentReferences = pgTable('payment_references', {
   index('payment_references_expires_at_idx').on(table.expiresAt),
 ]);
 
+// Relations
+export const usersRelations = relations(users, ({ many, one }) => ({
+  claimTransactions: many(claimTransactions),
+  gameScores: many(gameScores),
+  sessions: many(sessions),
+  dailyBonusClaims: many(dailyBonusClaims),
+  barnGameAttempts: one(barnGameAttempts),
+  barnGamePurchases: many(barnGamePurchases),
+}));
+
+export const claimTransactionsRelations = relations(claimTransactions, ({ one }) => ({
+  user: one(users, {
+    fields: [claimTransactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const gameScoresRelations = relations(gameScores, ({ one }) => ({
+  user: one(users, {
+    fields: [gameScores.userId],
+    references: [users.id],
+  }),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) => ({
+  user: one(users, {
+    fields: [dailyBonusClaims.userId],
+    references: [users.id],
+  }),
+  transaction: one(claimTransactions, {
+    fields: [dailyBonusClaims.transactionId],
+    references: [claimTransactions.id],
+  }),
+}));
+
 // Barn game relations
 export const barnGameAttemptsRelations = relations(barnGameAttempts, ({ one }) => ({
   user: one(users, {
@@ -393,6 +408,8 @@ export const paymentReferencesRelations = relations(paymentReferences, ({ one })
 // Type exports for use in application
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type SiweNonce = typeof siweNonces.$inferSelect;
+export type NewSiweNonce = typeof siweNonces.$inferInsert;
 export type ClaimTransaction = typeof claimTransactions.$inferSelect;
 export type NewClaimTransaction = typeof claimTransactions.$inferInsert;
 export type GameScore = typeof gameScores.$inferSelect;

@@ -30,8 +30,26 @@ enum ClaimType {
   GAME_REWARD = 1,
 }
 
+// Supabase client type - using any to avoid complex generic issues in edge functions
+// deno-lint-ignore no-explicit-any
+type SupabaseClient = any;
+
+// Session type with user data
+interface SessionWithUser {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: string;
+  is_active: boolean;
+  users: {
+    id: string;
+    wallet_address: string;
+    verification_level: string;
+  };
+}
+
 // Helper to verify session
-async function verifySession(supabase: ReturnType<typeof createClient>, authHeader: string | null) {
+async function verifySession(supabase: SupabaseClient, authHeader: string | null): Promise<SessionWithUser | null> {
   if (!authHeader?.startsWith("Bearer ")) {
     return null;
   }
@@ -53,7 +71,7 @@ async function verifySession(supabase: ReturnType<typeof createClient>, authHead
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
-  return session;
+  return session as SessionWithUser | null;
 }
 
 // Get user's current nonce from the contract
