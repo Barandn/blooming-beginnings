@@ -4,7 +4,17 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Wallet, Trophy } from "lucide-react";
-import { safeMiniKitIsInstalled } from "@/lib/minikit";
+import { MiniKit } from "@worldcoin/minikit-js";
+
+// Inline safe check to avoid module load issues
+function safeMiniKitIsInstalled(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return MiniKit.isInstalled();
+  } catch {
+    return false;
+  }
+}
 
 const Login = () => {
   const { login, isVerifying, isAuthenticated } = useAuth();
