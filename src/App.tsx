@@ -30,9 +30,7 @@ const App = () => (
                 <Route
                   path="/"
                   element={
-                    <ProtectedRoute>
-                      <Index />
-                    </ProtectedRoute>
+                    <Index />
                   }
                 />
 
