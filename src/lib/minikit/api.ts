@@ -35,6 +35,10 @@ async function apiCall<T>(
     // (RFC 7230: no CTL in header values)
     if (/[\r\n\t\f\v\0]/.test(t) || /\s/.test(t)) return null;
 
+    // Strictly enforce ASCII characters for the token (Base64Url compatible)
+    // This prevents "String did not match expected pattern" DOMException in fetch headers
+    if (!/^[a-zA-Z0-9._-]+$/.test(t)) return null;
+
     // Heuristic: our token is a JWT (3 segments). If not, treat as invalid.
     if (t.split('.').length !== 3) return null;
 
@@ -85,10 +89,17 @@ async function apiCall<T>(
     return data;
   } catch (error) {
     // WebKit can throw: DOMException: "The string did not match the expected pattern"
-    const message = error instanceof Error ? error.message : String(error);
+    // This happens if headers contain invalid characters (e.g., non-ASCII)
+    const err = error as Error;
+    const message = err.message || String(error);
+    const errorName = err.name || '';
+
+    // Check for specific pattern error in multiple ways to be robust against localization
     const isHeaderPatternError =
       /did not match the expected pattern/i.test(message) ||
-      /Failed to execute 'fetch'/i.test(message);
+      /Failed to execute 'fetch'/i.test(message) ||
+      errorName === 'SyntaxError' || // DOMException code 12 often maps to SyntaxError in some contexts
+      (err instanceof TypeError && /ByteString/i.test(message)); // Node/Polyfill environments
 
     if (isHeaderPatternError && token) {
       // Token might be corrupt; clear it and retry the request WITHOUT token
