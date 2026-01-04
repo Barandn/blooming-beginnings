@@ -12,6 +12,7 @@ import { verifySessionToken } from '../../lib/services/auth';
 import { db } from '../../lib/db';
 import { claimTransactions, dailyBonusClaims, users } from '../../lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { TOKEN_CONFIG } from '../../lib/config/constants';
 
 // CORS headers
 const corsHeaders = {
@@ -74,13 +75,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Validate tokenAddress is configured
+    if (!TOKEN_CONFIG.tokenAddress) {
+      console.error('Record claim error: REWARD_TOKEN_ADDRESS not configured');
+      return res.status(500).json({
+        status: 'error',
+        error: 'Token configuration missing. Please contact support.',
+        errorCode: 'token_not_configured',
+      });
+    }
+
     // Record the claim transaction
+    // Note: amount is stored as TEXT in schema (for precision with large numbers)
+    // tokenAddress is REQUIRED (notNull constraint in schema)
     const [transaction] = await db
       .insert(claimTransactions)
       .values({
         userId: user.id,
         claimType,
-        amount: BigInt(amount),
+        amount: amount, // Keep as string - schema expects TEXT type
+        tokenAddress: TOKEN_CONFIG.tokenAddress, // CRITICAL: Required field was missing!
         status: 'confirmed',
         txHash,
         confirmedAt: new Date(),
@@ -93,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await db.insert(dailyBonusClaims).values({
         userId: user.id,
         claimDate: today,
-        amount: BigInt(amount),
+        amount: amount, // Keep as string - schema expects TEXT type
         transactionId: transaction.id,
       } as typeof dailyBonusClaims.$inferInsert);
     }
