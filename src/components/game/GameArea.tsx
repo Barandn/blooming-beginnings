@@ -386,8 +386,40 @@ const CardComponent = React.memo(({
 
 CardComponent.displayName = 'CardComponent';
 
+// Format cooldown time
+const formatCooldown = (ms: number): string => {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+};
+
 // Start Screen Component
-const StartScreen = ({ onStart, onOpenShop, purchasedCount }: { onStart: () => void; onOpenShop: () => void; purchasedCount: number }) => (
+interface StartScreenProps {
+  onStart: () => void;
+  onOpenShop: () => void;
+  purchasedCount: number;
+  canPlay: boolean;
+  isInCooldown: boolean;
+  cooldownRemainingMs: number;
+  hasActivePass: boolean;
+  freeGameAvailable: boolean;
+  isLoading: boolean;
+}
+
+const StartScreen = ({
+  onStart,
+  onOpenShop,
+  purchasedCount,
+  canPlay,
+  isInCooldown,
+  cooldownRemainingMs,
+  hasActivePass,
+  freeGameAvailable,
+  isLoading,
+}: StartScreenProps) => (
   <div className="flex flex-col items-center justify-center h-[60vh] space-y-6 px-4">
     <div className="relative">
       <div className="text-7xl animate-bounce">⚽</div>
@@ -402,6 +434,28 @@ const StartScreen = ({ onStart, onOpenShop, purchasedCount }: { onStart: () => v
         Find all matching pairs to win coins and climb the monthly leaderboard!
       </p>
     </div>
+
+    {/* Game Status Info */}
+    {hasActivePass && (
+      <div className="bg-green-500/20 border border-green-400/50 px-4 py-2 rounded-full">
+        <span className="text-green-400 text-sm font-bold">✓ Play Pass Aktif</span>
+      </div>
+    )}
+
+    {isInCooldown && !hasActivePass && (
+      <div className="bg-orange-500/20 border border-orange-400/50 px-4 py-2 rounded-full text-center">
+        <span className="text-orange-400 text-sm font-bold">
+          ⏰ Cooldown: {formatCooldown(cooldownRemainingMs)}
+        </span>
+        <p className="text-orange-300 text-xs mt-1">Play Pass al veya bekle</p>
+      </div>
+    )}
+
+    {freeGameAvailable && !hasActivePass && !isInCooldown && (
+      <div className="bg-blue-500/20 border border-blue-400/50 px-4 py-2 rounded-full">
+        <span className="text-blue-400 text-sm font-bold">🎮 1 Ücretsiz Oyun Hakkı</span>
+      </div>
+    )}
 
     {/* Booster Shop Button */}
     <button
@@ -424,14 +478,23 @@ const StartScreen = ({ onStart, onOpenShop, purchasedCount }: { onStart: () => v
 
     <button
       onClick={onStart}
+      disabled={!canPlay || isLoading}
       className={cn(
-        "start-pulse px-10 py-4 font-black text-xl rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform duration-200",
-        purchasedCount > 0
-          ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
-          : "bg-white text-blue-700"
+        "start-pulse px-10 py-4 font-black text-xl rounded-full shadow-xl transition-transform duration-200",
+        canPlay && !isLoading
+          ? purchasedCount > 0
+            ? "bg-gradient-to-r from-green-500 to-green-600 text-white hover:scale-105 active:scale-95"
+            : "bg-white text-blue-700 hover:scale-105 active:scale-95"
+          : "bg-gray-500 text-gray-300 cursor-not-allowed opacity-50"
       )}
     >
-      ⚽ KICK OFF {purchasedCount > 0 && `(${purchasedCount} Booster)`}
+      {isLoading ? (
+        "Yükleniyor..."
+      ) : canPlay ? (
+        <>⚽ KICK OFF {purchasedCount > 0 && `(${purchasedCount} Booster)`}</>
+      ) : (
+        "🔒 Cooldown Aktif"
+      )}
     </button>
 
     <div className="flex gap-6 text-blue-200 text-sm">
@@ -523,10 +586,11 @@ const TimeOutScreen = ({ moves, matchedPairs, onPlayAgain }: { moves: number; ma
 
 // Main Game Area Component
 const GameArea = () => {
-  const { game, startGame, flipCard, resetGame } = useGame();
+  const { game, barnStatus, startGame, flipCard, resetGame } = useGame();
   const [shakingCards, setShakingCards] = useState<number[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showBoosterShopPopup, setShowBoosterShopPopup] = useState(false); // Popup state
+  const [isStarting, setIsStarting] = useState(false); // Track if game is starting
 
   // Handle card shake for non-matching pairs
   useEffect(() => {
@@ -578,9 +642,14 @@ const GameArea = () => {
     setShowBoosterShopPopup(false);
   }, []);
 
-  const handleStartGame = useCallback(() => {
+  const handleStartGame = useCallback(async () => {
+    setIsStarting(true);
     setShowBoosterShopPopup(false);
-    startGame();
+    try {
+      await startGame();
+    } finally {
+      setIsStarting(false);
+    }
   }, [startGame]);
 
   const handlePlayAgain = useCallback(() => {
@@ -599,6 +668,12 @@ const GameArea = () => {
           onStart={handleStartGame}
           onOpenShop={handleOpenShop}
           purchasedCount={purchasedCount}
+          canPlay={barnStatus.canPlay}
+          isInCooldown={barnStatus.isInCooldown}
+          cooldownRemainingMs={barnStatus.cooldownRemainingMs}
+          hasActivePass={barnStatus.hasActivePass}
+          freeGameAvailable={barnStatus.freeGameAvailable}
+          isLoading={barnStatus.isLoading || isStarting}
         />
         {showBoosterShopPopup && <BoosterShopPopup onClose={handleCloseShop} />}
       </>
