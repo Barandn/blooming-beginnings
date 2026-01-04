@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
-import { submitScore, isAuthenticated, getUserData } from "@/lib/minikit/api";
+import {
+  submitScore,
+  isAuthenticated,
+  getUserData,
+  getBarnGameStatus,
+  useFreeGame,
+  claimDailyBonus as claimDailyBonusAPI,
+  BarnGameStatusResponse
+} from "@/lib/minikit/api";
 
 // --- Game Types ---
 
@@ -111,13 +119,42 @@ export interface UserState {
   inventory: Record<string, number>;
 }
 
+// Barn Game Status State
+export interface BarnGameState {
+  hasActivePass: boolean;
+  playPassExpiresAt: number | null;
+  playPassRemainingMs: number;
+  isInCooldown: boolean;
+  cooldownEndsAt: number | null;
+  cooldownRemainingMs: number;
+  freeGameAvailable: boolean;
+  canPlay: boolean;
+  purchasePrice: { WLD: string } | null;
+  isLoading: boolean;
+}
+
+const INITIAL_BARN_STATE: BarnGameState = {
+  hasActivePass: false,
+  playPassExpiresAt: null,
+  playPassRemainingMs: 0,
+  isInCooldown: false,
+  cooldownEndsAt: null,
+  cooldownRemainingMs: 0,
+  freeGameAvailable: true,
+  canPlay: true,
+  purchasePrice: null,
+  isLoading: true,
+};
+
 interface GameContextType {
   user: UserState;
   game: GameSession;
-  startGame: () => void;
+  barnStatus: BarnGameState;
+  startGame: () => Promise<void>;
   flipCard: (cardId: number) => void;
   claimDailyBonus: () => Promise<void>;
   resetGame: () => void;
+  refreshBarnStatus: () => Promise<void>;
   isLoading: boolean;
   // Booster functions
   purchaseBooster: (boosterType: BoosterType) => boolean;
@@ -183,6 +220,7 @@ const getTodayString = () => new Date().toISOString().split('T')[0];
 export const GameProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserState>(INITIAL_USER);
   const [game, setGame] = useState<GameSession>(INITIAL_GAME);
+  const [barnStatus, setBarnStatus] = useState<BarnGameState>(INITIAL_BARN_STATE);
   const [isLoading, setIsLoading] = useState(true);
 
   // Ref to track if win has been processed to prevent double rewards
@@ -190,6 +228,52 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   // Timer ref for interval
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- Barn Game Status ---
+  const refreshBarnStatus = useCallback(async () => {
+    if (!isAuthenticated()) {
+      // Guest mode - allow playing without restrictions
+      setBarnStatus({
+        ...INITIAL_BARN_STATE,
+        isLoading: false,
+      });
+      return;
+    }
+
+    setBarnStatus(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const response = await getBarnGameStatus();
+
+      if (response.status === 'success' && response.data) {
+        const data = response.data;
+        setBarnStatus({
+          hasActivePass: data.hasActivePass,
+          playPassExpiresAt: data.playPassExpiresAt,
+          playPassRemainingMs: data.playPassRemainingMs,
+          isInCooldown: data.isInCooldown,
+          cooldownEndsAt: data.cooldownEndsAt,
+          cooldownRemainingMs: data.cooldownRemainingMs,
+          freeGameAvailable: data.freeGameAvailable,
+          canPlay: data.canPlay,
+          purchasePrice: data.purchasePrice,
+          isLoading: false,
+        });
+      } else {
+        // API error - allow playing as fallback
+        setBarnStatus({
+          ...INITIAL_BARN_STATE,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch barn status:', error);
+      setBarnStatus({
+        ...INITIAL_BARN_STATE,
+        isLoading: false,
+      });
+    }
+  }, []);
 
   // --- Initialization ---
   useEffect(() => {
@@ -209,6 +293,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setUser(prev => ({ ...prev, id: userData?.walletAddress || "guest" }));
         }
+        // Load barn game status for authenticated users
+        await refreshBarnStatus();
       } else {
         const savedUser = localStorage.getItem("siuu_user");
         if (savedUser) {
@@ -218,12 +304,17 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
             // Keep default user
           }
         }
+        // Guest mode - set barn status to allow playing
+        setBarnStatus({
+          ...INITIAL_BARN_STATE,
+          isLoading: false,
+        });
       }
       setIsLoading(false);
     };
 
     initUser();
-  }, []);
+  }, [refreshBarnStatus]);
 
   // Persist User State
   useEffect(() => {
@@ -237,30 +328,125 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   // --- Game Logic ---
 
-  const startGame = useCallback(() => {
-    winProcessedRef.current = false;
-    bonusTimeRef.current = 0;
-    setGame(prev => ({
-      ...INITIAL_GAME,
-      cards: createDeck(),
-      gameStartedAt: Date.now(),
-      remainingTime: TIME_LIMIT,
-      // Preserve purchased boosters but reset used status
-      boosters: {
-        mirror: { purchased: prev.boosters.mirror.purchased, used: false },
-        magnet: { purchased: prev.boosters.magnet.purchased, used: false },
-        hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
-        moves: { purchased: prev.boosters.moves.purchased, used: false },
-      },
-      boosterEffects: INITIAL_EFFECTS,
-    }));
-  }, []);
+  const startGame = useCallback(async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      // Guest mode - allow playing without restrictions
+      winProcessedRef.current = false;
+      bonusTimeRef.current = 0;
+      setGame(prev => ({
+        ...INITIAL_GAME,
+        cards: createDeck(),
+        gameStartedAt: Date.now(),
+        remainingTime: TIME_LIMIT,
+        boosters: {
+          mirror: { purchased: prev.boosters.mirror.purchased, used: false },
+          magnet: { purchased: prev.boosters.magnet.purchased, used: false },
+          hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
+          moves: { purchased: prev.boosters.moves.purchased, used: false },
+        },
+        boosterEffects: INITIAL_EFFECTS,
+      }));
+      return;
+    }
 
-  const resetGame = useCallback(() => {
+    // Check barn game status first
+    if (!barnStatus.canPlay) {
+      if (barnStatus.isInCooldown) {
+        const hoursLeft = Math.ceil(barnStatus.cooldownRemainingMs / (1000 * 60 * 60));
+        toast({
+          title: "Cooldown Aktif",
+          description: `Ücretsiz oyun için ${hoursLeft} saat beklemeniz veya Play Pass satın almanız gerekiyor.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Oynamak İçin Pass Gerekli",
+        description: "Play Pass satın alarak oynamaya devam edebilirsiniz.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // If user has active pass, just start the game
+    if (barnStatus.hasActivePass) {
+      winProcessedRef.current = false;
+      bonusTimeRef.current = 0;
+      setGame(prev => ({
+        ...INITIAL_GAME,
+        cards: createDeck(),
+        gameStartedAt: Date.now(),
+        remainingTime: TIME_LIMIT,
+        boosters: {
+          mirror: { purchased: prev.boosters.mirror.purchased, used: false },
+          magnet: { purchased: prev.boosters.magnet.purchased, used: false },
+          hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
+          moves: { purchased: prev.boosters.moves.purchased, used: false },
+        },
+        boosterEffects: INITIAL_EFFECTS,
+      }));
+      return;
+    }
+
+    // If free game is available, use it and start cooldown
+    if (barnStatus.freeGameAvailable) {
+      const response = await useFreeGame();
+
+      if (response.status !== 'success') {
+        toast({
+          title: "Hata",
+          description: response.error || "Oyun başlatılamadı.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update barn status after using free game
+      if (response.data) {
+        setBarnStatus(prev => ({
+          ...prev,
+          freeGameAvailable: false,
+          isInCooldown: true,
+          cooldownEndsAt: response.data?.cooldownEndsAt || null,
+          cooldownRemainingMs: response.data?.cooldownDurationMs || 12 * 60 * 60 * 1000,
+          canPlay: false,
+        }));
+      }
+
+      // Start the game
+      winProcessedRef.current = false;
+      bonusTimeRef.current = 0;
+      setGame(prev => ({
+        ...INITIAL_GAME,
+        cards: createDeck(),
+        gameStartedAt: Date.now(),
+        remainingTime: TIME_LIMIT,
+        boosters: {
+          mirror: { purchased: prev.boosters.mirror.purchased, used: false },
+          magnet: { purchased: prev.boosters.magnet.purchased, used: false },
+          hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
+          moves: { purchased: prev.boosters.moves.purchased, used: false },
+        },
+        boosterEffects: INITIAL_EFFECTS,
+      }));
+
+      toast({
+        title: "Ücretsiz Oyun Başladı!",
+        description: "Bir sonraki ücretsiz oyun için 12 saat beklemeniz gerekecek.",
+      });
+    }
+  }, [barnStatus]);
+
+  const resetGame = useCallback(async () => {
     winProcessedRef.current = false;
     bonusTimeRef.current = 0;
     setGame(INITIAL_GAME);
-  }, []);
+    // Refresh barn status when resetting game
+    if (isAuthenticated()) {
+      await refreshBarnStatus();
+    }
+  }, [refreshBarnStatus]);
 
   // --- Booster Logic ---
 
@@ -578,8 +764,58 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     const today = getTodayString();
     const last = user.lastLoginDate;
 
+    // Already claimed today locally
     if (last === today) return;
 
+    // If authenticated, use backend API
+    if (isAuthenticated()) {
+      try {
+        const result = await claimDailyBonusAPI();
+
+        if (result.success) {
+          // Calculate streak locally for UI
+          let newStreak = 1;
+          if (last) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            if (last === yesterdayStr) {
+              newStreak = (user.streakCount % 7) + 1;
+            }
+          }
+
+          setUser(u => ({
+            ...u,
+            streakCount: newStreak,
+            lastLoginDate: today,
+          }));
+
+          toast({
+            title: `Day ${newStreak} Bonus!`,
+            description: `${result.amount} tokens claimed! TX: ${result.txHash?.slice(0, 10)}...`,
+          });
+        } else {
+          // API failed - still update local state for offline progress
+          console.error('Daily bonus claim failed:', result.error);
+          toast({
+            title: "Bonus Claim Failed",
+            description: result.error || "Please try again later.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Daily bonus claim error:', error);
+        toast({
+          title: "Bonus Claim Error",
+          description: "Network error. Please try again.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    // Guest mode - local only
     let newStreak = 1;
     if (last) {
       const yesterday = new Date();
@@ -610,17 +846,19 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   const contextValue = useMemo(() => ({
     user,
     game,
+    barnStatus,
     startGame,
     flipCard,
     claimDailyBonus,
     resetGame,
+    refreshBarnStatus,
     isLoading,
     // Booster functions
     purchaseBooster,
     activateBooster,
     canPurchaseBooster,
     canUseBooster,
-  }), [user, game, startGame, flipCard, claimDailyBonus, resetGame, isLoading, purchaseBooster, activateBooster, canPurchaseBooster, canUseBooster]);
+  }), [user, game, barnStatus, startGame, flipCard, claimDailyBonus, resetGame, refreshBarnStatus, isLoading, purchaseBooster, activateBooster, canPurchaseBooster, canUseBooster]);
 
   return (
     <GameContext.Provider value={contextValue}>
