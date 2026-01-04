@@ -15,15 +15,22 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { MiniKit } from '@worldcoin/minikit-js';
 import {
-  safeMiniKitIsInstalled,
-} from '@/lib/minikit';
-import {
   getSiweNonce,
   verifySiwe,
   isAuthenticated as checkAuth,
   getStoredUser,
   clearAuthState,
 } from '@/lib/minikit/api';
+
+// Inline safe check to avoid module load issues
+function safeMiniKitIsInstalled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return MiniKit.isInstalled();
+  } catch {
+    return false;
+  }
+}
 
 // User type from API
 interface User {
