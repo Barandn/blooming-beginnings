@@ -197,11 +197,27 @@ export function useGameSession(): UseGameSessionReturn {
   const [sessionId, setSessionId] = useState('');
   const [startTime, setStartTime] = useState(0);
 
+  const createUuidV4 = useCallback((): string => {
+    // Prefer native UUID
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+
+    // RFC4122 v4 fallback using getRandomValues
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }, []);
+
   const startSession = useCallback(() => {
-    const id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36);
+    const id = createUuidV4();
     setSessionId(id);
     setStartTime(Date.now());
-  }, []);
+  }, [createUuidV4]);
 
   const endSession = useCallback(() => {
     return Date.now();
