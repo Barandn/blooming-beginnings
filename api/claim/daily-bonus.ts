@@ -2,10 +2,11 @@
  * POST /api/claim/daily-bonus
  * Claim daily token bonus with JWT authentication
  * Enforces 24-hour cooldown
+ * Streak tracking stored in DB
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db, claimTransactions, dailyBonusClaims } from '../../lib/db/index.js';
+import { db, claimTransactions, dailyBonusClaims, users } from '../../lib/db/index.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
@@ -28,7 +29,16 @@ function getTodayDate(): string {
 }
 
 /**
- * Check if user has already claimed today
+ * Get yesterday's date string
+ */
+function getYesterdayDate(): string {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return yesterday.toISOString().split('T')[0];
+}
+
+/**
+ * Check if user has already claimed today from DB
  */
 async function hasClaimedToday(userId: string): Promise<boolean> {
   const today = getTodayDate();
@@ -92,6 +102,36 @@ function isCooldownActive(lastClaimTime: Date | null): {
   return { active: false };
 }
 
+/**
+ * Calculate new streak count based on last claim date
+ */
+function calculateNewStreak(lastClaimDate: string | null, currentStreak: number): number {
+  if (!lastClaimDate) {
+    return 1; // First claim
+  }
+
+  const yesterday = getYesterdayDate();
+
+  if (lastClaimDate === yesterday) {
+    // Streak continues, wrap at 7
+    return (currentStreak % 7) + 1;
+  }
+
+  // Streak broken, start over
+  return 1;
+}
+
+/**
+ * Calculate reward amount based on streak day
+ */
+function getStreakRewardAmount(streakDay: number): string {
+  // Day 7 = 1000 coins (Golden Ball), otherwise 100 coins
+  if (streakDay === 7) {
+    return '1000000000000000000000'; // 1000 tokens in wei
+  }
+  return TOKEN_CONFIG.dailyBonusAmount; // 100 tokens
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -118,7 +158,7 @@ export default async function handler(
       });
     }
 
-    // Step 1: Check if already claimed today
+    // Step 1: Check if already claimed today (from DB)
     const alreadyClaimed = await hasClaimedToday(auth.user.id);
     if (alreadyClaimed) {
       return res.status(400).json({
@@ -142,23 +182,41 @@ export default async function handler(
       });
     }
 
-    // Step 3: Create pending transaction record
+    // Step 3: Get current streak from DB
+    const [userData] = await db
+      .select({
+        dailyStreakCount: users.dailyStreakCount,
+        lastDailyClaimDate: users.lastDailyClaimDate,
+      })
+      .from(users)
+      .where(eq(users.id, auth.user.id))
+      .limit(1);
+
+    const currentStreak = userData?.dailyStreakCount || 0;
+    const lastClaimDate = userData?.lastDailyClaimDate || null;
+
+    // Calculate new streak
+    const newStreak = calculateNewStreak(lastClaimDate, currentStreak);
+    const rewardAmount = getStreakRewardAmount(newStreak);
+    const today = getTodayDate();
+
+    // Step 4: Create pending transaction record
     const [transaction] = await db
       .insert(claimTransactions)
       .values({
         userId: auth.user.id,
         claimType: 'daily_bonus',
-        amount: TOKEN_CONFIG.dailyBonusAmount,
+        amount: rewardAmount,
         tokenAddress: TOKEN_CONFIG.tokenAddress,
         status: 'pending',
       } as typeof claimTransactions.$inferInsert)
       .returning();
 
-    // Step 4: Execute token transfer
+    // Step 5: Execute token transfer
     const distributionService = getTokenDistributionService();
 
     if (!distributionService.isReady()) {
-      // Token distribution not configured - mark as pending
+      // Token distribution not configured - mark as pending but still update streak
       await db
         .update(claimTransactions)
         .set({
@@ -167,20 +225,31 @@ export default async function handler(
         } as Partial<typeof claimTransactions.$inferInsert>)
         .where(eq(claimTransactions.id, transaction.id));
 
-      // Still record the daily claim
+      // Record the daily claim and update streak in DB
       await db.insert(dailyBonusClaims).values({
         userId: auth.user.id,
-        claimDate: getTodayDate(),
-        amount: TOKEN_CONFIG.dailyBonusAmount,
+        claimDate: today,
+        amount: rewardAmount,
         transactionId: transaction.id,
       } as typeof dailyBonusClaims.$inferInsert);
+
+      // Update user streak in DB
+      await db
+        .update(users)
+        .set({
+          dailyStreakCount: newStreak,
+          lastDailyClaimDate: today,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, auth.user.id));
 
       return res.status(200).json({
         status: API_STATUS.PENDING,
         message: 'Claim recorded but token transfer pending',
         data: {
           claimId: transaction.id,
-          amount: formatTokenAmount(TOKEN_CONFIG.dailyBonusAmount),
+          amount: formatTokenAmount(rewardAmount),
+          streakDay: newStreak,
           status: 'pending',
         },
       });
@@ -208,7 +277,7 @@ export default async function handler(
       });
     }
 
-    // Step 5: Update transaction as confirmed
+    // Step 6: Update transaction as confirmed
     await db
       .update(claimTransactions)
       .set({
@@ -219,19 +288,30 @@ export default async function handler(
       } as Partial<typeof claimTransactions.$inferInsert>)
       .where(eq(claimTransactions.id, transaction.id));
 
-    // Step 6: Record daily bonus claim
+    // Step 7: Record daily bonus claim
     await db.insert(dailyBonusClaims).values({
       userId: auth.user.id,
-      claimDate: getTodayDate(),
-      amount: TOKEN_CONFIG.dailyBonusAmount,
+      claimDate: today,
+      amount: rewardAmount,
       transactionId: transaction.id,
     } as typeof dailyBonusClaims.$inferInsert);
+
+    // Step 8: Update user streak in DB
+    await db
+      .update(users)
+      .set({
+        dailyStreakCount: newStreak,
+        lastDailyClaimDate: today,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, auth.user.id));
 
     return res.status(200).json({
       status: API_STATUS.SUCCESS,
       data: {
         claimId: transaction.id,
-        amount: formatTokenAmount(TOKEN_CONFIG.dailyBonusAmount),
+        amount: formatTokenAmount(rewardAmount),
+        streakDay: newStreak,
         txHash: transferResult.txHash,
         blockNumber: transferResult.blockNumber,
         explorerUrl: `https://worldscan.org/tx/${transferResult.txHash}`,

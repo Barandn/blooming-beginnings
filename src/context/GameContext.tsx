@@ -771,42 +771,27 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
   // --- Daily Bonus ---
   const claimDailyBonus = useCallback(async () => {
-    const today = getTodayString();
-    const last = user.lastLoginDate;
-
-    // Already claimed today locally
-    if (last === today) return;
-
-    // If authenticated, use backend API
+    // If authenticated, use backend API (DB-driven)
     if (isAuthenticated()) {
       try {
         const result = await claimDailyBonusAPI();
 
         if (result.success) {
-          // Calculate streak locally for UI
-          let newStreak = 1;
-          if (last) {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-            if (last === yesterdayStr) {
-              newStreak = (user.streakCount % 7) + 1;
-            }
-          }
+          // Streak is now tracked in DB, update local state from result
+          const streakDay = result.streakDay || 1;
+          const today = getTodayString();
 
           setUser(u => ({
             ...u,
-            streakCount: newStreak,
+            streakCount: streakDay,
             lastLoginDate: today,
           }));
 
           toast({
-            title: `Day ${newStreak} Bonus!`,
+            title: `Day ${streakDay} Bonus!`,
             description: `${result.amount} tokens claimed! TX: ${result.txHash?.slice(0, 10)}...`,
           });
         } else {
-          // API failed - still update local state for offline progress
           console.error('Daily bonus claim failed:', result.error);
           toast({
             title: "Bonus Claim Failed",
@@ -825,7 +810,13 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Guest mode - local only
+    // Guest mode - local only (not DB tracked)
+    const today = getTodayString();
+    const last = user.lastLoginDate;
+    
+    // Already claimed today locally
+    if (last === today) return;
+
     let newStreak = 1;
     if (last) {
       const yesterday = new Date();

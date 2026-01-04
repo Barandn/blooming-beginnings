@@ -383,8 +383,10 @@ export type Database = {
       users: {
         Row: {
           created_at: string
+          daily_streak_count: number
           id: string
           is_active: boolean
+          last_daily_claim_date: string | null
           last_login_at: string | null
           merkle_root: string | null
           nullifier_hash: string
@@ -394,8 +396,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          daily_streak_count?: number
           id?: string
           is_active?: boolean
+          last_daily_claim_date?: string | null
           last_login_at?: string | null
           merkle_root?: string | null
           nullifier_hash: string
@@ -405,8 +409,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          daily_streak_count?: number
           id?: string
           is_active?: boolean
+          last_daily_claim_date?: string | null
           last_login_at?: string | null
           merkle_root?: string | null
           nullifier_hash?: string

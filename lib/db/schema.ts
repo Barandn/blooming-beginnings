@@ -51,6 +51,10 @@ export const users = pgTable('users', {
   // Whether user is currently active
   isActive: boolean('is_active').notNull().default(true),
 
+  // Daily bonus streak tracking
+  dailyStreakCount: integer('daily_streak_count').notNull().default(0),
+  lastDailyClaimDate: varchar('last_daily_claim_date', { length: 10 }),
+
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
