@@ -230,9 +230,9 @@ export const dailyBonusClaims = pgTable('daily_bonus_claims', {
 
 /**
  * Barn Game Attempts Table
- * Tracks attempts-based play system for card matching game
- * - 10 attempts per purchase or cooldown reset
- * - 12 hour cooldown when attempts run out
+ * Tracks play pass system for card matching game
+ * - 1 WLD = 1 hour unlimited play (Play Pass)
+ * - Or wait 12 hour cooldown for 1 free game
  */
 export const barnGameAttempts = pgTable('barn_game_attempts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -240,7 +240,7 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
   // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 
-  // Number of attempts remaining
+  // Number of attempts remaining (legacy, kept for compatibility)
   attemptsRemaining: integer('attempts_remaining').notNull().default(10),
 
   // When cooldown started
@@ -261,6 +261,15 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
   // Whether user has active game session
   hasActiveGame: boolean('has_active_game').notNull().default(false),
 
+  // Whether free game has been used (resets after cooldown expires)
+  freeGameUsed: boolean('free_game_used').notNull().default(false),
+
+  // Play Pass expiration timestamp (1 hour after purchase)
+  playPassExpiresAt: timestamp('play_pass_expires_at'),
+
+  // When Play Pass was purchased
+  playPassPurchasedAt: timestamp('play_pass_purchased_at'),
+
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -270,7 +279,7 @@ export const barnGameAttempts = pgTable('barn_game_attempts', {
 
 /**
  * Barn Game Purchases Table
- * Records when users purchase attempts
+ * Records when users purchase Play Pass
  */
 export const barnGamePurchases = pgTable('barn_game_purchases', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -293,8 +302,11 @@ export const barnGamePurchases = pgTable('barn_game_purchases', {
   // Status of purchase
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 
-  // Number of attempts granted
+  // Number of attempts granted (legacy, kept for compatibility)
   attemptsGranted: integer('attempts_granted').notNull().default(10),
+
+  // Play Pass duration in milliseconds (1 hour = 3600000ms)
+  playPassDurationMs: bigint('play_pass_duration_ms', { mode: 'number' }),
 
   // Timestamps
   createdAt: timestamp('created_at').notNull().defaultNow(),
