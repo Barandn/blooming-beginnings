@@ -22,7 +22,14 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     const initMiniKit = async () => {
       try {
         // Install the MiniKit SDK
-        MiniKit.install();
+        // NOTE: Wallet Auth can fail if appId is missing.
+        const appId = (import.meta as any).env?.VITE_WORLD_APP_ID as string | undefined;
+        if (appId) {
+          MiniKit.install({ appId } as any);
+        } else {
+          MiniKit.install();
+          console.warn('[MiniKit] Missing VITE_WORLD_APP_ID; wallet auth may fail in World App');
+        }
 
         console.log('[MiniKit] SDK installed successfully');
         console.log('[MiniKit] isInstalled:', (() => {
