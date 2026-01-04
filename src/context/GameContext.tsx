@@ -350,102 +350,25 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    // Check barn game status first
-    if (!barnStatus.canPlay) {
-      if (barnStatus.isInCooldown) {
-        const hoursLeft = Math.ceil(barnStatus.cooldownRemainingMs / (1000 * 60 * 60));
-        toast({
-          title: "Cooldown Aktif",
-          description: `Ücretsiz oyun için ${hoursLeft} saat beklemeniz veya Play Pass satın almanız gerekiyor.`,
-          variant: "destructive",
-        });
-        return;
-      }
-      toast({
-        title: "Oynamak İçin Pass Gerekli",
-        description: "Play Pass satın alarak oynamaya devam edebilirsiniz.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Unlimited play mode - bypass all checks
+    winProcessedRef.current = false;
+    bonusTimeRef.current = 0;
+    setGame(prev => ({
+      ...INITIAL_GAME,
+      cards: createDeck(),
+      gameStartedAt: Date.now(),
+      remainingTime: TIME_LIMIT,
+      boosters: {
+        mirror: { purchased: prev.boosters.mirror.purchased, used: false },
+        magnet: { purchased: prev.boosters.magnet.purchased, used: false },
+        hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
+        moves: { purchased: prev.boosters.moves.purchased, used: false },
+      },
+      boosterEffects: INITIAL_EFFECTS,
+    }));
+    return;
 
-    // If user has active pass, just start the game
-    if (barnStatus.hasActivePass) {
-      winProcessedRef.current = false;
-      bonusTimeRef.current = 0;
-      setGame(prev => ({
-        ...INITIAL_GAME,
-        cards: createDeck(),
-        gameStartedAt: Date.now(),
-        remainingTime: TIME_LIMIT,
-        boosters: {
-          mirror: { purchased: prev.boosters.mirror.purchased, used: false },
-          magnet: { purchased: prev.boosters.magnet.purchased, used: false },
-          hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
-          moves: { purchased: prev.boosters.moves.purchased, used: false },
-        },
-        boosterEffects: INITIAL_EFFECTS,
-      }));
-      return;
-    }
 
-    // If free game is available, use it and start cooldown
-    if (barnStatus.freeGameAvailable) {
-      const response = await useFreeGame();
-
-      if (response.status !== 'success') {
-        toast({
-          title: "Hata",
-          description: response.error || "Oyun başlatılamadı.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Update barn status after using free game
-      if (response.data) {
-        setBarnStatus(prev => ({
-          ...prev,
-          freeGameAvailable: false,
-          isInCooldown: true,
-          cooldownEndsAt: response.data?.cooldownEndsAt || null,
-          cooldownRemainingMs: response.data?.cooldownDurationMs || 12 * 60 * 60 * 1000,
-          canPlay: false,
-        }));
-      }
-
-      // Start the game
-      winProcessedRef.current = false;
-      bonusTimeRef.current = 0;
-      setGame(prev => ({
-        ...INITIAL_GAME,
-        cards: createDeck(),
-        gameStartedAt: Date.now(),
-        remainingTime: TIME_LIMIT,
-        boosters: {
-          mirror: { purchased: prev.boosters.mirror.purchased, used: false },
-          magnet: { purchased: prev.boosters.magnet.purchased, used: false },
-          hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
-          moves: { purchased: prev.boosters.moves.purchased, used: false },
-        },
-        boosterEffects: INITIAL_EFFECTS,
-      }));
-
-      toast({
-        title: "Ücretsiz Oyun Başladı!",
-        description: "Bir sonraki ücretsiz oyun için 12 saat beklemeniz gerekecek.",
-      });
-      return;
-    }
-
-    // Fallback: If we reach here, something is wrong with state sync
-    // Refresh barn status and show error
-    await refreshBarnStatus();
-    toast({
-      title: "Oyun Başlatılamadı",
-      description: "Lütfen tekrar deneyin.",
-      variant: "destructive",
-    });
   }, [barnStatus, refreshBarnStatus]);
 
   const resetGame = useCallback(async () => {
