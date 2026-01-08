@@ -132,41 +132,6 @@ async function apiCall<T>(
 // Auth API
 // ============================
 
-export interface SignMessageResponse {
-  message: string;
-  timestamp: number;
-  nonce: string;
-}
-
-export async function getSignMessage(): Promise<ApiResponse<SignMessageResponse>> {
-  return apiCall<SignMessageResponse>('/auth/sign-message');
-}
-
-export interface LoginRequest {
-  walletAddress: string;
-  signature: string;
-  message: string;
-  timestamp: number;
-}
-
-export interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    walletAddress: string;
-    verificationLevel: string;
-    createdAt: string;
-  };
-  expiresAt: string;
-}
-
-export async function login(data: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-  return apiCall<LoginResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
 export async function logout(): Promise<ApiResponse<{ message: string }>> {
   const result = await apiCall<{ message: string }>('/auth/logout', {
     method: 'POST',
@@ -578,7 +543,7 @@ export function getStoredToken(): string | null {
   return localStorage.getItem('auth_token');
 }
 
-export function getStoredUser(): LoginResponse['user'] | null {
+export function getStoredUser(): SiweVerifyResponse['user'] | null {
   const userStr = localStorage.getItem('user');
   if (!userStr) return null;
   try {
