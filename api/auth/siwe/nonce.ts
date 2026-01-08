@@ -2,54 +2,78 @@
  * GET /api/auth/siwe/nonce
  * Generate a nonce for SIWE (Sign In With Ethereum) authentication
  *
- * This replaces the deprecated World ID Sign-In flow
- * Reference: https://docs.world.org/world-id/sign-in/deprecation
+ * Simple SIWE implementation following World App MiniKit guidelines
+ * Reference: https://docs.world.org/mini-apps/commands/wallet-auth
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
+import { db, siweNonces } from '../../../lib/db/index.js';
+import { eq, lt } from 'drizzle-orm';
 import { API_STATUS } from '../../../lib/config/constants.js';
-import { rateLimitCheck } from '../../../lib/middleware/rate-limit.js';
 
-// Store nonces temporarily (in production, use Redis or similar)
-// Nonces expire after 5 minutes
-const nonceStore = new Map<string, { createdAt: number }>();
+// Nonce expires after 5 minutes
+const NONCE_EXPIRY_MS = 5 * 60 * 1000;
 
-// Clean up expired nonces periodically
-const NONCE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
-
-function cleanupExpiredNonces() {
-  const now = Date.now();
-  for (const [nonce, data] of nonceStore.entries()) {
-    if (now - data.createdAt > NONCE_EXPIRY_MS) {
-      nonceStore.delete(nonce);
-    }
-  }
-}
-
-// Generate a cryptographically secure nonce
+/**
+ * Generate a cryptographically secure nonce
+ * At least 8 alphanumeric characters as required by World App
+ */
 function generateNonce(): string {
-  // At least 8 alphanumeric characters as required by World App
   return crypto.randomBytes(16).toString('hex');
 }
 
-export function validateAndConsumeNonce(nonce: string): boolean {
-  cleanupExpiredNonces();
+/**
+ * Clean up expired nonces from database
+ */
+async function cleanupExpiredNonces(): Promise<void> {
+  try {
+    await db
+      .delete(siweNonces)
+      .where(lt(siweNonces.expiresAt, new Date()));
+  } catch (error) {
+    console.error('Failed to cleanup expired nonces:', error);
+  }
+}
 
-  const nonceData = nonceStore.get(nonce);
-  if (!nonceData) {
+/**
+ * Validate and consume a nonce (one-time use)
+ */
+export async function validateAndConsumeNonce(nonce: string): Promise<boolean> {
+  try {
+    // Get the nonce
+    const [nonceRecord] = await db
+      .select()
+      .from(siweNonces)
+      .where(eq(siweNonces.nonce, nonce))
+      .limit(1);
+
+    if (!nonceRecord) {
+      return false;
+    }
+
+    // Check if expired
+    if (new Date() > nonceRecord.expiresAt) {
+      await db.delete(siweNonces).where(eq(siweNonces.nonce, nonce));
+      return false;
+    }
+
+    // Check if already consumed
+    if (nonceRecord.consumedAt) {
+      return false;
+    }
+
+    // Consume the nonce (mark as used)
+    await db
+      .update(siweNonces)
+      .set({ consumedAt: new Date() })
+      .where(eq(siweNonces.nonce, nonce));
+
+    return true;
+  } catch (error) {
+    console.error('Nonce validation error:', error);
     return false;
   }
-
-  const now = Date.now();
-  if (now - nonceData.createdAt > NONCE_EXPIRY_MS) {
-    nonceStore.delete(nonce);
-    return false;
-  }
-
-  // Consume the nonce (one-time use)
-  nonceStore.delete(nonce);
-  return true;
 }
 
 export default async function handler(
@@ -64,19 +88,19 @@ export default async function handler(
     });
   }
 
-  // Check rate limit
-  const rateLimited = rateLimitCheck(req, res);
-  if (rateLimited) return rateLimited;
-
   try {
-    // Clean up old nonces
-    cleanupExpiredNonces();
+    // Clean up old nonces periodically (non-blocking)
+    cleanupExpiredNonces().catch(() => {});
 
     // Generate new nonce
     const nonce = generateNonce();
+    const expiresAt = new Date(Date.now() + NONCE_EXPIRY_MS);
 
-    // Store nonce with timestamp
-    nonceStore.set(nonce, { createdAt: Date.now() });
+    // Store nonce in database
+    await db.insert(siweNonces).values({
+      nonce,
+      expiresAt,
+    });
 
     return res.status(200).json({
       status: API_STATUS.SUCCESS,

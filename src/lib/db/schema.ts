@@ -3,14 +3,13 @@
  * This mirrors the actual database structure for type safety
  *
  * Tables:
- * 1. users - Identity mapping (nullifier_hash → wallet_address)
+ * 1. users - Identity mapping (wallet_address based)
  * 2. claim_transactions - Token distribution log
  * 3. game_scores - Validated game scores for leaderboard
- * 4. sessions - User session management
- * 5. siwe_nonces - SIWE authentication nonces
- * 6. barn_game_attempts - Barn game play tracking
- * 7. barn_game_purchases - Barn game purchases
- * 8. payment_references - Payment reference IDs
+ * 4. siwe_nonces - SIWE authentication nonces
+ * 5. barn_game_attempts - Barn game play tracking
+ * 6. barn_game_purchases - Barn game purchases
+ * 7. payment_references - Payment reference IDs
  */
 
 import {
@@ -98,24 +97,6 @@ export const gameScores = pgTable('game_scores', {
   index('game_scores_leaderboard_period_idx').on(table.leaderboardPeriod),
 ]);
 
-/**
- * Sessions Table
- */
-export const sessions = pgTable('sessions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  tokenHash: text('token_hash').notNull(),
-  walletAddress: varchar('wallet_address', { length: 42 }).notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-  isActive: boolean('is_active').notNull().default(true),
-  userAgent: text('user_agent'),
-  ipAddress: varchar('ip_address', { length: 45 }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
-}, (table) => [
-  index('sessions_user_id_idx').on(table.userId),
-  index('sessions_token_hash_idx').on(table.tokenHash),
-]);
 
 /**
  * Daily Bonus Claims Table
@@ -193,7 +174,6 @@ export const paymentReferences = pgTable('payment_references', {
 export const usersRelations = relations(users, ({ many, one }) => ({
   claimTransactions: many(claimTransactions),
   gameScores: many(gameScores),
-  sessions: many(sessions),
   dailyBonusClaims: many(dailyBonusClaims),
   barnGameAttempts: one(barnGameAttempts),
   barnGamePurchases: many(barnGamePurchases),
@@ -213,12 +193,6 @@ export const gameScoresRelations = relations(gameScores, ({ one }) => ({
   }),
 }));
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-  user: one(users, {
-    fields: [sessions.userId],
-    references: [users.id],
-  }),
-}));
 
 export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) => ({
   user: one(users, {
@@ -261,8 +235,6 @@ export type ClaimTransaction = typeof claimTransactions.$inferSelect;
 export type NewClaimTransaction = typeof claimTransactions.$inferInsert;
 export type GameScore = typeof gameScores.$inferSelect;
 export type NewGameScore = typeof gameScores.$inferInsert;
-export type Session = typeof sessions.$inferSelect;
-export type NewSession = typeof sessions.$inferInsert;
 export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
 export type NewDailyBonusClaim = typeof dailyBonusClaims.$inferInsert;
 export type BarnGameAttempt = typeof barnGameAttempts.$inferSelect;
