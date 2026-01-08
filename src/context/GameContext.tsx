@@ -17,83 +17,8 @@ export interface Card {
   emoji: string;
   isFlipped: boolean;
   isMatched: boolean;
+  isBonus?: boolean; // Bonus card (starts matched)
 }
-
-// Booster Types
-export type BoosterType = 'mirror' | 'magnet' | 'hourglass' | 'moves';
-
-export interface BoosterInfo {
-  id: BoosterType;
-  name: string;
-  description: string;
-  icon: string;
-  price: number;
-}
-
-export interface BoosterState {
-  purchased: boolean;
-  used: boolean;
-}
-
-export interface GameBoosters {
-  mirror: BoosterState;
-  magnet: BoosterState;
-  hourglass: BoosterState;
-  moves: BoosterState;
-}
-
-// Booster Effect States
-export interface BoosterEffects {
-  mirrorActive: boolean;
-  magnetActive: boolean;
-  hourglassActive: boolean;
-  movesActive: boolean;
-}
-
-export const BOOSTER_INFO: Record<BoosterType, BoosterInfo> = {
-  mirror: {
-    id: 'mirror',
-    name: 'Ayna',
-    description: '1 saniye tüm kartları göster',
-    icon: '🪞',
-    price: 50,
-  },
-  magnet: {
-    id: 'magnet',
-    name: 'Mıknatıs',
-    description: '2 kartı otomatik eşleştir',
-    icon: '🧲',
-    price: 75,
-  },
-  hourglass: {
-    id: 'hourglass',
-    name: 'Kum Saati',
-    description: '+10 saniye süre ekle',
-    icon: '⏳',
-    price: 40,
-  },
-  moves: {
-    id: 'moves',
-    name: 'Silgi',
-    description: '5 hamleyi sil',
-    icon: '✨',
-    price: 30,
-  },
-};
-
-const INITIAL_BOOSTERS: GameBoosters = {
-  mirror: { purchased: false, used: false },
-  magnet: { purchased: false, used: false },
-  hourglass: { purchased: false, used: false },
-  moves: { purchased: false, used: false },
-};
-
-const INITIAL_EFFECTS: BoosterEffects = {
-  mirrorActive: false,
-  magnetActive: false,
-  hourglassActive: false,
-  movesActive: false,
-};
 
 export interface GameSession {
   cards: Card[];
@@ -106,8 +31,6 @@ export interface GameSession {
   remainingTime: number; // Remaining time in milliseconds (countdown from 90s)
   isComplete: boolean;
   isTimeOut: boolean; // True if player ran out of time
-  boosters: GameBoosters;
-  boosterEffects: BoosterEffects;
 }
 
 export interface UserState {
@@ -156,19 +79,16 @@ interface GameContextType {
   resetGame: () => void;
   refreshBarnStatus: () => Promise<void>;
   isLoading: boolean;
-  // Booster functions
-  purchaseBooster: (boosterType: BoosterType) => boolean;
-  activateBooster: (boosterType: BoosterType) => boolean;
-  canPurchaseBooster: (boosterType: BoosterType) => boolean;
-  canUseBooster: (boosterType: BoosterType) => boolean;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 // --- Constants ---
 
-const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟"];
-const GAME_PAIRS = 8; // 4x4 grid
+// 12 emojis for 12 pairs (24 cards) + 1 bonus card = 25 cards (5x5 grid)
+const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟", "🎯", "🏅", "⚡", "🔥"];
+const BONUS_EMOJI = "⭐"; // Center bonus card
+const GAME_PAIRS = 12; // 5x5 grid (24 cards + 1 bonus)
 const TIME_LIMIT = 90000; // 90 seconds in milliseconds
 
 const INITIAL_GAME: GameSession = {
@@ -182,8 +102,6 @@ const INITIAL_GAME: GameSession = {
   remainingTime: TIME_LIMIT,
   isComplete: false,
   isTimeOut: false,
-  boosters: INITIAL_BOOSTERS,
-  boosterEffects: INITIAL_EFFECTS,
 };
 
 const INITIAL_USER: UserState = {
@@ -199,8 +117,9 @@ const INITIAL_USER: UserState = {
 
 const createDeck = (): Card[] => {
   const cards: Card[] = [];
+
+  // Create 12 pairs (24 cards)
   FOOTBALL_EMOJIS.forEach((emoji, index) => {
-    // Create pairs
     cards.push({ id: index * 2, emoji, isFlipped: false, isMatched: false });
     cards.push({ id: index * 2 + 1, emoji, isFlipped: false, isMatched: false });
   });
@@ -210,6 +129,18 @@ const createDeck = (): Card[] => {
     const j = Math.floor(Math.random() * (i + 1));
     [cards[i], cards[j]] = [cards[j], cards[i]];
   }
+
+  // Insert bonus card at center (position 12 for 5x5 grid)
+  const bonusCard: Card = {
+    id: 24,
+    emoji: BONUS_EMOJI,
+    isFlipped: true,
+    isMatched: true,
+    isBonus: true,
+  };
+
+  // Add bonus card at center position
+  cards.splice(12, 0, bonusCard);
 
   // Re-index for stable keys
   return cards.map((c, i) => ({ ...c, id: i }));
@@ -323,214 +254,26 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, isLoading]);
 
-  // Bonus time ref for hourglass booster
-  const bonusTimeRef = useRef<number>(0);
-
   // --- Game Logic ---
 
   const startGame = useCallback(async () => {
-    // Check if user is authenticated
-    if (!isAuthenticated()) {
-      // Guest mode - allow playing without restrictions
-      winProcessedRef.current = false;
-      bonusTimeRef.current = 0;
-      setGame(prev => ({
-        ...INITIAL_GAME,
-        cards: createDeck(),
-        gameStartedAt: Date.now(),
-        remainingTime: TIME_LIMIT,
-        boosters: {
-          mirror: { purchased: prev.boosters.mirror.purchased, used: false },
-          magnet: { purchased: prev.boosters.magnet.purchased, used: false },
-          hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
-          moves: { purchased: prev.boosters.moves.purchased, used: false },
-        },
-        boosterEffects: INITIAL_EFFECTS,
-      }));
-      return;
-    }
-
-    // Unlimited play mode - bypass all checks
     winProcessedRef.current = false;
-    bonusTimeRef.current = 0;
-    setGame(prev => ({
+    setGame({
       ...INITIAL_GAME,
       cards: createDeck(),
       gameStartedAt: Date.now(),
       remainingTime: TIME_LIMIT,
-      boosters: {
-        mirror: { purchased: prev.boosters.mirror.purchased, used: false },
-        magnet: { purchased: prev.boosters.magnet.purchased, used: false },
-        hourglass: { purchased: prev.boosters.hourglass.purchased, used: false },
-        moves: { purchased: prev.boosters.moves.purchased, used: false },
-      },
-      boosterEffects: INITIAL_EFFECTS,
-    }));
-    return;
-
-
-  }, [barnStatus, refreshBarnStatus]);
+    });
+  }, []);
 
   const resetGame = useCallback(async () => {
     winProcessedRef.current = false;
-    bonusTimeRef.current = 0;
     setGame(INITIAL_GAME);
     // Refresh barn status when resetting game
     if (isAuthenticated()) {
       await refreshBarnStatus();
     }
   }, [refreshBarnStatus]);
-
-  // --- Booster Logic ---
-
-  const canPurchaseBooster = useCallback((boosterType: BoosterType): boolean => {
-    // Can only purchase before game starts
-    if (game.gameStartedAt > 0) return false;
-    // Already purchased
-    if (game.boosters[boosterType].purchased) return false;
-    // Not enough coins
-    if (user.coins < BOOSTER_INFO[boosterType].price) return false;
-    return true;
-  }, [game.gameStartedAt, game.boosters, user.coins]);
-
-  const purchaseBooster = useCallback((boosterType: BoosterType): boolean => {
-    if (!canPurchaseBooster(boosterType)) return false;
-
-    const price = BOOSTER_INFO[boosterType].price;
-
-    setUser(prev => ({
-      ...prev,
-      coins: prev.coins - price,
-    }));
-
-    setGame(prev => ({
-      ...prev,
-      boosters: {
-        ...prev.boosters,
-        [boosterType]: { purchased: true, used: false },
-      },
-    }));
-
-    toast({
-      title: `${BOOSTER_INFO[boosterType].icon} ${BOOSTER_INFO[boosterType].name}`,
-      description: "Booster satın alındı!",
-    });
-
-    return true;
-  }, [canPurchaseBooster]);
-
-  const canUseBooster = useCallback((boosterType: BoosterType): boolean => {
-    // Game must be active
-    if (game.gameStartedAt === 0) return false;
-    if (game.isComplete || game.isTimeOut) return false;
-    // Must be purchased and not used
-    if (!game.boosters[boosterType].purchased) return false;
-    if (game.boosters[boosterType].used) return false;
-    // Check if any booster effect is currently active
-    if (game.boosterEffects.mirrorActive || game.boosterEffects.magnetActive) return false;
-    // For moves booster, must have at least 1 move
-    if (boosterType === 'moves' && game.moves < 1) return false;
-    // For magnet booster, must have at least 1 unmatched pair
-    if (boosterType === 'magnet' && game.matchedPairs >= GAME_PAIRS) return false;
-    return true;
-  }, [game]);
-
-  const activateBooster = useCallback((boosterType: BoosterType): boolean => {
-    if (!canUseBooster(boosterType)) return false;
-
-    // Mark as used and activate effect
-    setGame(prev => ({
-      ...prev,
-      boosters: {
-        ...prev.boosters,
-        [boosterType]: { ...prev.boosters[boosterType], used: true },
-      },
-      boosterEffects: {
-        ...prev.boosterEffects,
-        [`${boosterType}Active`]: true,
-      },
-    }));
-
-    // Handle each booster type
-    switch (boosterType) {
-      case 'mirror':
-        // Show all cards for 1 second (handled in UI component)
-        setTimeout(() => {
-          setGame(prev => ({
-            ...prev,
-            boosterEffects: { ...prev.boosterEffects, mirrorActive: false },
-          }));
-        }, 1000);
-        break;
-
-      case 'magnet':
-        // Auto-match one pair
-        setTimeout(() => {
-          setGame(prev => {
-            // Find unmatched pairs
-            const unmatchedCards = prev.cards.filter(c => !c.isMatched);
-            if (unmatchedCards.length < 2) {
-              return { ...prev, boosterEffects: { ...prev.boosterEffects, magnetActive: false } };
-            }
-
-            // Find a pair to match
-            const emojiGroups: Record<string, Card[]> = {};
-            unmatchedCards.forEach(card => {
-              if (!emojiGroups[card.emoji]) {
-                emojiGroups[card.emoji] = [];
-              }
-              emojiGroups[card.emoji].push(card);
-            });
-
-            // Get first available pair
-            const pairEmoji = Object.keys(emojiGroups).find(emoji => emojiGroups[emoji].length >= 2);
-            if (!pairEmoji) {
-              return { ...prev, boosterEffects: { ...prev.boosterEffects, magnetActive: false } };
-            }
-
-            const [card1, card2] = emojiGroups[pairEmoji];
-
-            // Match the pair
-            const newCards = prev.cards.map(c => {
-              if (c.id === card1.id || c.id === card2.id) {
-                return { ...c, isFlipped: true, isMatched: true };
-              }
-              return c;
-            });
-
-            return {
-              ...prev,
-              cards: newCards,
-              matchedPairs: prev.matchedPairs + 1,
-              boosterEffects: { ...prev.boosterEffects, magnetActive: false },
-            };
-          });
-        }, 600);
-        break;
-
-      case 'hourglass':
-        // Add 10 seconds
-        bonusTimeRef.current += 10000;
-        setTimeout(() => {
-          setGame(prev => ({
-            ...prev,
-            boosterEffects: { ...prev.boosterEffects, hourglassActive: false },
-          }));
-        }, 1000);
-        break;
-
-      case 'moves':
-        // Remove 5 moves
-        setGame(prev => ({
-          ...prev,
-          moves: Math.max(0, prev.moves - 5),
-          boosterEffects: { ...prev.boosterEffects, movesActive: false },
-        }));
-        break;
-    }
-
-    return true;
-  }, [canUseBooster]);
 
   const flipCard = useCallback((cardId: number) => {
     setGame(prev => {
@@ -597,9 +340,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       timerRef.current = setInterval(() => {
         setGame(prev => {
           const elapsed = Date.now() - prev.gameStartedAt;
-          // Include bonus time from hourglass booster
-          const totalTimeLimit = TIME_LIMIT + bonusTimeRef.current;
-          const remaining = Math.max(0, totalTimeLimit - elapsed);
+          const remaining = Math.max(0, TIME_LIMIT - elapsed);
 
           // Check if time has run out
           if (remaining <= 0) {
@@ -777,12 +518,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     resetGame,
     refreshBarnStatus,
     isLoading,
-    // Booster functions
-    purchaseBooster,
-    activateBooster,
-    canPurchaseBooster,
-    canUseBooster,
-  }), [user, game, barnStatus, startGame, flipCard, claimDailyBonus, resetGame, refreshBarnStatus, isLoading, purchaseBooster, activateBooster, canPurchaseBooster, canUseBooster]);
+  }), [user, game, barnStatus, startGame, flipCard, claimDailyBonus, resetGame, refreshBarnStatus, isLoading]);
 
   return (
     <GameContext.Provider value={contextValue}>
