@@ -3,14 +3,14 @@
  * Get authenticated user's profile and game stats
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import { getUserStats, getUserRecentGames, getCurrentPeriod } from '../../lib/services/score-validation.js';
 import { getUserRank } from '../../lib/services/leaderboard.js';
 
 export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
+  req: ApiRequest,
+  res: ApiResponse
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({ status: 'error', error: 'Method not allowed' });
@@ -18,7 +18,7 @@ export default async function handler(
 
   try {
     // Require authentication
-    const auth = await getAuthenticatedUser(req.headers.authorization || null);
+    const auth = await getAuthenticatedUser(req.headers.authorization as string || null);
     if (!auth.user) {
       return res.status(401).json({
         status: 'error',

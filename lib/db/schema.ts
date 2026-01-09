@@ -1,6 +1,6 @@
 /**
  * Database Schema - Simplified for Game Scores
- * Uses Drizzle ORM with Vercel Postgres (Neon)
+ * Uses Drizzle ORM with Neon Postgres
  *
  * Tables:
  * 1. users - Wallet-based authentication

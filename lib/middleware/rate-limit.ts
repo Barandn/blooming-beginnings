@@ -3,7 +3,7 @@
  * Prevents abuse by limiting requests per IP/user
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../types/http';
 import { SECURITY_CONFIG, API_STATUS, ERROR_MESSAGES } from '../config/constants';
 
 // In-memory store for rate limiting
@@ -29,7 +29,7 @@ setInterval(() => {
  * Get client identifier for rate limiting
  * Uses IP address or forwarded headers
  */
-function getClientIdentifier(req: VercelRequest): string {
+function getClientIdentifier(req: ApiRequest): string {
   // Check for forwarded IP (behind proxy/load balancer)
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
@@ -78,7 +78,7 @@ function getRateLimitConfig(path: string): RateLimitConfig {
  * Returns true if request is allowed, false if rate limited
  */
 export function checkRateLimit(
-  req: VercelRequest,
+  req: ApiRequest,
   customConfig?: RateLimitConfig
 ): { allowed: boolean; remaining: number; resetIn: number } {
   const clientId = getClientIdentifier(req);
@@ -114,14 +114,14 @@ export function checkRateLimit(
 }
 
 /**
- * Rate limit middleware wrapper for Vercel serverless functions
+ * Rate limit middleware wrapper for serverless functions
  * Use this to wrap your handler function
  */
 export function withRateLimit(
-  handler: (req: VercelRequest, res: VercelResponse) => Promise<void | VercelResponse>,
+  handler: (req: ApiRequest, res: ApiResponse) => Promise<void | ApiResponse>,
   customConfig?: RateLimitConfig
 ) {
-  return async (req: VercelRequest, res: VercelResponse) => {
+  return async (req: ApiRequest, res: ApiResponse) => {
     const { allowed, remaining, resetIn } = checkRateLimit(req, customConfig);
 
     // Set rate limit headers
@@ -145,10 +145,10 @@ export function withRateLimit(
  * Returns null if allowed, or a response object if rate limited
  */
 export function rateLimitCheck(
-  req: VercelRequest,
-  res: VercelResponse,
+  req: ApiRequest,
+  res: ApiResponse,
   customConfig?: RateLimitConfig
-): VercelResponse | null {
+): ApiResponse | null {
   const { allowed, remaining, resetIn } = checkRateLimit(req, customConfig);
 
   // Set rate limit headers
@@ -171,7 +171,7 @@ export function rateLimitCheck(
  * Useful for debugging or monitoring
  */
 export function getRateLimitStatus(
-  req: VercelRequest,
+  req: ApiRequest,
   path?: string
 ): { count: number; remaining: number; resetAt: Date } | null {
   const clientId = getClientIdentifier(req);

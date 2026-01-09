@@ -1,6 +1,6 @@
 /**
  * API Configuration
- * Backend runs on Vercel API Routes
+ * Backend API Routes
  * URL format: /api/{endpoint}
  */
 
@@ -63,7 +63,7 @@ async function apiCall<T>(
     };
   }
 
-  // Build API URL for Vercel API routes: /auth/login -> /api/auth/login
+  // Build API URL for API routes: /auth/login -> /api/auth/login
   const url = `/api${endpoint}`;
 
   try {

@@ -6,7 +6,7 @@
  * Reference: https://docs.world.org/mini-apps/commands/wallet-auth
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../../../lib/types/http.js';
 import crypto from 'crypto';
 import { db, siweNonces } from '../../../lib/db/index.js';
 import { eq, lt } from 'drizzle-orm';
@@ -77,8 +77,8 @@ export async function validateAndConsumeNonce(nonce: string): Promise<boolean> {
 }
 
 export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
+  req: ApiRequest,
+  res: ApiResponse
 ) {
   // Only allow GET
   if (req.method !== 'GET') {
