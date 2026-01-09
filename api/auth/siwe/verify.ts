@@ -190,7 +190,6 @@ export default async function handler(
           nullifierHash: walletNullifier,
           walletAddress: walletAddressLower,
           verificationLevel: 'wallet',
-          merkleRoot: null,
           lastLoginAt: new Date(),
         } as typeof users.$inferInsert)
         .returning();

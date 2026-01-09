@@ -1,40 +1,29 @@
 /**
  * POST /api/scores/submit
- * Submit game score with server-side validation
- * Distributes token rewards on successful game completion
+ * Submit game score with moves and time
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
-import { validateAndSaveScore, type ScoreSubmission } from '../../lib/services/score-validation.js';
+import { saveScore, type ScoreSubmission } from '../../lib/services/score-validation.js';
 import { clearLeaderboardCache } from '../../lib/services/leaderboard.js';
-import { getTokenDistributionService, formatTokenAmount } from '../../lib/services/token-distribution.js';
-import { db, claimTransactions } from '../../lib/db/index.js';
-import { eq } from 'drizzle-orm';
-import { API_STATUS, ERROR_MESSAGES, TOKEN_CONFIG } from '../../lib/config/constants.js';
 
 // Request validation schema
 const scoreSchema = z.object({
   gameType: z.enum(['card_match']),
-  score: z.number().int().min(0),
-  monthlyProfit: z.number().int().min(0),
+  moves: z.number().int().min(1),
+  timeSeconds: z.number().int().min(1),
+  matchedPairs: z.number().int().min(0),
   sessionId: z.string().uuid().optional(),
-  gameStartedAt: z.number().positive(),
-  gameEndedAt: z.number().positive(),
-  validationData: z.record(z.unknown()).optional(),
 });
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Only allow POST
   if (req.method !== 'POST') {
-    return res.status(405).json({
-      status: API_STATUS.ERROR,
-      error: 'Method not allowed',
-    });
+    return res.status(405).json({ status: 'error', error: 'Method not allowed' });
   }
 
   try {
@@ -42,8 +31,8 @@ export default async function handler(
     const auth = await getAuthenticatedUser(req.headers.authorization || null);
     if (!auth.user) {
       return res.status(401).json({
-        status: API_STATUS.ERROR,
-        error: auth.error || ERROR_MESSAGES.UNAUTHORIZED,
+        status: 'error',
+        error: auth.error || 'Unauthorized',
       });
     }
 
@@ -51,140 +40,52 @@ export default async function handler(
     const parseResult = scoreSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({
-        status: API_STATUS.ERROR,
-        error: ERROR_MESSAGES.INVALID_REQUEST,
+        status: 'error',
+        error: 'Invalid request',
         details: parseResult.error.errors,
       });
     }
 
     const data = parseResult.data;
 
-    // Validate time ordering
-    if (data.gameEndedAt <= data.gameStartedAt) {
-      return res.status(400).json({
-        status: API_STATUS.ERROR,
-        error: 'Invalid game timing',
-        errorCode: 'invalid_timing',
-      });
-    }
-
-    // Create submission object
+    // Create submission
     const submission: ScoreSubmission = {
       userId: auth.user.id,
       gameType: data.gameType,
-      score: data.score,
-      monthlyProfit: data.monthlyProfit,
+      moves: data.moves,
+      timeSeconds: data.timeSeconds,
+      matchedPairs: data.matchedPairs,
       sessionId: data.sessionId,
-      gameStartedAt: data.gameStartedAt,
-      gameEndedAt: data.gameEndedAt,
-      validationData: data.validationData,
     };
 
-    // Validate and save score
-    const result = await validateAndSaveScore(submission);
+    // Save score
+    const result = await saveScore(submission);
 
-    if (!result.valid) {
+    if (!result.success) {
       return res.status(400).json({
-        status: API_STATUS.ERROR,
+        status: 'error',
         error: result.error,
-        errorCode: result.errorCode,
-        flags: result.flags,
       });
     }
 
-    // Clear leaderboard cache since scores changed
+    // Clear leaderboard cache
     clearLeaderboardCache();
 
-    // Distribute game reward tokens
-    let rewardTxHash: string | undefined;
-    let rewardAmount: string | undefined;
-    let rewardError: string | undefined;
-
-    if (result.score && data.score > 0) {
-      try {
-        const distributionService = getTokenDistributionService();
-
-        if (distributionService.isReady()) {
-          // Calculate reward amount based on score
-          const rewardAmountWei = (BigInt(data.score) * TOKEN_CONFIG.gameRewardMultiplier).toString();
-
-          // Create pending transaction record
-          const [transaction] = await db
-            .insert(claimTransactions)
-            .values({
-              userId: auth.user.id,
-              claimType: 'game_reward',
-              amount: rewardAmountWei,
-              tokenAddress: TOKEN_CONFIG.tokenAddress,
-              status: 'pending',
-            } as typeof claimTransactions.$inferInsert)
-            .returning();
-
-          // Execute token transfer
-          const transferResult = await distributionService.distributeGameReward(
-            auth.user.walletAddress,
-            data.score,
-            auth.user.id
-          );
-
-          if (transferResult.success) {
-            // Update transaction as confirmed
-            await db
-              .update(claimTransactions)
-              .set({
-                status: 'confirmed',
-                txHash: transferResult.txHash,
-                blockNumber: transferResult.blockNumber,
-                confirmedAt: new Date(),
-              } as Partial<typeof claimTransactions.$inferInsert>)
-              .where(eq(claimTransactions.id, transaction.id));
-
-            rewardTxHash = transferResult.txHash;
-            rewardAmount = formatTokenAmount(rewardAmountWei);
-          } else {
-            // Update transaction as failed
-            await db
-              .update(claimTransactions)
-              .set({
-                status: 'failed',
-                errorMessage: transferResult.error,
-              } as Partial<typeof claimTransactions.$inferInsert>)
-              .where(eq(claimTransactions.id, transaction.id));
-
-            rewardError = transferResult.error;
-            console.error('Game reward distribution failed:', transferResult.error);
-          }
-        } else {
-          console.warn('Token distribution service not ready - skipping game reward');
-          rewardError = 'Token distribution not configured';
-        }
-      } catch (rewardErr) {
-        console.error('Error distributing game reward:', rewardErr);
-        rewardError = 'Failed to distribute reward';
-      }
-    }
-
     return res.status(200).json({
-      status: API_STATUS.SUCCESS,
+      status: 'success',
       data: {
         scoreId: result.score?.id,
-        score: result.score?.score,
-        monthlyProfit: result.score?.monthlyProfit,
-        leaderboardPeriod: result.score?.leaderboardPeriod,
-        flags: result.flags,
-        reward: rewardTxHash ? {
-          amount: rewardAmount,
-          txHash: rewardTxHash,
-          explorerUrl: `https://worldscan.org/tx/${rewardTxHash}`,
-        } : undefined,
-        rewardError,
+        moves: result.score?.moves,
+        timeSeconds: result.score?.timeSeconds,
+        matchedPairs: result.score?.matchedPairs,
+        period: result.score?.leaderboardPeriod,
       },
     });
   } catch (error) {
     console.error('Score submission error:', error);
     return res.status(500).json({
-      status: API_STATUS.ERROR,
-      error: ERROR_MESSAGES.INTERNAL_ERROR,
+      status: 'error',
+      error: 'Internal server error',
     });
   }
 }
