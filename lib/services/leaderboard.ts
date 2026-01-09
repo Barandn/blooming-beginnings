@@ -1,20 +1,18 @@
 /**
  * Leaderboard Service
- * High-performance leaderboard queries from Postgres
+ * Rankings based on moves and time (fewer moves + faster time = better)
  */
 
 import { db, gameScores, users } from '../db';
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { LEADERBOARD_CONFIG } from '../config/constants';
+import { eq, and, desc, sql, asc } from 'drizzle-orm';
 import { getCurrentPeriod } from './score-validation';
 
 // Types
 export interface LeaderboardEntry {
   rank: number;
-  nullifierHash: string;
   walletAddress: string;
-  monthlyProfit: number;
-  totalScore: number;
+  bestMoves: number;
+  bestTime: number;
   gamesPlayed: number;
 }
 
@@ -22,94 +20,53 @@ export interface LeaderboardResult {
   entries: LeaderboardEntry[];
   period: string;
   totalPlayers: number;
-  userRank?: number;
-  userEntry?: LeaderboardEntry;
 }
 
-// Simple in-memory cache
+// Simple cache
 const cache = new Map<string, { data: LeaderboardResult; expiry: number }>();
+const CACHE_DURATION = 60 * 1000; // 60 seconds
 
 /**
- * Get cache key for leaderboard
+ * Get leaderboard with caching
  */
-function getCacheKey(period: string, limit: number, offset: number): string {
-  return `leaderboard:${period}:${limit}:${offset}`;
-}
+export async function getLeaderboard(
+  period?: string,
+  limit: number = 100
+): Promise<LeaderboardResult> {
+  const targetPeriod = period || getCurrentPeriod();
+  const cacheKey = `leaderboard:${targetPeriod}:${limit}`;
 
-/**
- * Get cached leaderboard or null if expired/missing
- */
-function getCachedLeaderboard(key: string): LeaderboardResult | null {
-  const cached = cache.get(key);
+  // Check cache
+  const cached = cache.get(cacheKey);
   if (cached && cached.expiry > Date.now()) {
     return cached.data;
   }
-  cache.delete(key);
-  return null;
-}
 
-/**
- * Cache leaderboard result
- */
-function cacheLeaderboard(key: string, data: LeaderboardResult): void {
-  cache.set(key, {
-    data,
-    expiry: Date.now() + LEADERBOARD_CONFIG.cacheDuration * 1000,
-  });
-}
-
-/**
- * Get top leaderboard entries for a period
- *
- * @param period - Leaderboard period (YYYY-MM)
- * @param limit - Number of entries to return
- * @param offset - Offset for pagination
- * @returns Leaderboard entries
- */
-export async function getTopLeaderboard(
-  period?: string,
-  limit: number = LEADERBOARD_CONFIG.topEntriesCount,
-  offset: number = 0
-): Promise<LeaderboardResult> {
-  const targetPeriod = period || getCurrentPeriod();
-  const cacheKey = getCacheKey(targetPeriod, limit, offset);
-
-  // Check cache
-  const cached = getCachedLeaderboard(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  // Query aggregated scores per user
-  const leaderboardQuery = await db
+  // Query: Get each user's best score (minimum moves, then minimum time for tie-break)
+  // Using a subquery to get each user's best game
+  const leaderboardData = await db
     .select({
-      nullifierHash: users.nullifierHash,
       walletAddress: users.walletAddress,
-      monthlyProfit: sql<number>`COALESCE(SUM(${gameScores.monthlyProfit}), 0)::integer`,
-      totalScore: sql<number>`COALESCE(SUM(${gameScores.score}), 0)::integer`,
-      gamesPlayed: sql<number>`COUNT(${gameScores.id})::integer`,
+      bestMoves: sql<number>`MIN(${gameScores.moves})`,
+      bestTime: sql<number>`MIN(${gameScores.timeSeconds})`,
+      gamesPlayed: sql<number>`COUNT(*)::integer`,
     })
     .from(gameScores)
     .innerJoin(users, eq(gameScores.userId, users.id))
-    .where(
-      and(
-        eq(gameScores.leaderboardPeriod, targetPeriod),
-        eq(gameScores.isValidated, true)
-      )
+    .where(eq(gameScores.leaderboardPeriod, targetPeriod))
+    .groupBy(users.id, users.walletAddress)
+    .orderBy(
+      asc(sql`MIN(${gameScores.moves})`),
+      asc(sql`MIN(${gameScores.timeSeconds})`)
     )
-    .groupBy(users.id, users.nullifierHash, users.walletAddress)
-    .having(sql`SUM(${gameScores.monthlyProfit}) >= ${LEADERBOARD_CONFIG.minimumScore}`)
-    .orderBy(desc(sql`SUM(${gameScores.monthlyProfit})`))
-    .limit(limit)
-    .offset(offset);
+    .limit(limit);
 
   // Add ranks
-  const entries: LeaderboardEntry[] = leaderboardQuery.map((entry, index) => ({
-    rank: offset + index + 1,
-    nullifierHash: entry.nullifierHash,
+  const entries: LeaderboardEntry[] = leaderboardData.map((entry, index) => ({
+    rank: index + 1,
     walletAddress: entry.walletAddress,
-    monthlyProfit: entry.monthlyProfit,
-    totalScore: entry.totalScore,
+    bestMoves: entry.bestMoves,
+    bestTime: entry.bestTime,
     gamesPlayed: entry.gamesPlayed,
   }));
 
@@ -119,12 +76,7 @@ export async function getTopLeaderboard(
       count: sql<number>`COUNT(DISTINCT ${gameScores.userId})::integer`,
     })
     .from(gameScores)
-    .where(
-      and(
-        eq(gameScores.leaderboardPeriod, targetPeriod),
-        eq(gameScores.isValidated, true)
-      )
-    );
+    .where(eq(gameScores.leaderboardPeriod, targetPeriod));
 
   const result: LeaderboardResult = {
     entries,
@@ -133,158 +85,109 @@ export async function getTopLeaderboard(
   };
 
   // Cache result
-  cacheLeaderboard(cacheKey, result);
+  cache.set(cacheKey, { data: result, expiry: Date.now() + CACHE_DURATION });
 
   return result;
 }
 
 /**
- * Get user's rank on the leaderboard
- *
- * @param userId - User ID
- * @param period - Leaderboard period
- * @returns User's rank and entry
+ * Get user's rank on leaderboard
  */
 export async function getUserRank(
   userId: string,
   period?: string
-): Promise<{
-  rank: number | null;
-  entry: LeaderboardEntry | null;
-}> {
+): Promise<{ rank: number | null; entry: LeaderboardEntry | null }> {
   const targetPeriod = period || getCurrentPeriod();
 
-  // Get user's aggregated score
-  const [userScore] = await db
+  // Get user's best score
+  const [userBest] = await db
     .select({
-      nullifierHash: users.nullifierHash,
       walletAddress: users.walletAddress,
-      monthlyProfit: sql<number>`COALESCE(SUM(${gameScores.monthlyProfit}), 0)::integer`,
-      totalScore: sql<number>`COALESCE(SUM(${gameScores.score}), 0)::integer`,
-      gamesPlayed: sql<number>`COUNT(${gameScores.id})::integer`,
+      bestMoves: sql<number>`MIN(${gameScores.moves})`,
+      bestTime: sql<number>`MIN(${gameScores.timeSeconds})`,
+      gamesPlayed: sql<number>`COUNT(*)::integer`,
     })
     .from(gameScores)
     .innerJoin(users, eq(gameScores.userId, users.id))
     .where(
       and(
         eq(gameScores.userId, userId),
-        eq(gameScores.leaderboardPeriod, targetPeriod),
-        eq(gameScores.isValidated, true)
+        eq(gameScores.leaderboardPeriod, targetPeriod)
       )
     )
-    .groupBy(users.id, users.nullifierHash, users.walletAddress);
+    .groupBy(users.id, users.walletAddress);
 
-  if (!userScore || userScore.monthlyProfit === 0) {
+  if (!userBest || userBest.gamesPlayed === 0) {
     return { rank: null, entry: null };
   }
 
-  // Get rank by counting players with higher profit
+  // Count players with better scores (fewer moves, or same moves but faster time)
   const [rankResult] = await db
     .select({
-      rank: sql<number>`COUNT(*) + 1`,
+      betterPlayers: sql<number>`COUNT(*)::integer`,
     })
     .from(
       db
         .select({
-          userId: gameScores.userId,
-          profit: sql<number>`SUM(${gameScores.monthlyProfit})`,
+          minMoves: sql<number>`MIN(${gameScores.moves})`,
+          minTime: sql<number>`MIN(${gameScores.timeSeconds})`,
         })
         .from(gameScores)
-        .where(
-          and(
-            eq(gameScores.leaderboardPeriod, targetPeriod),
-            eq(gameScores.isValidated, true)
-          )
-        )
+        .where(eq(gameScores.leaderboardPeriod, targetPeriod))
         .groupBy(gameScores.userId)
-        .having(sql`SUM(${gameScores.monthlyProfit}) > ${userScore.monthlyProfit}`)
-        .as('higher_scores')
+        .as('user_bests')
+    )
+    .where(
+      sql`(min_moves < ${userBest.bestMoves}) OR (min_moves = ${userBest.bestMoves} AND min_time < ${userBest.bestTime})`
     );
 
-  const rank = rankResult?.rank || 1;
+  const rank = (rankResult?.betterPlayers || 0) + 1;
 
   return {
     rank,
     entry: {
       rank,
-      nullifierHash: userScore.nullifierHash,
-      walletAddress: userScore.walletAddress,
-      monthlyProfit: userScore.monthlyProfit,
-      totalScore: userScore.totalScore,
-      gamesPlayed: userScore.gamesPlayed,
+      walletAddress: userBest.walletAddress,
+      bestMoves: userBest.bestMoves,
+      bestTime: userBest.bestTime,
+      gamesPlayed: userBest.gamesPlayed,
     },
   };
 }
 
 /**
- * Get leaderboard with user context
- * Returns top entries plus user's rank
- *
- * @param userId - Current user ID (optional)
- * @param period - Leaderboard period
- * @param limit - Number of entries
- * @returns Leaderboard with user context
+ * Get leaderboard statistics
  */
-export async function getLeaderboardWithUserContext(
-  userId?: string,
-  period?: string,
-  limit: number = LEADERBOARD_CONFIG.topEntriesCount
-): Promise<LeaderboardResult> {
+export async function getLeaderboardStats(period?: string): Promise<{
+  totalPlayers: number;
+  totalGames: number;
+  averageMoves: number;
+  averageTime: number;
+}> {
   const targetPeriod = period || getCurrentPeriod();
 
-  // Get top leaderboard
-  const result = await getTopLeaderboard(targetPeriod, limit);
+  const [stats] = await db
+    .select({
+      totalPlayers: sql<number>`COUNT(DISTINCT ${gameScores.userId})::integer`,
+      totalGames: sql<number>`COUNT(*)::integer`,
+      averageMoves: sql<number>`ROUND(AVG(${gameScores.moves}))::integer`,
+      averageTime: sql<number>`ROUND(AVG(${gameScores.timeSeconds}))::integer`,
+    })
+    .from(gameScores)
+    .where(eq(gameScores.leaderboardPeriod, targetPeriod));
 
-  // If user provided, get their rank
-  if (userId) {
-    const userRank = await getUserRank(userId, targetPeriod);
-    result.userRank = userRank.rank || undefined;
-    result.userEntry = userRank.entry || undefined;
-  }
-
-  return result;
+  return {
+    totalPlayers: stats?.totalPlayers || 0,
+    totalGames: stats?.totalGames || 0,
+    averageMoves: stats?.averageMoves || 0,
+    averageTime: stats?.averageTime || 0,
+  };
 }
 
 /**
- * Get leaderboard entries around a user
- * Shows entries before and after the user's position
- *
- * @param userId - User ID
- * @param period - Leaderboard period
- * @param surrounding - Number of entries to show on each side
- * @returns Surrounding entries
+ * Get available leaderboard periods
  */
-export async function getSurroundingEntries(
-  userId: string,
-  period?: string,
-  surrounding: number = 5
-): Promise<LeaderboardEntry[]> {
-  const targetPeriod = period || getCurrentPeriod();
-
-  // Get user's rank first
-  const { rank } = await getUserRank(userId, targetPeriod);
-
-  if (!rank) {
-    return [];
-  }
-
-  // Calculate offset
-  const offset = Math.max(0, rank - surrounding - 1);
-  const limit = surrounding * 2 + 1;
-
-  // Get surrounding entries
-  const result = await getTopLeaderboard(targetPeriod, limit, offset);
-
-  return result.entries;
-}
-
-/**
- * Get historical leaderboards (previous months)
- *
- * @param months - Number of months to include
- * @returns Array of period strings
- */
-export function getPreviousPeriods(months: number = 3): string[] {
+export function getAvailablePeriods(months: number = 6): string[] {
   const periods: string[] = [];
   const now = new Date();
 
@@ -300,45 +203,7 @@ export function getPreviousPeriods(months: number = 3): string[] {
 
 /**
  * Clear leaderboard cache
- * Call this when scores are updated
  */
 export function clearLeaderboardCache(): void {
   cache.clear();
-}
-
-/**
- * Get leaderboard statistics
- *
- * @param period - Leaderboard period
- * @returns Statistics
- */
-export async function getLeaderboardStats(period?: string): Promise<{
-  totalPlayers: number;
-  totalGames: number;
-  totalProfit: number;
-  averageProfit: number;
-}> {
-  const targetPeriod = period || getCurrentPeriod();
-
-  const [stats] = await db
-    .select({
-      totalPlayers: sql<number>`COUNT(DISTINCT ${gameScores.userId})::integer`,
-      totalGames: sql<number>`COUNT(${gameScores.id})::integer`,
-      totalProfit: sql<number>`COALESCE(SUM(${gameScores.monthlyProfit}), 0)::integer`,
-      averageProfit: sql<number>`COALESCE(AVG(${gameScores.monthlyProfit}), 0)::integer`,
-    })
-    .from(gameScores)
-    .where(
-      and(
-        eq(gameScores.leaderboardPeriod, targetPeriod),
-        eq(gameScores.isValidated, true)
-      )
-    );
-
-  return {
-    totalPlayers: stats?.totalPlayers || 0,
-    totalGames: stats?.totalGames || 0,
-    totalProfit: stats?.totalProfit || 0,
-    averageProfit: stats?.averageProfit || 0,
-  };
 }

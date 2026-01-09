@@ -1,32 +1,33 @@
 /**
- * Score Validation Service
- * Anti-cheat validation for game scores
- * Includes time-delta checks and score bounds validation
+ * Score Service
+ * Simple game score submission and validation
  */
 
 import { db, gameScores, type GameScore, type NewGameScore } from '../db';
-import { eq, and, gte, desc, sql } from 'drizzle-orm';
-import { GAME_VALIDATION, SECURITY_CONFIG, ERROR_MESSAGES } from '../config/constants';
+import { eq, and, desc, sql, asc } from 'drizzle-orm';
 
 // Types
 export interface ScoreSubmission {
   userId: string;
   gameType: 'card_match';
-  score: number;
-  monthlyProfit: number;
+  moves: number;
+  timeSeconds: number;
+  matchedPairs: number;
   sessionId?: string;
-  gameStartedAt: number; // timestamp
-  gameEndedAt: number; // timestamp
-  validationData?: Record<string, unknown>;
 }
 
-export interface ValidationResult {
-  valid: boolean;
+export interface ScoreResult {
+  success: boolean;
   score?: GameScore;
   error?: string;
-  errorCode?: string;
-  flags?: string[]; // Warning flags for suspicious activity
 }
+
+// Constants
+const MIN_MOVES = 12; // Minimum possible moves for 5x5 grid (12 pairs)
+const MAX_MOVES = 500; // Maximum reasonable moves
+const MIN_TIME = 10; // Minimum seconds (anti-cheat)
+const MAX_TIME = 3600; // Maximum 1 hour
+const TOTAL_PAIRS = 12; // 5x5 grid = 24 cards = 12 pairs (1 card unused)
 
 /**
  * Get current leaderboard period (YYYY-MM format)
@@ -39,381 +40,117 @@ export function getCurrentPeriod(): string {
 }
 
 /**
- * Validate time delta for game session
- * Checks if the game duration is within acceptable bounds
- *
- * @param startTime - Game start timestamp
- * @param endTime - Game end timestamp
- * @returns Validation result
+ * Validate and save a game score
  */
-export function validateTimeDelta(
-  startTime: number,
-  endTime: number
-): { valid: boolean; error?: string } {
-  const duration = (endTime - startTime) / 1000; // in seconds
-
-  // Check minimum time (too fast = likely cheating)
-  if (duration < SECURITY_CONFIG.minGameActionTime) {
-    return {
-      valid: false,
-      error: 'Game completed too quickly - suspicious activity detected',
-    };
+export async function saveScore(submission: ScoreSubmission): Promise<ScoreResult> {
+  // Basic validation
+  if (submission.moves < MIN_MOVES || submission.moves > MAX_MOVES) {
+    return { success: false, error: 'Invalid move count' };
   }
 
-  // Check maximum time (session expired)
-  if (duration > SECURITY_CONFIG.maxGameSessionTime) {
-    return {
-      valid: false,
-      error: ERROR_MESSAGES.GAME_SESSION_EXPIRED,
-    };
+  if (submission.timeSeconds < MIN_TIME || submission.timeSeconds > MAX_TIME) {
+    return { success: false, error: 'Invalid game time' };
   }
 
-  return { valid: true };
-}
-
-/**
- * Validate score bounds
- * Checks if score is within acceptable range
- *
- * @param score - Score value
- * @param gameType - Type of game
- * @returns Validation result
- */
-export function validateScoreBounds(
-  score: number,
-  gameType: string
-): { valid: boolean; error?: string; flags?: string[] } {
-  const bounds = GAME_VALIDATION.scoreBounds;
-  const flags: string[] = [];
-
-  // Check negative score
-  if (score < bounds.minScore) {
-    return {
-      valid: false,
-      error: ERROR_MESSAGES.INVALID_SCORE,
-    };
+  if (submission.matchedPairs < 0 || submission.matchedPairs > TOTAL_PAIRS) {
+    return { success: false, error: 'Invalid matched pairs count' };
   }
 
-  // Check daily maximum
-  if (score > bounds.maxDailyScore) {
-    return {
-      valid: false,
-      error: 'Score exceeds daily maximum',
-      flags: ['exceeded_daily_max'],
-    };
-  }
-
-  // Game-specific validation
-  if (gameType === 'card_match') {
-    const cardMatchConfig = GAME_VALIDATION.cardMatch;
-
-    // Max possible score is matches * reward
-    const maxPossibleScore = cardMatchConfig.maxMatchesPerDay * cardMatchConfig.rewardPerMatch;
-    if (score > maxPossibleScore) {
-      flags.push('exceeded_card_match_max');
-      return {
-        valid: false,
-        error: 'Card match game score exceeds maximum possible',
-        flags,
-      };
-    }
-  }
-
-  return { valid: true, flags: flags.length > 0 ? flags : undefined };
-}
-
-/**
- * Validate monthly profit bounds
- *
- * @param profit - Monthly profit value
- * @returns Validation result
- */
-export function validateMonthlyProfit(
-  profit: number
-): { valid: boolean; error?: string } {
-  const bounds = GAME_VALIDATION.scoreBounds;
-
-  if (profit < 0) {
-    return {
-      valid: false,
-      error: 'Monthly profit cannot be negative',
-    };
-  }
-
-  if (profit > bounds.maxMonthlyProfit) {
-    return {
-      valid: false,
-      error: 'Monthly profit exceeds maximum allowed',
-    };
-  }
-
-  return { valid: true };
-}
-
-/**
- * Check for duplicate submissions
- * Prevents score manipulation through repeated submissions
- *
- * @param userId - User ID
- * @param sessionId - Game session ID
- * @returns true if duplicate exists
- */
-export async function checkDuplicateSubmission(
-  userId: string,
-  sessionId: string
-): Promise<boolean> {
-  if (!sessionId) return false;
-
-  const [existing] = await db
-    .select({ id: gameScores.id })
-    .from(gameScores)
-    .where(
-      and(
-        eq(gameScores.userId, userId),
-        eq(gameScores.sessionId, sessionId)
-      )
-    )
-    .limit(1);
-
-  return !!existing;
-}
-
-/**
- * Get user's scores for today
- * Used for daily limit validation
- *
- * @param userId - User ID
- * @param gameType - Type of game
- * @returns Today's scores
- */
-export async function getTodayScores(
-  userId: string,
-  gameType: string
-): Promise<GameScore[]> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const scores = await db
-    .select()
-    .from(gameScores)
-    .where(
-      and(
-        eq(gameScores.userId, userId),
-        eq(gameScores.gameType, gameType),
-        gte(gameScores.createdAt, today)
-      )
-    );
-
-  return scores;
-}
-
-/**
- * Validate card match game specific rules
- *
- * @param submission - Score submission
- * @param todayScores - Previous scores today
- * @returns Validation result
- */
-function validateCardMatchRules(
-  submission: ScoreSubmission,
-  todayScores: GameScore[]
-): { valid: boolean; error?: string } {
-  const config = GAME_VALIDATION.cardMatch;
-
-  // Check daily attempts limit
-  if (todayScores.length >= config.maxAttempts) {
-    return {
-      valid: false,
-      error: 'Daily card match game limit reached',
-    };
-  }
-
-  // Validate time between submissions
-  if (todayScores.length > 0) {
-    const lastSubmission = todayScores[todayScores.length - 1];
-    const timeSinceLast = Date.now() - new Date(lastSubmission.createdAt).getTime();
-
-    if (timeSinceLast < config.minTimeBetweenFlips) {
-      return {
-        valid: false,
-        error: 'Too many submissions in a short time',
-      };
-    }
-  }
-
-  return { valid: true };
-}
-
-/**
- * Full score validation and submission
- *
- * @param submission - Score submission data
- * @returns Validation result with saved score
- */
-export async function validateAndSaveScore(
-  submission: ScoreSubmission
-): Promise<ValidationResult> {
-  const flags: string[] = [];
-
-  // Step 1: Validate time delta
-  const timeDeltaResult = validateTimeDelta(
-    submission.gameStartedAt,
-    submission.gameEndedAt
-  );
-  if (!timeDeltaResult.valid) {
-    return {
-      valid: false,
-      error: timeDeltaResult.error,
-      errorCode: 'invalid_time_delta',
-    };
-  }
-
-  // Step 2: Validate score bounds
-  const boundsResult = validateScoreBounds(submission.score, submission.gameType);
-  if (!boundsResult.valid) {
-    return {
-      valid: false,
-      error: boundsResult.error,
-      errorCode: 'score_out_of_bounds',
-      flags: boundsResult.flags,
-    };
-  }
-  if (boundsResult.flags) {
-    flags.push(...boundsResult.flags);
-  }
-
-  // Step 3: Validate monthly profit
-  const profitResult = validateMonthlyProfit(submission.monthlyProfit);
-  if (!profitResult.valid) {
-    return {
-      valid: false,
-      error: profitResult.error,
-      errorCode: 'profit_out_of_bounds',
-    };
-  }
-
-  // Step 4: Check for duplicate submission
+  // Check for duplicate session
   if (submission.sessionId) {
-    const isDuplicate = await checkDuplicateSubmission(
-      submission.userId,
-      submission.sessionId
-    );
-    if (isDuplicate) {
-      return {
-        valid: false,
-        error: 'Score already submitted for this session',
-        errorCode: 'duplicate_submission',
-      };
+    const [existing] = await db
+      .select({ id: gameScores.id })
+      .from(gameScores)
+      .where(
+        and(
+          eq(gameScores.userId, submission.userId),
+          eq(gameScores.sessionId, submission.sessionId)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      return { success: false, error: 'Score already submitted for this session' };
     }
   }
 
-  // Step 5: Get today's scores for game-specific validation
-  const todayScores = await getTodayScores(submission.userId, submission.gameType);
-
-  // Step 6: Game-specific validation
-  if (submission.gameType === 'card_match') {
-    const cardMatchResult = validateCardMatchRules(submission, todayScores);
-    if (!cardMatchResult.valid) {
-      return {
-        valid: false,
-        error: cardMatchResult.error,
-        errorCode: 'card_match_limit',
-      };
-    }
-  }
-
-  // Step 7: Calculate time taken
-  const timeTaken = Math.round((submission.gameEndedAt - submission.gameStartedAt) / 1000);
-
-  // Step 8: Save validated score
+  // Save score
   try {
-    const period = getCurrentPeriod();
-
     const [savedScore] = await db
       .insert(gameScores)
       .values({
         userId: submission.userId,
         gameType: submission.gameType,
-        score: submission.score,
-        monthlyProfit: submission.monthlyProfit,
+        moves: submission.moves,
+        timeSeconds: submission.timeSeconds,
+        matchedPairs: submission.matchedPairs,
         sessionId: submission.sessionId,
-        timeTaken,
-        gameStartedAt: new Date(submission.gameStartedAt),
-        validationData: submission.validationData
-          ? JSON.stringify(submission.validationData)
-          : null,
-        isValidated: true,
-        leaderboardPeriod: period,
-      } as typeof gameScores.$inferInsert)
+        leaderboardPeriod: getCurrentPeriod(),
+      } as NewGameScore)
       .returning();
 
-    return {
-      valid: true,
-      score: savedScore,
-      flags: flags.length > 0 ? flags : undefined,
-    };
+    return { success: true, score: savedScore };
   } catch (error) {
     console.error('Failed to save score:', error);
-    return {
-      valid: false,
-      error: 'Failed to save score',
-      errorCode: 'save_failed',
-    };
+    return { success: false, error: 'Failed to save score' };
   }
 }
 
 /**
- * Get user's total monthly profit
- *
- * @param userId - User ID
- * @param period - Leaderboard period (optional, defaults to current)
- * @returns Total monthly profit
+ * Get user's best score (fewest moves, then fastest time)
  */
-export async function getUserMonthlyProfit(
-  userId: string,
-  period?: string
-): Promise<number> {
-  const targetPeriod = period || getCurrentPeriod();
-
-  const result = await db
-    .select({
-      totalProfit: sql<number>`COALESCE(SUM(${gameScores.monthlyProfit}), 0)`,
-    })
+export async function getUserBestScore(userId: string): Promise<GameScore | null> {
+  const [best] = await db
+    .select()
     .from(gameScores)
-    .where(
-      and(
-        eq(gameScores.userId, userId),
-        eq(gameScores.leaderboardPeriod, targetPeriod),
-        eq(gameScores.isValidated, true)
-      )
-    );
+    .where(eq(gameScores.userId, userId))
+    .orderBy(asc(gameScores.moves), asc(gameScores.timeSeconds))
+    .limit(1);
 
-  return result[0]?.totalProfit || 0;
+  return best || null;
 }
 
 /**
- * Get user's best score for a game type
- *
- * @param userId - User ID
- * @param gameType - Type of game
- * @returns Best score
+ * Get user's game statistics
  */
-export async function getUserBestScore(
-  userId: string,
-  gameType: string
-): Promise<number> {
-  const result = await db
+export async function getUserStats(userId: string): Promise<{
+  totalGames: number;
+  bestMoves: number | null;
+  bestTime: number | null;
+  averageMoves: number;
+  averageTime: number;
+}> {
+  const [stats] = await db
     .select({
-      bestScore: sql<number>`COALESCE(MAX(${gameScores.score}), 0)`,
+      totalGames: sql<number>`COUNT(*)::integer`,
+      bestMoves: sql<number>`MIN(${gameScores.moves})`,
+      bestTime: sql<number>`MIN(${gameScores.timeSeconds})`,
+      averageMoves: sql<number>`ROUND(AVG(${gameScores.moves}))::integer`,
+      averageTime: sql<number>`ROUND(AVG(${gameScores.timeSeconds}))::integer`,
     })
     .from(gameScores)
-    .where(
-      and(
-        eq(gameScores.userId, userId),
-        eq(gameScores.gameType, gameType),
-        eq(gameScores.isValidated, true)
-      )
-    );
+    .where(eq(gameScores.userId, userId));
 
-  return result[0]?.bestScore || 0;
+  return {
+    totalGames: stats?.totalGames || 0,
+    bestMoves: stats?.bestMoves || null,
+    bestTime: stats?.bestTime || null,
+    averageMoves: stats?.averageMoves || 0,
+    averageTime: stats?.averageTime || 0,
+  };
+}
+
+/**
+ * Get user's recent games
+ */
+export async function getUserRecentGames(
+  userId: string,
+  limit: number = 10
+): Promise<GameScore[]> {
+  return await db
+    .select()
+    .from(gameScores)
+    .where(eq(gameScores.userId, userId))
+    .orderBy(desc(gameScores.createdAt))
+    .limit(limit);
 }
