@@ -6,12 +6,12 @@
  * This endpoint exists for API completeness
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
 import { API_STATUS } from '../../lib/config/constants.js';
 
 export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
+  req: ApiRequest,
+  res: ApiResponse
 ) {
   // Only allow POST
   if (req.method !== 'POST') {

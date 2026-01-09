@@ -3,13 +3,13 @@
  * Health check endpoint for monitoring
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../lib/types/http.js';
 import { sql } from '../lib/db/index.js';
 import { API_STATUS, ACTIVE_CHAIN } from '../lib/config/constants.js';
 
 export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
+  req: ApiRequest,
+  res: ApiResponse
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({

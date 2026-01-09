@@ -8,7 +8,7 @@
  * World App uses Safe addresses for SIWE, requiring ERC-1271 signature verification
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../../../lib/types/http.js';
 import { z } from 'zod';
 import { ethers } from 'ethers';
 import { db, users } from '../../../lib/db/index.js';
@@ -116,8 +116,8 @@ async function createToken(userId: string, walletAddress: string): Promise<strin
 }
 
 export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
+  req: ApiRequest,
+  res: ApiResponse
 ) {
   // Only allow POST
   if (req.method !== 'POST') {

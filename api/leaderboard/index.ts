@@ -3,7 +3,7 @@
  * Get leaderboard rankings (moves + time based)
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
   getLeaderboard,
@@ -14,8 +14,8 @@ import {
 import { getCurrentPeriod } from '../../lib/services/score-validation.js';
 
 export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
+  req: ApiRequest,
+  res: ApiResponse
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({ status: 'error', error: 'Method not allowed' });
@@ -23,12 +23,13 @@ export default async function handler(
 
   try {
     // Parse query parameters
-    const period = (req.query.period as string) || getCurrentPeriod();
-    const limit = Math.min(parseInt(req.query.limit as string) || 100, 100);
-    const includeStats = req.query.stats === 'true';
+    const query = req.query || {};
+    const period = (query.period as string) || getCurrentPeriod();
+    const limit = Math.min(parseInt(query.limit as string) || 100, 100);
+    const includeStats = query.stats === 'true';
 
     // Get authenticated user (optional)
-    const auth = await getAuthenticatedUser(req.headers.authorization || null);
+    const auth = await getAuthenticatedUser(req.headers.authorization as string || null);
 
     // Get leaderboard
     const leaderboard = await getLeaderboard(period, limit);
