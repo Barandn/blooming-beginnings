@@ -1,6 +1,7 @@
 /**
  * GET /api/leaderboard
- * Get leaderboard rankings (moves + time based)
+ * Get leaderboard rankings (score based)
+ * Uses Supabase for database operations
  */
 
 import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
@@ -10,8 +11,8 @@ import {
   getUserRank,
   getLeaderboardStats,
   getAvailablePeriods,
+  getCurrentPeriod,
 } from '../../lib/services/leaderboard.js';
-import { getCurrentPeriod } from '../../lib/services/score-validation.js';
 
 export default async function handler(
   req: ApiRequest,
@@ -26,6 +27,7 @@ export default async function handler(
     const query = req.query || {};
     const period = (query.period as string) || getCurrentPeriod();
     const limit = Math.min(parseInt(query.limit as string) || 100, 100);
+    const offset = parseInt(query.offset as string) || 0;
     const includeStats = query.stats === 'true';
 
     // Get authenticated user (optional)
@@ -41,8 +43,8 @@ export default async function handler(
       if (rankData.rank) {
         userRank = {
           rank: rankData.rank,
-          bestMoves: rankData.entry?.bestMoves,
-          bestTime: rankData.entry?.bestTime,
+          monthlyProfit: rankData.entry?.monthlyProfit,
+          totalScore: rankData.entry?.totalScore,
           gamesPlayed: rankData.entry?.gamesPlayed,
         };
       }
@@ -66,12 +68,19 @@ export default async function handler(
         entries: leaderboard.entries.map(entry => ({
           rank: entry.rank,
           // Mask wallet address for privacy
-          walletAddress: `${entry.walletAddress.slice(0, 6)}...${entry.walletAddress.slice(-4)}`,
-          bestMoves: entry.bestMoves,
-          bestTime: entry.bestTime,
+          walletAddress: entry.walletAddress
+            ? `${entry.walletAddress.slice(0, 6)}...${entry.walletAddress.slice(-4)}`
+            : 'Unknown',
+          monthlyProfit: entry.monthlyProfit,
+          totalScore: entry.totalScore,
           gamesPlayed: entry.gamesPlayed,
         })),
-        totalPlayers: leaderboard.totalPlayers,
+        pagination: {
+          limit,
+          offset,
+          total: leaderboard.totalPlayers,
+          hasMore: offset + limit < leaderboard.totalPlayers,
+        },
         user: userRank,
         stats,
       },

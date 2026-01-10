@@ -1,14 +1,14 @@
 /**
  * Authentication Service
  * Simple JWT-based authentication for World App Wallet Auth
+ * Uses Supabase for database operations
  *
  * Reference: https://docs.world.org/mini-apps/commands/wallet-auth
  */
 
 import { jwtVerify } from 'jose';
-import { db, users, type User } from '../db';
-import { eq } from 'drizzle-orm';
-import { SESSION_CONFIG, ERROR_MESSAGES } from '../config/constants';
+import { supabase, type User } from '../db/index.js';
+import { SESSION_CONFIG, ERROR_MESSAGES } from '../config/constants.js';
 
 // Types
 export interface SessionData {
@@ -49,26 +49,78 @@ export async function verifySessionToken(token: string): Promise<SessionData | n
  * Get user by wallet address
  */
 export async function getUserByWallet(walletAddress: string): Promise<User | null> {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.walletAddress, walletAddress.toLowerCase()))
-    .limit(1);
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('wallet_address', walletAddress.toLowerCase())
+    .limit(1)
+    .single();
 
-  return user || null;
+  if (error || !data) {
+    return null;
+  }
+
+  return data as User;
 }
 
 /**
  * Get user by ID
  */
 export async function getUserById(userId: string): Promise<User | null> {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .limit(1)
+    .single();
 
-  return user || null;
+  if (error || !data) {
+    return null;
+  }
+
+  return data as User;
+}
+
+/**
+ * Create new user
+ */
+export async function createUser(
+  walletAddress: string,
+  verificationLevel: string = 'wallet'
+): Promise<User | null> {
+  const walletAddressLower = walletAddress.toLowerCase();
+  const walletNullifier = `wallet_${walletAddressLower}`;
+
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      nullifier_hash: walletNullifier,
+      wallet_address: walletAddressLower,
+      verification_level: verificationLevel,
+      last_login_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create user:', error);
+    return null;
+  }
+
+  return data as User;
+}
+
+/**
+ * Update user last login
+ */
+export async function updateUserLastLogin(userId: string): Promise<void> {
+  await supabase
+    .from('users')
+    .update({
+      last_login_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
 }
 
 /**

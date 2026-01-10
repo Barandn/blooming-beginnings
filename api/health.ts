@@ -1,10 +1,11 @@
 /**
  * GET /api/health
  * Health check endpoint for monitoring
+ * Uses Supabase for database operations
  */
 
 import type { ApiRequest, ApiResponse } from '../lib/types/http.js';
-import { sql } from '../lib/db/index.js';
+import { supabase } from '../lib/db/index.js';
 import { API_STATUS, ACTIVE_CHAIN } from '../lib/config/constants.js';
 
 export default async function handler(
@@ -32,10 +33,19 @@ export default async function handler(
     },
   };
 
-  // Check database connection
+  // Check Supabase database connection
   try {
-    await sql`SELECT 1`;
-    health.services.database = 'ok';
+    const { error } = await supabase
+      .from('users')
+      .select('id')
+      .limit(1);
+
+    if (!error) {
+      health.services.database = 'ok';
+    } else {
+      health.services.database = 'error';
+      health.status = 'degraded';
+    }
   } catch {
     health.services.database = 'error';
     health.status = 'degraded';

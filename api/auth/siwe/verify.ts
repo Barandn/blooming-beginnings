@@ -3,6 +3,7 @@
  * Verify SIWE signature from World App Wallet Auth
  *
  * Simple SIWE implementation following World App MiniKit guidelines
+ * Uses Supabase for database operations
  * Reference: https://docs.world.org/mini-apps/commands/wallet-auth
  *
  * World App uses Safe addresses for SIWE, requiring ERC-1271 signature verification
@@ -11,8 +12,7 @@
 import type { ApiRequest, ApiResponse } from '../../../lib/types/http.js';
 import { z } from 'zod';
 import { ethers } from 'ethers';
-import { db, users } from '../../../lib/db/index.js';
-import { eq } from 'drizzle-orm';
+import { supabase } from '../../../lib/db/index.js';
 import { SignJWT } from 'jose';
 import { validateAndConsumeNonce } from './nonce.js';
 import {
@@ -172,43 +172,56 @@ export default async function handler(
 
     // Step 4: Find or create user by wallet address
     const walletAddressLower = address.toLowerCase();
-    let [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.walletAddress, walletAddressLower))
-      .limit(1);
 
+    // Try to find existing user
+    const { data: existingUser, error: findError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('wallet_address', walletAddressLower)
+      .limit(1)
+      .single();
+
+    let user = existingUser;
     let isNewUser = false;
 
-    if (!existingUser) {
+    if (findError || !existingUser) {
       // Create new user with wallet address
       const walletNullifier = `wallet_${walletAddressLower}`;
 
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          nullifierHash: walletNullifier,
-          walletAddress: walletAddressLower,
-          verificationLevel: 'wallet',
-          lastLoginAt: new Date(),
-        } as typeof users.$inferInsert)
-        .returning();
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          nullifier_hash: walletNullifier,
+          wallet_address: walletAddressLower,
+          verification_level: 'wallet',
+          last_login_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-      existingUser = newUser;
+      if (createError || !newUser) {
+        console.error('Failed to create user:', createError);
+        return res.status(500).json({
+          status: API_STATUS.ERROR,
+          error: 'Failed to create user',
+        });
+      }
+
+      user = newUser;
       isNewUser = true;
     } else {
       // Update last login
-      await db
-        .update(users)
-        .set({
-          lastLoginAt: new Date(),
-          updatedAt: new Date(),
-        } as Partial<typeof users.$inferInsert>)
-        .where(eq(users.id, existingUser.id));
+      await supabase
+        .from('users')
+        .update({
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingUser.id);
     }
 
     // Step 5: Create JWT token (no session table needed)
-    const token = await createToken(existingUser.id, existingUser.walletAddress);
+    const token = await createToken(user.id, user.wallet_address);
     const expiresAt = new Date(Date.now() + SESSION_CONFIG.sessionDuration);
 
     // Return success response
@@ -218,10 +231,10 @@ export default async function handler(
         isNewUser,
         token,
         user: {
-          id: existingUser.id,
-          walletAddress: existingUser.walletAddress,
-          verificationLevel: existingUser.verificationLevel,
-          createdAt: existingUser.createdAt,
+          id: user.id,
+          walletAddress: user.wallet_address,
+          verificationLevel: user.verification_level,
+          createdAt: user.created_at,
         },
         expiresAt,
       },
