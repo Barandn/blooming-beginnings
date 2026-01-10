@@ -1,11 +1,11 @@
 /**
  * GET /api/health
  * Health check endpoint for monitoring
- * Uses Supabase for database operations
+ * Uses Drizzle ORM for database operations
  */
 
 import type { ApiRequest, ApiResponse } from '../lib/types/http.js';
-import { supabase } from '../lib/db/index.js';
+import { checkDatabaseConnection } from '../lib/db/index.js';
 import { API_STATUS, ACTIVE_CHAIN } from '../lib/config/constants.js';
 
 export default async function handler(
@@ -33,14 +33,11 @@ export default async function handler(
     },
   };
 
-  // Check Supabase database connection
+  // Check database connection
   try {
-    const { error } = await supabase
-      .from('users')
-      .select('id')
-      .limit(1);
+    const isConnected = await checkDatabaseConnection();
 
-    if (!error) {
+    if (isConnected) {
       health.services.database = 'ok';
     } else {
       health.services.database = 'error';
