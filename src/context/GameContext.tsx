@@ -85,10 +85,9 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 // --- Constants ---
 
-// 12 emojis for 12 pairs (24 cards) + 1 bonus card = 25 cards (5x5 grid)
-const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟", "🎯", "🏅", "⚡", "🔥"];
-const BONUS_EMOJI = "⭐"; // Center bonus card
-const GAME_PAIRS = 12; // 5x5 grid (24 cards + 1 bonus)
+// 15 emojis for 15 pairs (30 cards) = 5x6 grid
+const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟", "🎯", "🏅", "⚡", "🔥", "🎖️", "🏃", "💪"];
+const GAME_PAIRS = 15; // 5x6 grid (30 cards)
 const TIME_LIMIT = 90000; // 90 seconds in milliseconds
 
 const INITIAL_GAME: GameSession = {
@@ -118,7 +117,7 @@ const INITIAL_USER: UserState = {
 const createDeck = (): Card[] => {
   const cards: Card[] = [];
 
-  // Create 12 pairs (24 cards)
+  // Create 15 pairs (30 cards)
   FOOTBALL_EMOJIS.forEach((emoji, index) => {
     cards.push({ id: index * 2, emoji, isFlipped: false, isMatched: false });
     cards.push({ id: index * 2 + 1, emoji, isFlipped: false, isMatched: false });
@@ -129,18 +128,6 @@ const createDeck = (): Card[] => {
     const j = Math.floor(Math.random() * (i + 1));
     [cards[i], cards[j]] = [cards[j], cards[i]];
   }
-
-  // Insert bonus card at center (position 12 for 5x5 grid)
-  const bonusCard: Card = {
-    id: 24,
-    emoji: BONUS_EMOJI,
-    isFlipped: true,
-    isMatched: true,
-    isBonus: true,
-  };
-
-  // Add bonus card at center position
-  cards.splice(12, 0, bonusCard);
 
   // Re-index for stable keys
   return cards.map((c, i) => ({ ...c, id: i }));
