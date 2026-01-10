@@ -3,13 +3,14 @@
  * Generate a nonce for SIWE (Sign In With Ethereum) authentication
  *
  * Simple SIWE implementation following World App MiniKit guidelines
- * Uses Supabase for database operations
+ * Uses Drizzle ORM for database operations
  * Reference: https://docs.world.org/mini-apps/commands/wallet-auth
  */
 
 import type { ApiRequest, ApiResponse } from '../../../lib/types/http.js';
 import crypto from 'crypto';
-import { supabase } from '../../../lib/db/index.js';
+import { eq, lt } from 'drizzle-orm';
+import { db, siweNonces } from '../../../lib/db/index.js';
 import { API_STATUS } from '../../../lib/config/constants.js';
 
 // Nonce expires after 5 minutes
@@ -28,10 +29,9 @@ function generateNonce(): string {
  */
 async function cleanupExpiredNonces(): Promise<void> {
   try {
-    await supabase
-      .from('siwe_nonces')
-      .delete()
-      .lt('expires_at', new Date().toISOString());
+    await db
+      .delete(siweNonces)
+      .where(lt(siweNonces.expiresAt, new Date()));
   } catch (error) {
     console.error('Failed to cleanup expired nonces:', error);
   }
@@ -43,38 +43,30 @@ async function cleanupExpiredNonces(): Promise<void> {
 export async function validateAndConsumeNonce(nonce: string): Promise<boolean> {
   try {
     // Get the nonce
-    const { data: nonceRecord, error } = await supabase
-      .from('siwe_nonces')
-      .select('*')
-      .eq('nonce', nonce)
-      .limit(1)
-      .single();
+    const nonceRecord = await db.query.siweNonces.findFirst({
+      where: eq(siweNonces.nonce, nonce),
+    });
 
-    if (error || !nonceRecord) {
+    if (!nonceRecord) {
       return false;
     }
 
     // Check if expired
-    if (new Date() > new Date(nonceRecord.expires_at)) {
-      await supabase.from('siwe_nonces').delete().eq('nonce', nonce);
+    if (new Date() > new Date(nonceRecord.expiresAt)) {
+      await db.delete(siweNonces).where(eq(siweNonces.nonce, nonce));
       return false;
     }
 
     // Check if already consumed
-    if (nonceRecord.consumed_at) {
+    if (nonceRecord.consumedAt) {
       return false;
     }
 
     // Consume the nonce (mark as used)
-    const { error: updateError } = await supabase
-      .from('siwe_nonces')
-      .update({ consumed_at: new Date().toISOString() })
-      .eq('nonce', nonce);
-
-    if (updateError) {
-      console.error('Failed to consume nonce:', updateError);
-      return false;
-    }
+    await db
+      .update(siweNonces)
+      .set({ consumedAt: new Date() })
+      .where(eq(siweNonces.nonce, nonce));
 
     return true;
   } catch (error) {
@@ -104,20 +96,10 @@ export default async function handler(
     const expiresAt = new Date(Date.now() + NONCE_EXPIRY_MS);
 
     // Store nonce in database
-    const { error } = await supabase
-      .from('siwe_nonces')
-      .insert({
-        nonce,
-        expires_at: expiresAt.toISOString(),
-      });
-
-    if (error) {
-      console.error('Failed to store nonce:', error);
-      return res.status(500).json({
-        status: API_STATUS.ERROR,
-        error: 'Failed to generate nonce',
-      });
-    }
+    await db.insert(siweNonces).values({
+      nonce,
+      expiresAt,
+    });
 
     return res.status(200).json({
       status: API_STATUS.SUCCESS,
