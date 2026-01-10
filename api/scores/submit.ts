@@ -1,6 +1,7 @@
 /**
  * POST /api/scores/submit
- * Submit game score with moves and time
+ * Submit game score
+ * Uses Supabase for database operations
  */
 
 import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
@@ -12,10 +13,12 @@ import { clearLeaderboardCache } from '../../lib/services/leaderboard.js';
 // Request validation schema
 const scoreSchema = z.object({
   gameType: z.enum(['card_match']),
-  moves: z.number().int().min(1),
-  timeSeconds: z.number().int().min(1),
-  matchedPairs: z.number().int().min(0),
+  score: z.number().int().min(0),
+  monthlyProfit: z.number().int().min(0),
   sessionId: z.string().uuid().optional(),
+  gameStartedAt: z.number().optional(),
+  gameEndedAt: z.number().optional(),
+  validationData: z.record(z.unknown()).optional(),
 });
 
 export default async function handler(
@@ -48,14 +51,22 @@ export default async function handler(
 
     const data = parseResult.data;
 
+    // Calculate time taken if both timestamps provided
+    let timeTaken: number | undefined;
+    if (data.gameStartedAt && data.gameEndedAt) {
+      timeTaken = Math.round((data.gameEndedAt - data.gameStartedAt) / 1000);
+    }
+
     // Create submission
     const submission: ScoreSubmission = {
       userId: auth.user.id,
       gameType: data.gameType,
-      moves: data.moves,
-      timeSeconds: data.timeSeconds,
-      matchedPairs: data.matchedPairs,
+      score: data.score,
+      monthlyProfit: data.monthlyProfit,
       sessionId: data.sessionId,
+      timeTaken,
+      gameStartedAt: data.gameStartedAt,
+      validationData: data.validationData,
     };
 
     // Save score
@@ -75,10 +86,9 @@ export default async function handler(
       status: 'success',
       data: {
         scoreId: result.score?.id,
-        moves: result.score?.moves,
-        timeSeconds: result.score?.timeSeconds,
-        matchedPairs: result.score?.matchedPairs,
-        period: result.score?.leaderboardPeriod,
+        score: result.score?.score,
+        monthlyProfit: result.score?.monthly_profit,
+        period: result.score?.leaderboard_period,
       },
     });
   } catch (error) {

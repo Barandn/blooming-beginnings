@@ -1,6 +1,7 @@
 /**
  * GET /api/user/profile
  * Get authenticated user's profile and game stats
+ * Uses Supabase for database operations
  */
 
 import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
@@ -43,30 +44,31 @@ export default async function handler(
       data: {
         user: {
           id: user.id,
-          walletAddress: user.walletAddress,
-          verificationLevel: user.verificationLevel,
-          createdAt: user.createdAt,
-          lastLoginAt: user.lastLoginAt,
+          walletAddress: user.wallet_address,
+          verificationLevel: user.verification_level,
+          createdAt: user.created_at,
+          lastLoginAt: user.last_login_at,
         },
         stats: {
           totalGames: stats.totalGames,
-          bestMoves: stats.bestMoves,
-          bestTime: stats.bestTime,
-          averageMoves: stats.averageMoves,
-          averageTime: stats.averageTime,
+          totalScore: stats.totalScore,
+          bestScore: stats.bestScore,
+          monthlyProfit: stats.monthlyProfit,
+          averageScore: stats.averageScore,
         },
         leaderboard: {
           period: currentPeriod,
           rank: rank,
-          bestMoves: entry?.bestMoves || null,
-          bestTime: entry?.bestTime || null,
+          monthlyProfit: entry?.monthlyProfit || null,
+          totalScore: entry?.totalScore || null,
+          gamesPlayed: entry?.gamesPlayed || null,
         },
         recentGames: recentGames.map(game => ({
           id: game.id,
-          moves: game.moves,
-          timeSeconds: game.timeSeconds,
-          matchedPairs: game.matchedPairs,
-          createdAt: game.createdAt,
+          score: game.score,
+          monthlyProfit: game.monthly_profit,
+          timeTaken: game.time_taken,
+          createdAt: game.created_at,
         })),
       },
     });
