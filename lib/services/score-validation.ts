@@ -1,10 +1,11 @@
 /**
  * Score Service
  * Game score submission and validation
- * Uses Supabase for database operations
+ * Uses Drizzle ORM for database operations
  */
 
-import { supabase, type GameScore, getCurrentPeriod } from '../db/index.js';
+import { eq, and, desc } from 'drizzle-orm';
+import { db, gameScores, type GameScore, getCurrentPeriod } from '../db/index.js';
 
 // Types
 export interface ScoreSubmission {
@@ -47,13 +48,12 @@ export async function saveScore(submission: ScoreSubmission): Promise<ScoreResul
 
   // Check for duplicate session
   if (submission.sessionId) {
-    const { data: existing } = await supabase
-      .from('game_scores')
-      .select('id')
-      .eq('user_id', submission.userId)
-      .eq('session_id', submission.sessionId)
-      .limit(1)
-      .single();
+    const existing = await db.query.gameScores.findFirst({
+      where: and(
+        eq(gameScores.userId, submission.userId),
+        eq(gameScores.sessionId, submission.sessionId)
+      ),
+    });
 
     if (existing) {
       return { success: false, error: 'Score already submitted for this session' };
@@ -62,33 +62,27 @@ export async function saveScore(submission: ScoreSubmission): Promise<ScoreResul
 
   // Save score
   try {
-    const { data: savedScore, error } = await supabase
-      .from('game_scores')
-      .insert({
-        user_id: submission.userId,
-        game_type: submission.gameType,
+    const [savedScore] = await db
+      .insert(gameScores)
+      .values({
+        userId: submission.userId,
+        gameType: submission.gameType,
         score: submission.score,
-        monthly_profit: submission.monthlyProfit,
-        session_id: submission.sessionId,
-        time_taken: submission.timeTaken,
-        game_started_at: submission.gameStartedAt
-          ? new Date(submission.gameStartedAt).toISOString()
+        monthlyProfit: submission.monthlyProfit,
+        sessionId: submission.sessionId,
+        timeTaken: submission.timeTaken,
+        gameStartedAt: submission.gameStartedAt
+          ? new Date(submission.gameStartedAt)
           : null,
-        validation_data: submission.validationData
+        validationData: submission.validationData
           ? JSON.stringify(submission.validationData)
           : null,
-        leaderboard_period: getCurrentPeriod(),
-        is_validated: true,
+        leaderboardPeriod: getCurrentPeriod(),
+        isValidated: true,
       })
-      .select()
-      .single();
+      .returning();
 
-    if (error) {
-      console.error('Failed to save score:', error);
-      return { success: false, error: 'Failed to save score' };
-    }
-
-    return { success: true, score: savedScore as GameScore };
+    return { success: true, score: savedScore };
   } catch (error) {
     console.error('Failed to save score:', error);
     return { success: false, error: 'Failed to save score' };
@@ -99,19 +93,12 @@ export async function saveScore(submission: ScoreSubmission): Promise<ScoreResul
  * Get user's best score (highest score)
  */
 export async function getUserBestScore(userId: string): Promise<GameScore | null> {
-  const { data, error } = await supabase
-    .from('game_scores')
-    .select('*')
-    .eq('user_id', userId)
-    .order('score', { ascending: false })
-    .limit(1)
-    .single();
+  const result = await db.query.gameScores.findFirst({
+    where: eq(gameScores.userId, userId),
+    orderBy: [desc(gameScores.score)],
+  });
 
-  if (error || !data) {
-    return null;
-  }
-
-  return data as GameScore;
+  return result || null;
 }
 
 /**
@@ -124,12 +111,15 @@ export async function getUserStats(userId: string): Promise<{
   monthlyProfit: number;
   averageScore: number;
 }> {
-  const { data, error } = await supabase
-    .from('game_scores')
-    .select('score, monthly_profit')
-    .eq('user_id', userId);
+  const data = await db
+    .select({
+      score: gameScores.score,
+      monthlyProfit: gameScores.monthlyProfit,
+    })
+    .from(gameScores)
+    .where(eq(gameScores.userId, userId));
 
-  if (error || !data || data.length === 0) {
+  if (!data || data.length === 0) {
     return {
       totalGames: 0,
       totalScore: 0,
@@ -142,7 +132,7 @@ export async function getUserStats(userId: string): Promise<{
   const totalGames = data.length;
   const totalScore = data.reduce((sum, d) => sum + (d.score || 0), 0);
   const bestScore = Math.max(...data.map(d => d.score || 0));
-  const monthlyProfit = data.reduce((sum, d) => sum + (d.monthly_profit || 0), 0);
+  const monthlyProfit = data.reduce((sum, d) => sum + (d.monthlyProfit || 0), 0);
 
   return {
     totalGames,
@@ -160,18 +150,14 @@ export async function getUserRecentGames(
   userId: string,
   limit: number = 10
 ): Promise<GameScore[]> {
-  const { data, error } = await supabase
-    .from('game_scores')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+  const data = await db
+    .select()
+    .from(gameScores)
+    .where(eq(gameScores.userId, userId))
+    .orderBy(desc(gameScores.createdAt))
     .limit(limit);
 
-  if (error || !data) {
-    return [];
-  }
-
-  return data as GameScore[];
+  return data;
 }
 
 /**
@@ -185,13 +171,18 @@ export async function getUserCurrentMonthStats(userId: string): Promise<{
 }> {
   const currentPeriod = getCurrentPeriod();
 
-  const { data, error } = await supabase
-    .from('game_scores')
-    .select('score, monthly_profit')
-    .eq('user_id', userId)
-    .eq('leaderboard_period', currentPeriod);
+  const data = await db
+    .select({
+      score: gameScores.score,
+      monthlyProfit: gameScores.monthlyProfit,
+    })
+    .from(gameScores)
+    .where(and(
+      eq(gameScores.userId, userId),
+      eq(gameScores.leaderboardPeriod, currentPeriod)
+    ));
 
-  if (error || !data || data.length === 0) {
+  if (!data || data.length === 0) {
     return {
       gamesPlayed: 0,
       totalScore: 0,
@@ -202,7 +193,7 @@ export async function getUserCurrentMonthStats(userId: string): Promise<{
 
   const gamesPlayed = data.length;
   const totalScore = data.reduce((sum, d) => sum + (d.score || 0), 0);
-  const monthlyProfit = data.reduce((sum, d) => sum + (d.monthly_profit || 0), 0);
+  const monthlyProfit = data.reduce((sum, d) => sum + (d.monthlyProfit || 0), 0);
 
   return {
     gamesPlayed,
