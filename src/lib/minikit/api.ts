@@ -13,50 +13,131 @@ interface ApiResponse<T> {
 }
 
 // Helper function for API calls
+/**
+ * Sanitize and validate a bearer token before using in HTTP headers.
+ * Returns null if token is invalid, corrupt, or contains forbidden characters.
+ */
+function sanitizeBearerToken(value: string | null): string | null {
+  if (!value) return null;
+
+  // Remove leading/trailing whitespace
+  let t = value.trim();
+  
+  // Check for null/undefined string representations
+  if (!t || t === 'undefined' || t === 'null' || t === '[object Object]') {
+    return null;
+  }
+
+  // Remove multiple layers of accidental wrapping quotes (can happen with JSON.stringify abuse)
+  let prevLength = -1;
+  while (t.length !== prevLength) {
+    prevLength = t.length;
+    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+      t = t.slice(1, -1).trim();
+    }
+  }
+
+  // RFC 7230: Header field values MUST NOT contain:
+  // - Control characters (0x00-0x1F, 0x7F)
+  // - Line breaks (\r, \n)
+  // - Tabs, form feeds, vertical tabs
+  const forbiddenCharsRegex = /[\x00-\x1F\x7F\r\n\t\f\v]/;
+  if (forbiddenCharsRegex.test(t)) {
+    console.warn('[Auth] Token contains forbidden control characters');
+    return null;
+  }
+
+  // Check for any whitespace in token (JWT should have none)
+  if (/\s/.test(t)) {
+    console.warn('[Auth] Token contains whitespace');
+    return null;
+  }
+
+  // Validate JWT structure: exactly 3 base64url-encoded segments separated by dots
+  const parts = t.split('.');
+  if (parts.length !== 3) {
+    console.warn('[Auth] Token is not a valid JWT (expected 3 parts)');
+    return null;
+  }
+
+  // Validate each part is valid base64url (alphanumeric, -, _, no padding required)
+  const base64urlRegex = /^[A-Za-z0-9_-]+$/;
+  for (const part of parts) {
+    if (!part || !base64urlRegex.test(part)) {
+      console.warn('[Auth] Token contains invalid base64url segment');
+      return null;
+    }
+  }
+
+  // Final length sanity check (JWT shouldn't be too short or absurdly long)
+  if (t.length < 50 || t.length > 4096) {
+    console.warn('[Auth] Token length is suspicious:', t.length);
+    return null;
+  }
+
+  return t;
+}
+
+/**
+ * Clear all auth-related data from localStorage
+ */
+function clearAuthStorage(): void {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
+  // Also clear any Supabase auth tokens that might be corrupted
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('sb-') && key.includes('-auth-token'))) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => {
+    console.warn('[Auth] Clearing potentially corrupted Supabase key:', key);
+    localStorage.removeItem(key);
+  });
+}
+
 async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   const rawToken = localStorage.getItem('auth_token');
-
-  const sanitizeBearerToken = (value: string | null): string | null => {
-    if (!value) return null;
-
-    // Common corrupt states seen in WebKit / embedded browsers
-    let t = value.trim();
-    if (!t || t === 'undefined' || t === 'null') return null;
-
-    // Remove accidental wrapping quotes
-    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-      t = t.slice(1, -1).trim();
-    }
-
-    // Block control chars / whitespace that can break Authorization header validation
-    // (RFC 7230: no CTL in header values)
-    if (/[\r\n\t\f\v\0]/.test(t) || /\s/.test(t)) return null;
-
-    // Heuristic: our token is a JWT (3 segments). If not, treat as invalid.
-    if (t.split('.').length !== 3) return null;
-
-    return t;
-  };
-
   const token = sanitizeBearerToken(rawToken);
+  
+  // If raw token exists but sanitized version is null, the token was corrupt
   if (rawToken && !token) {
     console.warn('[Auth] Clearing malformed auth_token in localStorage');
-    localStorage.removeItem('auth_token');
+    clearAuthStorage();
   }
 
   let headers: Record<string, string>;
   try {
     headers = {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers as Record<string, string>),
     };
-  } catch {
-    // If header construction itself fails for any reason, nuke token and retry without it
-    localStorage.removeItem('auth_token');
+    
+    // Only add Authorization header if token is valid
+    if (token) {
+      // Double-check the header value before assignment
+      const authValue = `Bearer ${token}`;
+      // Validate the complete header value one more time
+      if (!/[\x00-\x1F\x7F\r\n]/.test(authValue)) {
+        headers['Authorization'] = authValue;
+      } else {
+        console.warn('[Auth] Constructed Authorization header contains invalid characters');
+        clearAuthStorage();
+      }
+    }
+    
+    // Merge additional headers
+    if (options.headers) {
+      Object.assign(headers, options.headers);
+    }
+  } catch (err) {
+    // If header construction itself fails for any reason, nuke token and continue without it
+    console.error('[Auth] Header construction failed:', err);
+    clearAuthStorage();
     headers = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
@@ -88,20 +169,30 @@ async function apiCall<T>(
     const message = error instanceof Error ? error.message : String(error);
     const isHeaderPatternError =
       /did not match the expected pattern/i.test(message) ||
-      /Failed to execute 'fetch'/i.test(message);
+      /Failed to execute 'fetch'/i.test(message) ||
+      /Failed to construct 'Headers'/i.test(message) ||
+      /Invalid header/i.test(message);
 
-    if (isHeaderPatternError && token) {
-      // Token might be corrupt; clear it and retry the request WITHOUT token
-      console.warn('[Auth] Header pattern error detected, clearing token and retrying...');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+    if (isHeaderPatternError) {
+      // Token or headers are corrupt; clear everything and retry the request WITHOUT token
+      console.warn('[Auth] Header pattern error detected, clearing all auth data and retrying...');
+      clearAuthStorage();
 
       // Retry the same request without Authorization header
       try {
         const retryHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
-          ...(options.headers as Record<string, string>),
         };
+        if (options.headers) {
+          // Only add safe headers from original request
+          const originalHeaders = options.headers as Record<string, string>;
+          for (const [key, value] of Object.entries(originalHeaders)) {
+            if (key.toLowerCase() !== 'authorization' && !/[\x00-\x1F\x7F\r\n]/.test(value)) {
+              retryHeaders[key] = value;
+            }
+          }
+        }
+        
         const retryResponse = await fetch(url, { ...options, headers: retryHeaders });
         const retryData = await retryResponse.json();
 
@@ -210,8 +301,44 @@ export async function verifySiwe(
 
     // Save token and user if successful
     if (result.status === 'success' && result.data) {
-      localStorage.setItem('auth_token', result.data.token);
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+      // CRITICAL: Sanitize token before saving to prevent future header errors
+      const rawToken = result.data.token;
+      if (typeof rawToken === 'string') {
+        // Clean the token: trim whitespace, remove any accidental quotes
+        let cleanToken = rawToken.trim();
+        
+        // Remove wrapping quotes if present
+        if ((cleanToken.startsWith('"') && cleanToken.endsWith('"')) || 
+            (cleanToken.startsWith("'") && cleanToken.endsWith("'"))) {
+          cleanToken = cleanToken.slice(1, -1).trim();
+        }
+        
+        // Validate it looks like a JWT before saving
+        const parts = cleanToken.split('.');
+        if (parts.length === 3 && cleanToken.length >= 50) {
+          localStorage.setItem('auth_token', cleanToken);
+        } else {
+          console.error('[Auth] Received invalid token format from server');
+          return {
+            status: 'error',
+            error: 'Invalid token format received from server',
+          };
+        }
+      } else {
+        console.error('[Auth] Token is not a string:', typeof rawToken);
+        return {
+          status: 'error',
+          error: 'Invalid token type received from server',
+        };
+      }
+      
+      // Safely stringify user data
+      try {
+        const userJson = JSON.stringify(result.data.user);
+        localStorage.setItem('user', userJson);
+      } catch (jsonError) {
+        console.error('[Auth] Failed to stringify user data:', jsonError);
+      }
     }
 
     return result;
