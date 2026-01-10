@@ -210,7 +210,7 @@ export async function getLeaderboard(
 
   for (const score of data) {
     const userId = score.user_id;
-    const walletAddress = (score.users as any)?.wallet_address || '';
+    const walletAddress = (score.users as { wallet_address: string } | null)?.wallet_address || '';
 
     if (!userScores.has(userId)) {
       userScores.set(userId, {
@@ -269,7 +269,7 @@ export async function getUserRank(
   }
 
   // Calculate user's totals
-  const walletAddress = (userScores[0].users as any)?.wallet_address || '';
+  const walletAddress = (userScores[0].users as { wallet_address: string } | null)?.wallet_address || '';
   const totalScore = userScores.reduce((sum, s) => sum + (s.score || 0), 0);
   const monthlyProfit = userScores.reduce((sum, s) => sum + (s.monthly_profit || 0), 0);
   const gamesPlayed = userScores.length;
