@@ -1,18 +1,9 @@
 /**
- * Authentication Context
- * Manages World App Wallet Auth (SIWE) across the app
- *
- * World ID Sign-In is deprecated as of September 2025.
- * Using Wallet Auth (SIWE) instead.
- * Reference: https://docs.world.org/world-id/sign-in/deprecation
- *
- * World App Guidelines Compliant:
- * - Uses Wallet Auth for authentication
- * - Stores session in localStorage
- * - Provides auth state to all components
+ * Authentication Context - Cloud-Based
+ * Uses Supabase for session storage, no localStorage
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { MiniKit } from '@worldcoin/minikit-js';
 import {
   getSiweNonce,
@@ -20,9 +11,10 @@ import {
   isAuthenticated as checkAuth,
   getStoredUser,
   clearAuthState,
+  logout as apiLogout,
 } from '@/lib/minikit/api';
 
-// Inline safe check to avoid module load issues
+// Safe MiniKit check
 function safeMiniKitIsInstalled(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -32,7 +24,7 @@ function safeMiniKitIsInstalled(): boolean {
   }
 }
 
-// User type from API
+// User type
 interface User {
   id: string;
   walletAddress: string;
@@ -40,7 +32,7 @@ interface User {
   createdAt: string;
 }
 
-// Auth context state
+// Auth state
 interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -49,7 +41,7 @@ interface AuthState {
   error: string | null;
 }
 
-// Auth context actions
+// Auth context
 interface AuthContextValue extends AuthState {
   login: () => Promise<boolean>;
   logout: () => void;
@@ -60,31 +52,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    isAuthenticated: false,
-    isLoading: true,
+    isAuthenticated: checkAuth(),
+    isLoading: false,
     isVerifying: false,
-    user: null,
+    user: getStoredUser(),
     error: null,
   });
-
-  // Check existing auth on mount
-  useEffect(() => {
-    const checkExistingAuth = () => {
-      const isAuth = checkAuth();
-      const user = getStoredUser();
-
-      setState(prev => ({
-        ...prev,
-        isAuthenticated: isAuth,
-        user: user,
-        isLoading: false,
-      }));
-    };
-
-    // Small delay to ensure MiniKit is ready
-    const timer = setTimeout(checkExistingAuth, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Login with Wallet Auth (SIWE)
   const login = useCallback(async (): Promise<boolean> => {
@@ -92,12 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, isVerifying: true, error: null }));
 
     try {
-      // Check if MiniKit is available
+      // Check MiniKit
       const miniKitInstalled = safeMiniKitIsInstalled();
       console.log('[Auth] MiniKit installed:', miniKitInstalled);
       
       if (!miniKitInstalled) {
-        console.log('[Auth] MiniKit not installed, setting error');
         setState(prev => ({
           ...prev,
           isVerifying: false,
@@ -107,16 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Step 1: Get nonce from backend
-      console.log('[Auth] Step 1: Getting nonce from backend...');
+      console.log('[Auth] Step 1: Getting nonce...');
       const nonceResult = await getSiweNonce();
       console.log('[Auth] Nonce result:', nonceResult);
 
       if (nonceResult.status !== 'success' || !nonceResult.data) {
-        console.log('[Auth] Nonce failed:', nonceResult.error);
         setState(prev => ({
           ...prev,
           isVerifying: false,
-          error: nonceResult.error || 'Nonce alinamadi. Lutfen tekrar deneyin.',
+          error: nonceResult.error || 'Nonce alinamadi',
         }));
         return false;
       }
@@ -124,22 +95,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { nonce } = nonceResult.data;
 
       // Step 2: Request Wallet Auth from MiniKit
-      console.log('[Auth] Step 2: Requesting Wallet Auth from MiniKit...');
-
-      // World App MiniKit expects expirationTime to be a Date object
+      console.log('[Auth] Step 2: Requesting wallet auth...');
       const expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const walletAuthPayload = {
         nonce,
         requestId: 'login',
-        expirationTime: expirationDate, // Must be Date object per MiniKit types
+        expirationTime: expirationDate,
         statement: 'Blooming Beginnings uygulamasina giris yap',
       };
-      console.log('[Auth] Wallet auth payload:', { ...walletAuthPayload, expirationTime: expirationDate.toISOString() });
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
       console.log('[Auth] Wallet auth result:', walletAuthResult);
-      const walletPayload = walletAuthResult.finalPayload as { signature?: string; error_code?: string; message?: string; address?: string };
+      
+      const walletPayload = walletAuthResult.finalPayload as {
+        signature?: string;
+        error_code?: string;
+        message?: string;
+        address?: string;
+      };
 
       if (!walletPayload?.signature) {
         const errorMessage = walletPayload?.error_code === 'user_rejected'
@@ -154,7 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Extract payload from wallet auth
       if (!walletPayload.message || !walletPayload.signature || !walletPayload.address) {
         setState(prev => ({
           ...prev,
@@ -164,7 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Step 3: Verify signature with backend
+      // Step 3: Verify with backend
+      console.log('[Auth] Step 3: Verifying signature...');
       const backendResult = await verifySiwe({
         message: walletPayload.message,
         signature: walletPayload.signature,
@@ -181,7 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      // Success! Update state
+      // Success!
+      console.log('[Auth] Login successful!');
       setState({
         isAuthenticated: true,
         isLoading: false,
@@ -192,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return true;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('[Auth] Login error:', error);
       setState(prev => ({
         ...prev,
         isVerifying: false,
@@ -203,7 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Logout
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await apiLogout();
     clearAuthState();
     setState({
       isAuthenticated: false,
@@ -233,7 +209,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Hook to use auth context
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
