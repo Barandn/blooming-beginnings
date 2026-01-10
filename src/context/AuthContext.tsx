@@ -126,17 +126,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Step 2: Request Wallet Auth from MiniKit
       console.log('[Auth] Step 2: Requesting Wallet Auth from MiniKit...');
 
-      // World App MiniKit expects expirationTime to be an ISO string.
-      // Passing a Date object can cause "The string did not match the expected pattern" errors in some WebKit environments.
+      // World App MiniKit expects expirationTime to be a Date object
       const expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const walletAuthPayload = {
         nonce,
         requestId: 'login',
-        expirationTime: expirationDate.toISOString(),
+        expirationTime: expirationDate, // Must be Date object per MiniKit types
         statement: 'Blooming Beginnings uygulamasina giris yap',
-      } as const;
-      console.log('[Auth] Wallet auth payload:', walletAuthPayload);
+      };
+      console.log('[Auth] Wallet auth payload:', { ...walletAuthPayload, expirationTime: expirationDate.toISOString() });
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
       console.log('[Auth] Wallet auth result:', walletAuthResult);
