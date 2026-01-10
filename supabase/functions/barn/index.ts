@@ -110,17 +110,42 @@ serve(async (req) => {
 
     // GET /barn/status - Get barn game status
     if (req.method === "GET" && path === "/status") {
-      const { data: attempts } = await supabase
+      // First ensure user has barn_game_attempts record
+      let { data: attempts } = await supabase
         .from("barn_game_attempts")
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
+
+      // Create record if it doesn't exist
+      if (!attempts) {
+        const { data: newAttempts } = await supabase
+          .from("barn_game_attempts")
+          .insert({
+            user_id: userId,
+            attempts_remaining: 10,
+            lives: 5,
+          })
+          .select()
+          .single();
+        attempts = newAttempts;
+      }
 
       const now = Date.now();
       let attemptsRemaining = 10;
       let isInCooldown = false;
       let cooldownEndsAt = null;
       let cooldownRemainingMs = 0;
+
+      // Regenerate lives if needed
+      const { data: livesData } = await supabase.rpc("regenerate_lives", {
+        p_user_id: userId,
+      });
+
+      const livesInfo = livesData?.[0] || { lives_count: 5, next_life_at: null };
+      const currentLives = livesInfo.lives_count || 5;
+      const nextLifeAt = livesInfo.next_life_at ? new Date(livesInfo.next_life_at).getTime() : null;
+      const nextLifeInMs = nextLifeAt ? nextLifeAt - now : 0;
 
       if (attempts) {
         // Check if cooldown expired
@@ -160,8 +185,12 @@ serve(async (req) => {
             cooldownRemainingMs,
             totalCoinsWonToday: attempts?.total_coins_won_today || 0,
             matchesFoundToday: attempts?.matches_found_today || 0,
-            canPlay: attemptsRemaining > 0 && !isInCooldown,
+            canPlay: attemptsRemaining > 0 && !isInCooldown && currentLives > 0,
             purchasePrice: BARN_PRICES,
+            // Lives system data
+            lives: currentLives,
+            nextLifeAt,
+            nextLifeInMs,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -220,6 +249,52 @@ serve(async (req) => {
       );
     }
 
+    // POST /barn/start-game - Consume a life to start a game
+    if (req.method === "POST" && path === "/start-game") {
+      // Try to consume a life
+      const { data: consumeResult } = await supabase.rpc("consume_life", {
+        p_user_id: userId,
+      });
+
+      if (!consumeResult) {
+        return new Response(
+          JSON.stringify({
+            status: "error",
+            error: "No lives available",
+            message: "You have no lives remaining. Lives regenerate every 6 hours.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get updated status after consuming life
+      const { data: attempts } = await supabase
+        .from("barn_game_attempts")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      // Also regenerate lives to get accurate next life time
+      const { data: livesData } = await supabase.rpc("regenerate_lives", {
+        p_user_id: userId,
+      });
+
+      const livesInfo = livesData?.[0] || { lives_count: 0, next_life_at: null };
+
+      return new Response(
+        JSON.stringify({
+          status: "success",
+          data: {
+            message: "Game started! Good luck!",
+            livesRemaining: livesInfo.lives_count,
+            nextLifeAt: livesInfo.next_life_at ? new Date(livesInfo.next_life_at).getTime() : null,
+            attemptsRemaining: attempts?.attempts_remaining || 0,
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // POST /barn/purchase - Verify and complete purchase
     if (req.method === "POST" && path === "/purchase") {
       const { paymentReference, transactionId, tokenSymbol } = await req.json();
@@ -269,7 +344,7 @@ serve(async (req) => {
         .select()
         .single();
 
-      // Reset attempts for user
+      // Reset attempts and lives for user
       await supabase
         .from("barn_game_attempts")
         .upsert({
@@ -280,6 +355,8 @@ serve(async (req) => {
           total_coins_won_today: 0,
           matches_found_today: 0,
           has_active_game: false,
+          lives: 5,
+          lives_last_regenerated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
 
       return new Response(

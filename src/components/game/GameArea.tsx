@@ -142,6 +142,8 @@ interface StartScreenProps {
   hasActivePass: boolean;
   freeGameAvailable: boolean;
   isLoading: boolean;
+  lives: number;
+  nextLifeInMs: number;
 }
 
 const StartScreen = ({
@@ -152,7 +154,23 @@ const StartScreen = ({
   hasActivePass,
   freeGameAvailable,
   isLoading,
-}: StartScreenProps) => (
+  lives,
+  nextLifeInMs,
+}: StartScreenProps) => {
+  // Format time until next life
+  const formatNextLife = () => {
+    if (nextLifeInMs <= 0) return "Soon";
+    const totalSeconds = Math.floor(nextLifeInMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  return (
   <div className="flex flex-col items-center justify-center h-[60vh] space-y-6 px-4">
     <div className="relative">
       <div className="text-7xl animate-bounce">⚽</div>
@@ -169,9 +187,30 @@ const StartScreen = ({
     </div>
 
     {/* Game Status Info */}
+    {/* Lives Status - Always visible */}
+    {lives === 0 ? (
+      <div className="bg-red-500/20 border border-red-400/50 px-4 py-2 rounded-full text-center">
+        <span className="text-red-400 text-sm font-bold">
+          💔 No Lives Remaining
+        </span>
+        <p className="text-red-300 text-xs mt-1">Next life in {formatNextLife()}</p>
+      </div>
+    ) : lives < 5 ? (
+      <div className="bg-blue-500/20 border border-blue-400/50 px-4 py-2 rounded-full text-center">
+        <span className="text-blue-400 text-sm font-bold">
+          ❤️ {lives} {lives === 1 ? 'Life' : 'Lives'} Remaining
+        </span>
+        <p className="text-blue-300 text-xs mt-1">+1 life in {formatNextLife()}</p>
+      </div>
+    ) : (
+      <div className="bg-green-500/20 border border-green-400/50 px-4 py-2 rounded-full">
+        <span className="text-green-400 text-sm font-bold">❤️ Full Lives (5/5)</span>
+      </div>
+    )}
+
     {hasActivePass && (
       <div className="bg-green-500/20 border border-green-400/50 px-4 py-2 rounded-full">
-        <span className="text-green-400 text-sm font-bold">✓ Play Pass Aktif</span>
+        <span className="text-green-400 text-sm font-bold">✓ Play Pass Active</span>
       </div>
     )}
 
@@ -180,13 +219,13 @@ const StartScreen = ({
         <span className="text-orange-400 text-sm font-bold">
           ⏰ Cooldown: {formatCooldown(cooldownRemainingMs)}
         </span>
-        <p className="text-orange-300 text-xs mt-1">Play Pass al veya bekle</p>
+        <p className="text-orange-300 text-xs mt-1">Purchase Play Pass or wait</p>
       </div>
     )}
 
     {freeGameAvailable && !hasActivePass && !isInCooldown && (
       <div className="bg-blue-500/20 border border-blue-400/50 px-4 py-2 rounded-full">
-        <span className="text-blue-400 text-sm font-bold">🎮 1 Ücretsiz Oyun Hakkı</span>
+        <span className="text-blue-400 text-sm font-bold">🎮 1 Free Game Available</span>
       </div>
     )}
 
@@ -201,11 +240,13 @@ const StartScreen = ({
       )}
     >
       {isLoading ? (
-        "Yükleniyor..."
+        "Loading..."
+      ) : lives === 0 ? (
+        "💔 No Lives"
       ) : canPlay ? (
         "⚽ KICK OFF"
       ) : (
-        "🔒 Cooldown Aktif"
+        "🔒 Cooldown Active"
       )}
     </button>
 
@@ -224,7 +265,8 @@ const StartScreen = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // Win Screen Component
 const WinScreen = ({ moves, elapsedTime, onPlayAgain }: { moves: number; elapsedTime: number; onPlayAgain: () => void }) => (
@@ -362,6 +404,8 @@ const GameArea = () => {
         hasActivePass={barnStatus.hasActivePass}
         freeGameAvailable={barnStatus.freeGameAvailable}
         isLoading={barnStatus.isLoading || isStarting}
+        lives={barnStatus.lives}
+        nextLifeInMs={barnStatus.nextLifeInMs}
       />
     );
   }
