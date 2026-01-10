@@ -156,9 +156,23 @@ export interface SiweNonceResponse {
 }
 
 export async function getSiweNonce(): Promise<ApiResponse<SiweNonceResponse>> {
-  return apiCall<SiweNonceResponse>('/auth/siwe/nonce', {
-    method: 'GET',
-  });
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/auth-siwe-nonce`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getSiweNonce error:', error);
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Network error',
+    };
+  }
 }
 
 export interface SiweVerifyRequest {
@@ -183,18 +197,31 @@ export interface SiweVerifyResponse {
 export async function verifySiwe(
   data: SiweVerifyRequest
 ): Promise<ApiResponse<SiweVerifyResponse>> {
-  const result = await apiCall<SiweVerifyResponse>('/auth/siwe/verify', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/auth-siwe-verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
 
-  // Save token and user if successful
-  if (result.status === 'success' && result.data) {
-    localStorage.setItem('auth_token', result.data.token);
-    localStorage.setItem('user', JSON.stringify(result.data.user));
+    // Save token and user if successful
+    if (result.status === 'success' && result.data) {
+      localStorage.setItem('auth_token', result.data.token);
+      localStorage.setItem('user', JSON.stringify(result.data.user));
+    }
+
+    return result;
+  } catch (error) {
+    console.error('verifySiwe error:', error);
+    return {
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Network error',
+    };
   }
-
-  return result;
 }
 
 // ============================
