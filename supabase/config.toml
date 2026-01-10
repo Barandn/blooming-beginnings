@@ -1,1 +1,7 @@
 project_id = "vzbdnopczidncsgesddm"
+
+[functions.auth-siwe-nonce]
+verify_jwt = false
+
+[functions.auth-siwe-verify]
+verify_jwt = false
