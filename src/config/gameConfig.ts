@@ -20,7 +20,7 @@ export const BARN_ANIMALS: BarnAnimal[] = [
 
 export const BARN_CONFIG = {
   matchReward: 500, // B&G coins per successful match
-  totalPairs: 10, // Number of animal pairs (20 cards total)
+  totalPairs: 15, // Number of pairs (30 cards total)
 
   // Play Pass System
   playPassDuration: 1 * 60 * 60 * 1000, // 1 hour unlimited play in milliseconds

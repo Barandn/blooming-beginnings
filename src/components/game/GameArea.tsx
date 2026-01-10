@@ -212,7 +212,7 @@ const StartScreen = ({
     <div className="flex gap-6 text-blue-200 text-sm">
       <div className="flex items-center gap-2">
         <span>🎯</span>
-        <span>12 Pairs</span>
+        <span>15 Pairs</span>
       </div>
       <div className="flex items-center gap-2">
         <span>⏱️</span>
@@ -283,7 +283,7 @@ const TimeOutScreen = ({ moves, matchedPairs, onPlayAgain }: { moves: number; ma
       </div>
       <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
         <p className="text-xs text-blue-200 uppercase tracking-wider">Matched</p>
-        <p className="text-2xl font-bold text-white">{matchedPairs}/12</p>
+        <p className="text-2xl font-bold text-white">{matchedPairs}/15</p>
       </div>
     </div>
 
@@ -407,7 +407,7 @@ const GameArea = () => {
         <div className="flex items-center gap-2">
           <div className="text-right">
             <p className="text-xs text-blue-200 uppercase tracking-wider">Matched</p>
-            <p className="text-lg font-bold text-white">{game.matchedPairs}/12</p>
+            <p className="text-lg font-bold text-white">{game.matchedPairs}/15</p>
           </div>
           <span className="text-xl">🥅</span>
         </div>
@@ -417,11 +417,11 @@ const GameArea = () => {
       <div className="mb-5 bg-black/20 rounded-full h-2 overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out rounded-full"
-          style={{ width: `${(game.matchedPairs / 12) * 100}%` }}
+          style={{ width: `${(game.matchedPairs / 15) * 100}%` }}
         />
       </div>
 
-      {/* Card Grid - 5x5 */}
+      {/* Card Grid - 5x6 */}
       <div className="game-grid">
         {game.cards.map((card) => (
           <CardComponent
