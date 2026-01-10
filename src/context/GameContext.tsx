@@ -7,7 +7,8 @@ import {
   getBarnGameStatus,
   useFreeGame,
   claimDailyBonus as claimDailyBonusAPI,
-  BarnGameStatusResponse
+  BarnGameStatusResponse,
+  startBarnGame
 } from "@/lib/minikit/api";
 
 // --- Game Types ---
@@ -54,6 +55,10 @@ export interface BarnGameState {
   canPlay: boolean;
   purchasePrice: { WLD: string } | null;
   isLoading: boolean;
+  // Lives system
+  lives: number;
+  nextLifeAt: number | null;
+  nextLifeInMs: number;
 }
 
 const INITIAL_BARN_STATE: BarnGameState = {
@@ -67,6 +72,9 @@ const INITIAL_BARN_STATE: BarnGameState = {
   canPlay: true,
   purchasePrice: null,
   isLoading: true,
+  lives: 5,
+  nextLifeAt: null,
+  nextLifeInMs: 0,
 };
 
 interface GameContextType {
@@ -176,6 +184,9 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
           canPlay: data.canPlay,
           purchasePrice: data.purchasePrice,
           isLoading: false,
+          lives: data.lives || 5,
+          nextLifeAt: data.nextLifeAt || null,
+          nextLifeInMs: data.nextLifeInMs || 0,
         });
       } else {
         // API error - allow playing as fallback
@@ -244,6 +255,40 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   // --- Game Logic ---
 
   const startGame = useCallback(async () => {
+    // If authenticated, consume a life via API
+    if (isAuthenticated()) {
+      try {
+        const result = await startBarnGame();
+
+        if (result.status === 'error') {
+          toast({
+            title: "Cannot Start Game",
+            description: result.error || "You have no lives remaining. Lives regenerate every 6 hours.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Update barn status with new lives count
+        if (result.data) {
+          setBarnStatus(prev => ({
+            ...prev,
+            lives: result.data!.livesRemaining,
+            nextLifeAt: result.data!.nextLifeAt,
+            nextLifeInMs: result.data!.nextLifeAt ? result.data!.nextLifeAt - Date.now() : 0,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to start game:', error);
+        toast({
+          title: "Error",
+          description: "Failed to start game. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     winProcessedRef.current = false;
     setGame({
       ...INITIAL_GAME,

@@ -585,10 +585,28 @@ export interface BarnGameStatusResponse {
     WLD: string;
   };
   playPassDurationMs: number;
+  // Lives system
+  lives: number;
+  nextLifeAt: number | null;
+  nextLifeInMs: number;
 }
 
 export async function getBarnGameStatus(): Promise<ApiResponse<BarnGameStatusResponse>> {
   return apiCall<BarnGameStatusResponse>('/barn/status');
+}
+
+// Start game - consumes a life
+export interface StartGameResponse {
+  message: string;
+  livesRemaining: number;
+  nextLifeAt: number | null;
+  attemptsRemaining: number;
+}
+
+export async function startBarnGame(): Promise<ApiResponse<StartGameResponse>> {
+  return apiCall<StartGameResponse>('/barn/start-game', {
+    method: 'POST',
+  });
 }
 
 // Initiate payment - gets reference ID from backend (secure)
