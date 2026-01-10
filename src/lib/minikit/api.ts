@@ -41,7 +41,7 @@ async function apiCall<T>(
     return t;
   };
 
-  let token = sanitizeBearerToken(rawToken);
+  const token = sanitizeBearerToken(rawToken);
   if (rawToken && !token) {
     console.warn('[Auth] Clearing malformed auth_token in localStorage');
     localStorage.removeItem('auth_token');

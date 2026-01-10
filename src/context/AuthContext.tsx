@@ -130,12 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Passing a Date object can cause "The string did not match the expected pattern" errors in some WebKit environments.
       const expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      const walletAuthPayload: any = {
+      const walletAuthPayload = {
         nonce,
         requestId: 'login',
         expirationTime: expirationDate.toISOString(),
         statement: 'Blooming Beginnings uygulamasina giris yap',
-      };
+      } as const;
       console.log('[Auth] Wallet auth payload:', walletAuthPayload);
 
       const walletAuthResult = await MiniKit.commandsAsync.walletAuth(walletAuthPayload);
