@@ -288,7 +288,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
 
     // Reward notification disabled
     // toast({
-    //   title: "SİUUUU!",
+    //   title: "SIUUUU!",
     //   description: `You won ${bonus} Coins!`,
     // });
 

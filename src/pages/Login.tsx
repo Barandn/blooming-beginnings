@@ -36,7 +36,7 @@ const Login = () => {
         <div className="text-center space-y-2">
           <div className="text-6xl mb-4 animate-bounce">⚽</div>
           <h1 className="text-5xl font-black text-white drop-shadow-lg tracking-tighter uppercase italic">
-            SİUU <span className="text-blue-400">GAME</span>
+            SIUU <span className="text-blue-400">GAME</span>
           </h1>
           <p className="text-white/80 text-lg font-medium tracking-wide">
             Match. Win. Conquer.
@@ -53,7 +53,7 @@ const Login = () => {
           <div className="space-y-4 text-center">
             <h2 className="text-2xl font-bold text-white">Join the League</h2>
             <p className="text-gray-300 text-sm leading-relaxed">
-              Connect your wallet to compete in the monthly SİUU leaderboard.
+              Connect your wallet to compete in the monthly SIUU leaderboard.
             </p>
           </div>
 
