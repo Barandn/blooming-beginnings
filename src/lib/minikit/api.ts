@@ -133,16 +133,13 @@ async function apiCall<T>(
 
 export async function logout(): Promise<ApiResponse<{ message: string }>> {
   const token = getSessionToken();
-  
+
   if (token) {
     try {
       // Invalidate session in database
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      await fetch(`${supabaseUrl}/functions/v1/auth-logout`, {
-        method: 'POST',
+      await supabase.functions.invoke('auth-logout', {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
     } catch (e) {
@@ -167,16 +164,16 @@ export interface SiweNonceResponse {
 
 export async function getSiweNonce(): Promise<ApiResponse<SiweNonceResponse>> {
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const response = await fetch(`${supabaseUrl}/functions/v1/auth-siwe-nonce`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    const data = await response.json();
-    console.log('[Auth] Nonce response:', data);
-    return data;
+    const { data, error } = await supabase.functions.invoke<ApiResponse<SiweNonceResponse>>(
+      'auth-siwe-nonce'
+    );
+
+    if (error) {
+      console.error('[Auth] getSiweNonce error:', error);
+      return { status: 'error', error: error.message };
+    }
+
+    return data as ApiResponse<SiweNonceResponse>;
   } catch (error) {
     console.error('[Auth] getSiweNonce error:', error);
     return {
@@ -210,23 +207,23 @@ export async function verifySiwe(
 ): Promise<ApiResponse<SiweVerifyResponse>> {
   try {
     console.log('[Auth] Verifying SIWE...', { address: data.address, nonce: data.nonce });
-    
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const response = await fetch(`${supabaseUrl}/functions/v1/auth-siwe-verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    
-    const result = await response.json();
+
+    const { data: result, error } = await supabase.functions.invoke<ApiResponse<SiweVerifyResponse>>(
+      'auth-siwe-verify',
+      { body: data }
+    );
+
+    if (error) {
+      console.error('[Auth] verifySiwe error:', error);
+      return { status: 'error', error: error.message };
+    }
+
     console.log('[Auth] Verify response:', result);
 
     // Save session to memory if successful
-    if (result.status === 'success' && result.data) {
+    if (result?.status === 'success' && result.data) {
       const { token, user, expiresAt } = result.data;
-      
+
       if (typeof token === 'string' && token.length > 0) {
         setSession(token, user, expiresAt);
         console.log('[Auth] Session stored in memory for user:', user.id);
@@ -239,7 +236,7 @@ export async function verifySiwe(
       }
     }
 
-    return result;
+    return result as ApiResponse<SiweVerifyResponse>;
   } catch (error) {
     console.error('[Auth] verifySiwe error:', error);
     return {
