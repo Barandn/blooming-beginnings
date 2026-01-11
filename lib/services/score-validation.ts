@@ -72,7 +72,7 @@ export async function saveScore(submission: ScoreSubmission): Promise<ScoreResul
         sessionId: submission.sessionId,
         timeTaken: submission.timeTaken,
         gameStartedAt: submission.gameStartedAt
-          ? new Date(submission.gameStartedAt)
+          ? new Date(submission.gameStartedAt).toISOString()
           : null,
         validationData: submission.validationData
           ? JSON.stringify(submission.validationData)

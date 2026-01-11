@@ -65,7 +65,7 @@ export async function validateAndConsumeNonce(nonce: string): Promise<boolean> {
     // Consume the nonce (mark as used)
     await db
       .update(siweNonces)
-      .set({ consumedAt: new Date() })
+      .set({ consumedAt: new Date().toISOString() })
       .where(eq(siweNonces.nonce, nonce));
 
     return true;

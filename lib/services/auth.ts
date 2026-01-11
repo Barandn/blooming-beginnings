@@ -85,7 +85,7 @@ export async function createUser(
         nullifierHash: walletNullifier,
         walletAddress: walletAddressLower,
         verificationLevel,
-        lastLoginAt: new Date(),
+        lastLoginAt: new Date().toISOString(),
       })
       .returning();
 
@@ -103,8 +103,8 @@ export async function updateUserLastLogin(userId: string): Promise<void> {
   await db
     .update(users)
     .set({
-      lastLoginAt: new Date(),
-      updatedAt: new Date(),
+      lastLoginAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(users.id, userId));
 }
@@ -122,7 +122,7 @@ export async function updateUserStreak(
     .set({
       dailyStreakCount: streakCount,
       lastDailyClaimDate: claimDate,
-      updatedAt: new Date(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(users.id, userId));
 }

@@ -192,7 +192,7 @@ export default async function handler(
           nullifierHash: walletNullifier,
           walletAddress: walletAddressLower,
           verificationLevel: 'wallet',
-          lastLoginAt: new Date(),
+          lastLoginAt: new Date().toISOString(),
         })
         .returning();
 
@@ -211,8 +211,8 @@ export default async function handler(
       await db
         .update(users)
         .set({
-          lastLoginAt: new Date(),
-          updatedAt: new Date(),
+          lastLoginAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, existingUser.id));
     }

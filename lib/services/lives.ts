@@ -144,7 +144,7 @@ async function getOrCreateBarnGameAttempts(userId: string): Promise<BarnGameAtte
     .values({
       userId,
       lives: LIVES_CONFIG.DEFAULT_LIVES,
-      livesLastRegeneratedAt: new Date(),
+      livesLastRegeneratedAt: new Date().toISOString(),
     })
     .returning();
 
@@ -170,8 +170,8 @@ export async function getLivesStatus(userId: string): Promise<LivesStatus> {
       .update(barnGameAttempts)
       .set({
         lives: newLives,
-        livesLastRegeneratedAt: newRegeneratedAt,
-        updatedAt: new Date(),
+        livesLastRegeneratedAt: newRegeneratedAt.toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .where(eq(barnGameAttempts.userId, userId));
   }
@@ -216,7 +216,7 @@ export async function consumeLife(userId: string): Promise<ConsumeLifeResult> {
       lives: newLives,
       hasActiveGame: true,
       lastPlayedDate: new Date().toISOString().split('T')[0],
-      updatedAt: new Date(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(barnGameAttempts.userId, userId));
 
@@ -251,7 +251,7 @@ export async function addLives(userId: string, amount: number): Promise<LivesSta
     .update(barnGameAttempts)
     .set({
       lives: newLives,
-      updatedAt: new Date(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(barnGameAttempts.userId, userId));
 
@@ -267,8 +267,8 @@ export async function resetLives(userId: string): Promise<LivesStatus> {
     .update(barnGameAttempts)
     .set({
       lives: LIVES_CONFIG.MAX_LIVES,
-      livesLastRegeneratedAt: new Date(),
-      updatedAt: new Date(),
+      livesLastRegeneratedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(barnGameAttempts.userId, userId));
 
@@ -283,7 +283,7 @@ export async function endGame(userId: string): Promise<void> {
     .update(barnGameAttempts)
     .set({
       hasActiveGame: false,
-      updatedAt: new Date(),
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(barnGameAttempts.userId, userId));
 }
