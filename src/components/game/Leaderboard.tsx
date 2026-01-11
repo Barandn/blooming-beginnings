@@ -82,6 +82,17 @@ const Leaderboard = () => {
            </div>
        </div>
 
+       {/* Market Cap Rewards Notice */}
+       <div className="w-full mb-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/40 rounded-xl p-3 backdrop-blur-sm">
+           <div className="flex items-center justify-center gap-2">
+               <span className="text-2xl">🚀</span>
+               <p className="text-white text-sm font-bold text-center">
+                   When SIUUU Coin reaches $80,000 USD market cap, rewards will be doubled!
+               </p>
+               <span className="text-2xl">💰</span>
+           </div>
+       </div>
+
        {/* Top 3 Podium (Optional visual, kept simple list for now as per "List top users" req) */}
 
        <div className="w-full bg-black/20 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden">
