@@ -637,6 +637,17 @@ const GameArea = () => {
       {game.boosterEffects.hourglassActive && <HourglassEffectOverlay />}
       {game.boosterEffects.movesActive && <MovesEffectOverlay />}
 
+      {/* Exit Button */}
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={handlePlayAgain}
+          className="px-3 py-1.5 bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-1"
+        >
+          <span>✕</span>
+          <span>Exit Game</span>
+        </button>
+      </div>
+
       {/* Score Header */}
       <div className="score-header flex justify-between items-center mb-5 p-4 rounded-2xl">
         <div className="flex items-center gap-2">
