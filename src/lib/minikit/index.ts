@@ -9,24 +9,14 @@ import { MiniKit, Tokens, tokenToDecimals } from '@worldcoin/minikit-js';
 export { Tokens, tokenToDecimals };
 
 // Check if MiniKit is available (running inside World App)
-export function safeMiniKitIsInstalled(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return MiniKit.isInstalled();
-  } catch {
-    // MiniKit throws when not in World App; treat as not installed.
-    return false;
-  }
-}
-
-// Check if MiniKit is available (running inside World App)
 export function isMiniKitAvailable(): boolean {
-  return safeMiniKitIsInstalled();
+  if (typeof window === 'undefined') return false;
+  return MiniKit.isInstalled();
 }
 
 // Get MiniKit instance - returns the MiniKit SDK
 export function getMiniKit() {
-  if (!safeMiniKitIsInstalled()) {
+  if (!MiniKit.isInstalled()) {
     throw new Error('MiniKit is not available. Please open this app in World App.');
   }
   return MiniKit;
@@ -127,7 +117,8 @@ export async function requestWalletAuth(nonce: string): Promise<WalletAuthResult
  * Check if running inside World App
  */
 export function isInWorldApp(): boolean {
-  return safeMiniKitIsInstalled();
+  if (typeof window === 'undefined') return false;
+  return MiniKit.isInstalled();
 }
 
 // TokenClaim contract ABI (only claimTokens function needed)
@@ -172,8 +163,6 @@ export async function claimTokens(params: ClaimParams): Promise<SendTransactionR
   const minikit = getMiniKit();
 
   try {
-    // Note: MiniKit expects numeric types for uint256/uint8 args
-    // amount should be string (large number), claimType and deadline as numbers
     const result = await minikit.commandsAsync.sendTransaction({
       transaction: [
         {
@@ -181,10 +170,10 @@ export async function claimTokens(params: ClaimParams): Promise<SendTransactionR
           abi: TOKEN_CLAIM_ABI,
           functionName: 'claimTokens',
           args: [
-            params.amount, // uint256 - keep as string for large numbers
-            Number(params.claimType), // uint8 - convert to number
-            Number(params.deadline), // uint256 - convert to number (timestamp fits in JS number)
-            params.signature, // bytes - keep as hex string
+            params.amount,
+            params.claimType.toString(),
+            params.deadline.toString(),
+            params.signature,
           ],
         },
       ],

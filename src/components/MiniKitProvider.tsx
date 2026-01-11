@@ -8,7 +8,6 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { MiniKit } from '@worldcoin/minikit-js';
-import { WORLD_APP_ID } from '@/config/worldApp';
 
 interface MiniKitProviderProps {
   children: ReactNode;
@@ -22,23 +21,11 @@ export function MiniKitProvider({ children }: MiniKitProviderProps) {
     // MiniKit.install() sets up the bridge between the mini app and World App
     const initMiniKit = async () => {
       try {
-        // Install the MiniKit SDK with App ID (required for Wallet Auth)
-        const { success } = MiniKit.install(WORLD_APP_ID);
-        console.log('[MiniKit] install success:', success, 'appId:', `${WORLD_APP_ID.slice(0, 10)}...`);
+        // Install the MiniKit SDK
+        MiniKit.install();
 
-        if (!success) {
-          console.warn('[MiniKit] install reported success=false; wallet auth may be unavailable');
-        }
-
-        const installed = (() => {
-          try {
-            return MiniKit.isInstalled();
-          } catch {
-            return false;
-          }
-        })();
-
-        console.log('[MiniKit] isInstalled:', installed);
+        console.log('[MiniKit] SDK installed successfully');
+        console.log('[MiniKit] isInstalled:', MiniKit.isInstalled());
       } catch (error) {
         console.error('[MiniKit] Failed to install SDK:', error);
       } finally {

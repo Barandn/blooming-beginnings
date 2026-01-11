@@ -1,54 +1,46 @@
 /**
  * GET /api/leaderboard
- * Get leaderboard rankings (score based)
- * Uses Supabase for database operations
+ * High-performance leaderboard endpoint
  */
 
-import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getAuthenticatedUser } from '../../lib/services/auth.js';
 import {
-  getLeaderboard,
-  getUserRank,
+  getLeaderboardWithUserContext,
   getLeaderboardStats,
-  getAvailablePeriods,
-  getCurrentPeriod,
+  getPreviousPeriods,
 } from '../../lib/services/leaderboard.js';
+import { getCurrentPeriod } from '../../lib/services/score-validation.js';
+import { API_STATUS, LEADERBOARD_CONFIG } from '../../lib/config/constants.js';
 
 export default async function handler(
-  req: ApiRequest,
-  res: ApiResponse
+  req: VercelRequest,
+  res: VercelResponse
 ) {
+  // Only allow GET
   if (req.method !== 'GET') {
-    return res.status(405).json({ status: 'error', error: 'Method not allowed' });
+    return res.status(405).json({
+      status: API_STATUS.ERROR,
+      error: 'Method not allowed',
+    });
   }
 
   try {
     // Parse query parameters
-    const query = req.query || {};
-    const period = (query.period as string) || getCurrentPeriod();
-    const limit = Math.min(parseInt(query.limit as string) || 100, 100);
-    const offset = parseInt(query.offset as string) || 0;
-    const includeStats = query.stats === 'true';
+    const period = (req.query.period as string) || getCurrentPeriod();
+    const limit = Math.min(
+      parseInt(req.query.limit as string) || LEADERBOARD_CONFIG.topEntriesCount,
+      LEADERBOARD_CONFIG.topEntriesCount
+    );
+    const offset = parseInt(req.query.offset as string) || 0;
+    const includeStats = req.query.stats === 'true';
 
-    // Get authenticated user (optional)
-    const auth = await getAuthenticatedUser(req.headers.authorization as string || null);
+    // Get authenticated user (optional for leaderboard)
+    const auth = await getAuthenticatedUser(req.headers.authorization || null);
+    const userId = auth.user?.id;
 
-    // Get leaderboard
-    const leaderboard = await getLeaderboard(period, limit);
-
-    // Get user's rank if authenticated
-    let userRank = null;
-    if (auth.user) {
-      const rankData = await getUserRank(auth.user.id, period);
-      if (rankData.rank) {
-        userRank = {
-          rank: rankData.rank,
-          monthlyProfit: rankData.entry?.monthlyProfit,
-          totalScore: rankData.entry?.totalScore,
-          gamesPlayed: rankData.entry?.gamesPlayed,
-        };
-      }
-    }
+    // Get leaderboard with user context
+    const leaderboard = await getLeaderboardWithUserContext(userId, period, limit);
 
     // Get statistics if requested
     let stats = null;
@@ -56,21 +48,19 @@ export default async function handler(
       stats = await getLeaderboardStats(period);
     }
 
-    // Set cache headers
-    res.setHeader('Cache-Control', 'public, max-age=60');
+    // Set cache headers for performance
+    res.setHeader('Cache-Control', `public, max-age=${LEADERBOARD_CONFIG.cacheDuration}`);
 
     return res.status(200).json({
-      status: 'success',
+      status: API_STATUS.SUCCESS,
       data: {
-        period,
+        period: leaderboard.period,
         currentPeriod: getCurrentPeriod(),
-        availablePeriods: getAvailablePeriods(6),
+        availablePeriods: getPreviousPeriods(6),
         entries: leaderboard.entries.map(entry => ({
           rank: entry.rank,
-          // Mask wallet address for privacy
-          walletAddress: entry.walletAddress
-            ? `${entry.walletAddress.slice(0, 6)}...${entry.walletAddress.slice(-4)}`
-            : 'Unknown',
+          // Mask wallet address for privacy (show first 6 and last 4 chars)
+          walletAddress: `${entry.walletAddress.slice(0, 6)}...${entry.walletAddress.slice(-4)}`,
           monthlyProfit: entry.monthlyProfit,
           totalScore: entry.totalScore,
           gamesPlayed: entry.gamesPlayed,
@@ -81,14 +71,20 @@ export default async function handler(
           total: leaderboard.totalPlayers,
           hasMore: offset + limit < leaderboard.totalPlayers,
         },
-        user: userRank,
+        // Include user's own data if authenticated
+        user: leaderboard.userEntry ? {
+          rank: leaderboard.userRank,
+          monthlyProfit: leaderboard.userEntry.monthlyProfit,
+          totalScore: leaderboard.userEntry.totalScore,
+          gamesPlayed: leaderboard.userEntry.gamesPlayed,
+        } : null,
         stats,
       },
     });
   } catch (error) {
     console.error('Leaderboard error:', error);
     return res.status(500).json({
-      status: 'error',
+      status: API_STATUS.ERROR,
       error: 'Failed to load leaderboard',
     });
   }

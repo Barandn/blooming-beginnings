@@ -1,9 +1,14 @@
 /**
- * API Configuration - Cloud-Based Authentication
- * No localStorage - All session data stored in Supabase
+ * API Configuration
+ * Backend runs on Supabase Edge Functions
+ * URL format: ${SUPABASE_URL}/functions/v1/{functionName}
+ *
+ * Required environment variables:
+ * - VITE_SUPABASE_URL: Supabase project URL
+ * - VITE_SUPABASE_PUBLISHABLE_KEY: Supabase anon/public key
  */
-
-import { supabase } from '@/integrations/supabase/client';
+const API_BASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 // API Response type
 interface ApiResponse<T> {
@@ -13,93 +18,34 @@ interface ApiResponse<T> {
   errorCode?: string;
 }
 
-// In-memory session state (no localStorage)
-let currentSession: {
-  token: string;
-  user: SiweVerifyResponse['user'];
-  expiresAt: string;
-} | null = null;
-
-/**
- * Get the current session token from memory
- */
-function getSessionToken(): string | null {
-  if (!currentSession) return null;
-  
-  // Check if expired
-  if (new Date(currentSession.expiresAt) < new Date()) {
-    currentSession = null;
-    return null;
-  }
-  
-  return currentSession.token;
-}
-
-/**
- * Set session in memory
- */
-function setSession(token: string, user: SiweVerifyResponse['user'], expiresAt: string): void {
-  currentSession = { token, user, expiresAt };
-}
-
-/**
- * Clear session from memory
- */
-export function clearAuthState(): void {
-  currentSession = null;
-}
-
-/**
- * Get stored user from memory
- */
-export function getStoredUser(): SiweVerifyResponse['user'] | null {
-  return currentSession?.user || null;
-}
-
-/**
- * Check if user is authenticated
- */
-export function isAuthenticated(): boolean {
-  return !!getSessionToken();
-}
-
-/**
- * Get stored token
- */
-export function getStoredToken(): string | null {
-  return getSessionToken();
-}
-
-/**
- * Get user data (alias for getStoredUser)
- */
-export function getUserData(): SiweVerifyResponse['user'] | null {
-  return getStoredUser();
-}
-
-// Helper function for API calls with cloud-based auth
+// Helper function for API calls
 async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const token = getSessionToken();
+  const token = localStorage.getItem('auth_token');
+  const authToken = token || API_KEY;
+
+  if (!API_BASE_URL) {
+    console.error('[API] VITE_SUPABASE_URL environment variable is not set');
+    return { status: 'error', error: 'Backend URL not configured' };
+  }
+  if (!API_KEY) {
+    console.error('[API] VITE_SUPABASE_PUBLISHABLE_KEY environment variable is not set');
+    return { status: 'error', error: 'API key not configured' };
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    apikey: API_KEY,
+    Authorization: `Bearer ${authToken}`,
+    ...(options.headers as Record<string, string>),
   };
-  
-  // Add Authorization header if we have a valid token
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  // Merge additional headers
-  if (options.headers) {
-    Object.assign(headers, options.headers);
-  }
 
-  // Build API URL
-  const url = `/api${endpoint}`;
+  // Build API URL: /auth/login -> /functions/v1/auth/login
+  const functionName = endpoint.split('/')[1] || 'auth';
+  const subPath = endpoint.replace(`/${functionName}`, '') || '';
+  const url = `${API_BASE_URL}/functions/v1/${functionName}${subPath}`;
 
   try {
     const response = await fetch(url, {
@@ -119,10 +65,9 @@ async function apiCall<T>(
 
     return data;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
     return {
       status: 'error',
-      error: message || 'Network error',
+      error: error instanceof Error ? error.message : 'Network error',
     };
   }
 }
@@ -131,31 +76,58 @@ async function apiCall<T>(
 // Auth API
 // ============================
 
+export interface SignMessageResponse {
+  message: string;
+  timestamp: number;
+  nonce: string;
+}
+
+export async function getSignMessage(): Promise<ApiResponse<SignMessageResponse>> {
+  return apiCall<SignMessageResponse>('/auth/sign-message');
+}
+
+export interface LoginRequest {
+  walletAddress: string;
+  signature: string;
+  message: string;
+  timestamp: number;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    walletAddress: string;
+    verificationLevel: string;
+    createdAt: string;
+  };
+  expiresAt: string;
+}
+
+export async function login(data: LoginRequest): Promise<ApiResponse<LoginResponse>> {
+  return apiCall<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function logout(): Promise<ApiResponse<{ message: string }>> {
-  const token = getSessionToken();
+  const result = await apiCall<{ message: string }>('/auth/logout', {
+    method: 'POST',
+  });
 
-  if (token) {
-    try {
-      // Invalidate session in database
-      await supabase.functions.invoke('auth-logout', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-    } catch (e) {
-      console.error('[Auth] Logout API error:', e);
-    }
-  }
+  // Clear local storage
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
 
-  // Clear memory state
-  clearAuthState();
-
-  return { status: 'success', data: { message: 'Logged out' } };
+  return result;
 }
 
 // ============================
 // SIWE (Sign In With Ethereum) API
 // ============================
+// World ID Sign-In is deprecated. Using Wallet Auth instead.
+// Reference: https://docs.world.org/world-id/sign-in/deprecation
 
 export interface SiweNonceResponse {
   nonce: string;
@@ -163,24 +135,9 @@ export interface SiweNonceResponse {
 }
 
 export async function getSiweNonce(): Promise<ApiResponse<SiweNonceResponse>> {
-  try {
-    const { data, error } = await supabase.functions.invoke<ApiResponse<SiweNonceResponse>>(
-      'auth-siwe-nonce'
-    );
-
-    if (error) {
-      console.error('[Auth] getSiweNonce error:', error);
-      return { status: 'error', error: error.message };
-    }
-
-    return data as ApiResponse<SiweNonceResponse>;
-  } catch (error) {
-    console.error('[Auth] getSiweNonce error:', error);
-    return {
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Network error',
-    };
-  }
+  return apiCall<SiweNonceResponse>('/auth/siwe/nonce', {
+    method: 'GET',
+  });
 }
 
 export interface SiweVerifyRequest {
@@ -205,45 +162,18 @@ export interface SiweVerifyResponse {
 export async function verifySiwe(
   data: SiweVerifyRequest
 ): Promise<ApiResponse<SiweVerifyResponse>> {
-  try {
-    console.log('[Auth] Verifying SIWE...', { address: data.address, nonce: data.nonce });
+  const result = await apiCall<SiweVerifyResponse>('/auth/siwe/verify', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
-    const { data: result, error } = await supabase.functions.invoke<ApiResponse<SiweVerifyResponse>>(
-      'auth-siwe-verify',
-      { body: data }
-    );
-
-    if (error) {
-      console.error('[Auth] verifySiwe error:', error);
-      return { status: 'error', error: error.message };
-    }
-
-    console.log('[Auth] Verify response:', result);
-
-    // Save session to memory if successful
-    if (result?.status === 'success' && result.data) {
-      const { token, user, expiresAt } = result.data;
-
-      if (typeof token === 'string' && token.length > 0) {
-        setSession(token, user, expiresAt);
-        console.log('[Auth] Session stored in memory for user:', user.id);
-      } else {
-        console.error('[Auth] Invalid token received');
-        return {
-          status: 'error',
-          error: 'Invalid token received from server',
-        };
-      }
-    }
-
-    return result as ApiResponse<SiweVerifyResponse>;
-  } catch (error) {
-    console.error('[Auth] verifySiwe error:', error);
-    return {
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Network error',
-    };
+  // Save token and user if successful
+  if (result.status === 'success' && result.data) {
+    localStorage.setItem('auth_token', result.data.token);
+    localStorage.setItem('user', JSON.stringify(result.data.user));
   }
+
+  return result;
 }
 
 // ============================
@@ -296,6 +226,7 @@ export interface ClaimSignatureResponse {
   contractAddress: string;
 }
 
+// Get signature for gasless claim
 export async function getClaimSignature(
   claimType: 'daily_bonus' | 'game_reward',
   score?: number
@@ -306,6 +237,7 @@ export async function getClaimSignature(
   });
 }
 
+// Record a successful claim after on-chain transaction
 export interface RecordClaimResponse {
   claimId: string;
   message: string;
@@ -323,36 +255,42 @@ export async function recordClaim(
 }
 
 // ============================
-// Daily Bonus API
+// Daily Bonus API (Legacy - kept for backward compatibility)
 // ============================
 
 export interface ClaimDailyBonusResponse {
   claimId: string;
   amount: string;
-  streakDay?: number;
   txHash?: string;
   blockNumber?: number;
   explorerUrl?: string;
 }
 
+// Legacy: Direct backend transfer (deprecated, use gasless claim instead)
 export async function claimDailyBonusLegacy(): Promise<ApiResponse<ClaimDailyBonusResponse>> {
   return apiCall<ClaimDailyBonusResponse>('/claim/daily-bonus', {
     method: 'POST',
   });
 }
 
+// Gasless claim interface
 export interface GaslessClaimResult {
   success: boolean;
   txHash?: string;
   amount?: string;
-  streakDay?: number;
   explorerUrl?: string;
   error?: string;
 }
 
+/**
+ * Claim daily bonus using gasless transaction via MiniKit
+ * Flow: Backend signature → MiniKit sendTransaction → Record claim
+ */
 export async function claimDailyBonus(): Promise<GaslessClaimResult> {
+  // Dynamically import MiniKit functions to avoid circular dependencies
   const { claimTokens, isMiniKitAvailable, ClaimType } = await import('./index');
 
+  // Check if MiniKit is available
   if (!isMiniKitAvailable()) {
     return {
       success: false,
@@ -360,6 +298,7 @@ export async function claimDailyBonus(): Promise<GaslessClaimResult> {
     };
   }
 
+  // Step 1: Get signature from backend
   const signatureResponse = await getClaimSignature('daily_bonus');
 
   if (signatureResponse.status !== 'success' || !signatureResponse.data) {
@@ -371,6 +310,7 @@ export async function claimDailyBonus(): Promise<GaslessClaimResult> {
 
   const { signature, amount, claimType, deadline, contractAddress } = signatureResponse.data;
 
+  // Step 2: Send transaction via MiniKit (World App sponsors gas)
   const txResult = await claimTokens({
     amount,
     claimType: claimType as typeof ClaimType[keyof typeof ClaimType],
@@ -386,6 +326,7 @@ export async function claimDailyBonus(): Promise<GaslessClaimResult> {
     };
   }
 
+  // Step 3: Record the claim in backend
   await recordClaim('daily_bonus', amount, txResult.transaction_id);
 
   return {
@@ -396,9 +337,15 @@ export async function claimDailyBonus(): Promise<GaslessClaimResult> {
   };
 }
 
+/**
+ * Claim game reward using gasless transaction via MiniKit
+ * Flow: Backend signature → MiniKit sendTransaction → Record claim
+ */
 export async function claimGameReward(score: number): Promise<GaslessClaimResult> {
+  // Dynamically import MiniKit functions to avoid circular dependencies
   const { claimTokens, isMiniKitAvailable, ClaimType } = await import('./index');
 
+  // Check if MiniKit is available
   if (!isMiniKitAvailable()) {
     return {
       success: false,
@@ -406,6 +353,7 @@ export async function claimGameReward(score: number): Promise<GaslessClaimResult
     };
   }
 
+  // Step 1: Get signature from backend
   const signatureResponse = await getClaimSignature('game_reward', score);
 
   if (signatureResponse.status !== 'success' || !signatureResponse.data) {
@@ -417,6 +365,7 @@ export async function claimGameReward(score: number): Promise<GaslessClaimResult
 
   const { signature, amount, claimType, deadline, contractAddress } = signatureResponse.data;
 
+  // Step 2: Send transaction via MiniKit (World App sponsors gas)
   const txResult = await claimTokens({
     amount,
     claimType: claimType as typeof ClaimType[keyof typeof ClaimType],
@@ -432,6 +381,7 @@ export async function claimGameReward(score: number): Promise<GaslessClaimResult
     };
   }
 
+  // Step 3: Record the claim in backend
   await recordClaim('game_reward', amount, txResult.transaction_id);
 
   return {
@@ -544,8 +494,6 @@ export interface UserProfileResponse {
     claimedToday: boolean;
     cooldownRemainingMs: number;
     amount: string;
-    streakCount: number;
-    lastClaimDate: string | null;
   };
   recentTransactions: Array<{
     id: string;
@@ -560,6 +508,37 @@ export interface UserProfileResponse {
 
 export async function getUserProfile(): Promise<ApiResponse<UserProfileResponse>> {
   return apiCall<UserProfileResponse>('/user/profile');
+}
+
+// ============================
+// Auth State Helpers
+// ============================
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem('auth_token');
+}
+
+export function getStoredUser(): LoginResponse['user'] | null {
+  const userStr = localStorage.getItem('user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
+
+export function getUserData() {
+    return getStoredUser();
+}
+
+export function isAuthenticated(): boolean {
+  return !!getStoredToken();
+}
+
+export function clearAuthState(): void {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
 }
 
 // ============================
@@ -581,28 +560,13 @@ export interface BarnGameStatusResponse {
     WLD: string;
   };
   playPassDurationMs: number;
-  lives: number;
-  nextLifeAt: number | null;
-  nextLifeInMs: number;
 }
 
 export async function getBarnGameStatus(): Promise<ApiResponse<BarnGameStatusResponse>> {
   return apiCall<BarnGameStatusResponse>('/barn/status');
 }
 
-export interface StartGameResponse {
-  message: string;
-  livesRemaining: number;
-  nextLifeAt: number | null;
-  attemptsRemaining: number;
-}
-
-export async function startBarnGame(): Promise<ApiResponse<StartGameResponse>> {
-  return apiCall<StartGameResponse>('/barn/start-game', {
-    method: 'POST',
-  });
-}
-
+// Initiate payment - gets reference ID from backend (secure)
 export interface InitiatePaymentRequest {
   tokenSymbol: 'WLD';
   itemType: 'play_pass';
@@ -648,6 +612,7 @@ export async function purchaseBarnGameAttempts(
   });
 }
 
+// Use free game - starts 12h cooldown
 export interface UseFreeGameResponse {
   freeGameUsed?: boolean;
   hasActivePass?: boolean;

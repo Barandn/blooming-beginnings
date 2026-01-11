@@ -1,17 +1,15 @@
 /**
  * POST /api/auth/logout
- * Simple logout - client clears token
- *
- * With JWT-based auth, logout is handled client-side
- * This endpoint exists for API completeness
+ * Invalidate user session
  */
 
-import type { ApiRequest, ApiResponse } from '../../lib/types/http.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { extractBearerToken, invalidateSession } from '../../lib/services/auth.js';
 import { API_STATUS } from '../../lib/config/constants.js';
 
 export default async function handler(
-  req: ApiRequest,
-  res: ApiResponse
+  req: VercelRequest,
+  res: VercelResponse
 ) {
   // Only allow POST
   if (req.method !== 'POST') {
@@ -21,10 +19,23 @@ export default async function handler(
     });
   }
 
-  // With JWT-based auth, logout is handled client-side by clearing the token
-  // This endpoint just confirms the logout request
-  return res.status(200).json({
-    status: API_STATUS.SUCCESS,
-    message: 'Logged out successfully',
-  });
+  try {
+    const token = extractBearerToken(req.headers.authorization || null);
+
+    if (token) {
+      await invalidateSession(token);
+    }
+
+    return res.status(200).json({
+      status: API_STATUS.SUCCESS,
+      message: 'Logged out successfully',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Still return success even if there's an error
+    return res.status(200).json({
+      status: API_STATUS.SUCCESS,
+      message: 'Logged out',
+    });
+  }
 }

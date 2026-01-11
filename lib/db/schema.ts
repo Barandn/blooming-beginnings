@@ -1,239 +1,361 @@
 /**
- * Drizzle ORM Schema for Replit PostgreSQL
- * All database tables for the blooming-beginnings app
+ * Database Schema for World App Mini-App
+ * Uses Drizzle ORM with Vercel Postgres (Neon)
  *
  * Tables:
- * - users: User accounts and wallet data
- * - siwe_nonces: One-time nonces for SIWE authentication
- * - game_scores: Game scores and leaderboard data
- * - sessions: User session tracking
- * - barn_game_attempts: Lives system and game state
- * - barn_game_purchases: Play pass purchases
- * - payment_references: Payment tracking
- * - claim_transactions: Token claim transactions
- * - daily_bonus_claims: Daily bonus claim tracking
+ * 1. users - Identity mapping (nullifier_hash → wallet_address)
+ * 2. claim_transactions - Token distribution log
+ * 3. game_scores - Validated game scores for leaderboard
+ * 4. sessions - User session management
+ * 5. siwe_nonces - SIWE authentication nonces
+ * 6. barn_game_attempts - Barn game play tracking
+ * 7. barn_game_purchases - Barn game purchases
+ * 8. payment_references - Payment reference IDs
  */
 
 import {
   pgTable,
-  uuid,
-  varchar,
   text,
   timestamp,
-  boolean,
   integer,
-  numeric,
+  boolean,
+  uuid,
+  varchar,
+  bigint,
   index,
-  uniqueIndex,
+  uniqueIndex
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// ============================================
-// USERS TABLE
-// ============================================
+/**
+ * Users Table
+ * Links World ID nullifier_hash with wallet address
+ * Enforces unique human identity (anti-bot protection)
+ */
 export const users = pgTable('users', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  walletAddress: varchar('wallet_address', { length: 42 }).notNull().unique(),
-  nullifierHash: varchar('nullifier_hash', { length: 255 }).notNull().unique(),
-  verificationLevel: varchar('verification_level', { length: 50 }).default('wallet'),
-  merkleRoot: varchar('merkle_root', { length: 255 }),
-  isActive: boolean('is_active').default(true),
-  dailyStreakCount: integer('daily_streak_count').default(0),
-  lastDailyClaimDate: varchar('last_daily_claim_date', { length: 10 }), // YYYY-MM-DD
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // World ID unique identifier (nullifier_hash)
+  // This is unique per user per app - prevents multi-wallet farming
+  nullifierHash: text('nullifier_hash').notNull().unique(),
+
+  // User's wallet address on World Chain
+  walletAddress: varchar('wallet_address', { length: 42 }).notNull(),
+
+  // Verification level (must be 'orb' for our app)
+  verificationLevel: varchar('verification_level', { length: 20 }).notNull().default('orb'),
+
+  // Merkle root at time of verification
+  merkleRoot: text('merkle_root'),
+
+  // Whether user is currently active
+  isActive: boolean('is_active').notNull().default(true),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
   lastLoginAt: timestamp('last_login_at'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => [
+  uniqueIndex('users_nullifier_hash_idx').on(table.nullifierHash),
   index('users_wallet_address_idx').on(table.walletAddress),
 ]);
 
-// ============================================
-// SIWE NONCES TABLE
-// One-time use nonces for Sign In With Ethereum
-// ============================================
+/**
+ * SIWE Nonces Table
+ * Stores nonces for Sign-In With Ethereum authentication
+ */
 export const siweNonces = pgTable('siwe_nonces', {
-  nonce: varchar('nonce', { length: 64 }).primaryKey(),
+  nonce: text('nonce').primaryKey(),
+  
+  // When nonce expires (5 minutes)
   expiresAt: timestamp('expires_at').notNull(),
+  
+  // When nonce was consumed (null if not yet used)
   consumedAt: timestamp('consumed_at'),
-  createdAt: timestamp('created_at').defaultNow(),
+  
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/**
+ * Claim Transactions Table
+ * Records every token distribution with timestamps
+ * Used for enforcing 24-hour cooldown periods
+ */
+export const claimTransactions = pgTable('claim_transactions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Claim type (daily_bonus, game_reward, referral, etc.)
+  claimType: varchar('claim_type', { length: 50 }).notNull(),
+
+  // Amount of tokens distributed (in wei as string for precision)
+  amount: text('amount').notNull(),
+
+  // Token contract address
+  tokenAddress: varchar('token_address', { length: 42 }).notNull(),
+
+  // Transaction hash on World Chain
+  txHash: varchar('tx_hash', { length: 66 }),
+
+  // Transaction status
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+  // Error message if failed
+  errorMessage: text('error_message'),
+
+  // Block number when confirmed
+  blockNumber: bigint('block_number', { mode: 'number' }),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  confirmedAt: timestamp('confirmed_at'),
 }, (table) => [
-  index('siwe_nonces_expires_at_idx').on(table.expiresAt),
+  index('claim_transactions_user_id_idx').on(table.userId),
+  index('claim_transactions_claim_type_idx').on(table.claimType),
+  index('claim_transactions_created_at_idx').on(table.createdAt),
+  index('claim_transactions_user_type_created_idx').on(table.userId, table.claimType, table.createdAt),
 ]);
 
-// ============================================
-// GAME SCORES TABLE
-// Game scores for leaderboard ranking
-// ============================================
+/**
+ * Game Scores Table
+ * Stores validated game scores for leaderboard
+ * Includes anti-cheat validation data
+ */
 export const gameScores = pgTable('game_scores', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  gameType: varchar('game_type', { length: 50 }).notNull().default('card_match'),
-  score: integer('score').notNull().default(0),
-  monthlyProfit: integer('monthly_profit').notNull().default(0),
-  leaderboardPeriod: varchar('leaderboard_period', { length: 7 }).notNull(), // YYYY-MM
-  sessionId: varchar('session_id', { length: 64 }),
-  timeTaken: integer('time_taken'), // seconds
+
+  // Game type (card_match, etc.)
+  gameType: varchar('game_type', { length: 50 }).notNull(),
+
+  // Score value
+  score: integer('score').notNull(),
+
+  // Monthly profit for leaderboard (in game currency)
+  monthlyProfit: bigint('monthly_profit', { mode: 'number' }).notNull().default(0),
+
+  // Game session data for validation
+  sessionId: uuid('session_id'),
+
+  // Time taken to complete (in seconds) - for time-delta validation
+  timeTaken: integer('time_taken'),
+
+  // Game start timestamp - for anti-cheat
   gameStartedAt: timestamp('game_started_at'),
-  validationData: text('validation_data'), // JSON string
-  isValidated: boolean('is_validated').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
+
+  // Validation metadata (JSON string)
+  validationData: text('validation_data'),
+
+  // Whether score passed validation
+  isValidated: boolean('is_validated').notNull().default(false),
+
+  // Period for leaderboard (e.g., '2025-01' for January 2025)
+  leaderboardPeriod: varchar('leaderboard_period', { length: 7 }).notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
   index('game_scores_user_id_idx').on(table.userId),
-  index('game_scores_period_idx').on(table.leaderboardPeriod),
-  index('game_scores_user_period_idx').on(table.userId, table.leaderboardPeriod),
-  uniqueIndex('game_scores_session_idx').on(table.userId, table.sessionId),
+  index('game_scores_leaderboard_period_idx').on(table.leaderboardPeriod),
+  index('game_scores_score_idx').on(table.score),
+  index('game_scores_monthly_profit_idx').on(table.monthlyProfit),
+  index('game_scores_period_profit_idx').on(table.leaderboardPeriod, table.monthlyProfit),
 ]);
 
-// ============================================
-// SESSIONS TABLE
-// User session tracking
-// ============================================
+/**
+ * Sessions Table
+ * Manages user sessions with JWT tokens
+ */
 export const sessions = pgTable('sessions', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Session token (hashed)
+  tokenHash: text('token_hash').notNull(),
+
+  // Wallet address used for this session
   walletAddress: varchar('wallet_address', { length: 42 }).notNull(),
-  tokenHash: varchar('token_hash', { length: 255 }).notNull(),
+
+  // Session expiration
   expiresAt: timestamp('expires_at').notNull(),
-  isActive: boolean('is_active').default(true),
-  ipAddress: varchar('ip_address', { length: 45 }),
+
+  // Whether session is active
+  isActive: boolean('is_active').notNull().default(true),
+
+  // Device/client info for security
   userAgent: text('user_agent'),
-  lastUsedAt: timestamp('last_used_at').defaultNow(),
-  createdAt: timestamp('created_at').defaultNow(),
+  ipAddress: varchar('ip_address', { length: 45 }),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
 }, (table) => [
   index('sessions_user_id_idx').on(table.userId),
   index('sessions_token_hash_idx').on(table.tokenHash),
+  index('sessions_expires_at_idx').on(table.expiresAt),
 ]);
 
-// ============================================
-// BARN GAME ATTEMPTS TABLE
-// Lives system and game state tracking
-//
-// Lives System:
-// - Default: 5 lives
-// - Regeneration: 1 life every 6 hours
-// - Max lives: 5
-// ============================================
-export const barnGameAttempts = pgTable('barn_game_attempts', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
-
-  // Lives System - CRITICAL
-  lives: integer('lives').notNull().default(5), // 0-5 lives
-  livesLastRegeneratedAt: timestamp('lives_last_regenerated_at').defaultNow(),
-
-  // Legacy attempt tracking
-  attemptsRemaining: integer('attempts_remaining').default(3),
-  freeGameUsed: boolean('free_game_used').default(false),
-  hasActiveGame: boolean('has_active_game').default(false),
-
-  // Daily tracking
-  lastPlayedDate: varchar('last_played_date', { length: 10 }), // YYYY-MM-DD
-  totalCoinsWonToday: integer('total_coins_won_today').default(0),
-  matchesFoundToday: integer('matches_found_today').default(0),
-
-  // Cooldown system
-  cooldownStartedAt: timestamp('cooldown_started_at'),
-  cooldownEndsAt: timestamp('cooldown_ends_at'),
-
-  // Play pass system
-  playPassPurchasedAt: timestamp('play_pass_purchased_at'),
-  playPassExpiresAt: timestamp('play_pass_expires_at'),
-
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-}, (table) => [
-  index('barn_game_attempts_user_id_idx').on(table.userId),
-  index('barn_game_attempts_lives_regen_idx').on(table.livesLastRegeneratedAt),
-]);
-
-// ============================================
-// BARN GAME PURCHASES TABLE
-// Play pass and item purchases
-// ============================================
-export const barnGamePurchases = pgTable('barn_game_purchases', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  paymentReference: varchar('payment_reference', { length: 255 }).notNull(),
-  transactionId: varchar('transaction_id', { length: 255 }),
-  amount: numeric('amount', { precision: 18, scale: 8 }).notNull(),
-  tokenSymbol: varchar('token_symbol', { length: 10 }).notNull().default('WLD'),
-  status: varchar('status', { length: 20 }).notNull().default('pending'), // pending, completed, failed
-  attemptsGranted: integer('attempts_granted').default(0),
-  playPassDurationMs: integer('play_pass_duration_ms'),
-  confirmedAt: timestamp('confirmed_at'),
-  createdAt: timestamp('created_at').defaultNow(),
-}, (table) => [
-  index('barn_game_purchases_user_id_idx').on(table.userId),
-  index('barn_game_purchases_reference_idx').on(table.paymentReference),
-]);
-
-// ============================================
-// PAYMENT REFERENCES TABLE
-// Payment reference tracking
-// ============================================
-export const paymentReferences = pgTable('payment_references', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  referenceId: varchar('reference_id', { length: 255 }).notNull().unique(),
-  itemType: varchar('item_type', { length: 50 }).notNull(), // play_pass, lives_pack, etc.
-  amount: numeric('amount', { precision: 18, scale: 8 }).notNull(),
-  tokenSymbol: varchar('token_symbol', { length: 10 }).notNull().default('WLD'),
-  status: varchar('status', { length: 20 }).notNull().default('pending'),
-  expiresAt: timestamp('expires_at').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-}, (table) => [
-  index('payment_references_user_id_idx').on(table.userId),
-  index('payment_references_reference_id_idx').on(table.referenceId),
-]);
-
-// ============================================
-// CLAIM TRANSACTIONS TABLE
-// Token claim transactions (daily bonus, game rewards)
-// ============================================
-export const claimTransactions = pgTable('claim_transactions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  claimType: varchar('claim_type', { length: 50 }).notNull(), // daily_bonus, game_reward
-  amount: numeric('amount', { precision: 36, scale: 18 }).notNull(), // wei amount
-  tokenAddress: varchar('token_address', { length: 42 }).notNull(),
-  txHash: varchar('tx_hash', { length: 66 }),
-  blockNumber: integer('block_number'),
-  status: varchar('status', { length: 20 }).notNull().default('pending'),
-  errorMessage: text('error_message'),
-  confirmedAt: timestamp('confirmed_at'),
-  createdAt: timestamp('created_at').defaultNow(),
-}, (table) => [
-  index('claim_transactions_user_id_idx').on(table.userId),
-  index('claim_transactions_tx_hash_idx').on(table.txHash),
-]);
-
-// ============================================
-// DAILY BONUS CLAIMS TABLE
-// Track daily bonus claims per user per day
-// ============================================
+/**
+ * Daily Bonus Claims Table
+ * Tracks daily bonus claims separately for easy 24h cooldown check
+ */
 export const dailyBonusClaims = pgTable('daily_bonus_claims', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  claimDate: varchar('claim_date', { length: 10 }).notNull(), // YYYY-MM-DD
-  amount: numeric('amount', { precision: 36, scale: 18 }).notNull(),
+
+  // Claim date (YYYY-MM-DD format for easy daily lookup)
+  claimDate: varchar('claim_date', { length: 10 }).notNull(),
+
+  // Amount claimed
+  amount: text('amount').notNull(),
+
+  // Associated transaction
   transactionId: uuid('transaction_id').references(() => claimTransactions.id),
-  claimedAt: timestamp('claimed_at').defaultNow(),
+
+  // Timestamp
+  claimedAt: timestamp('claimed_at').notNull().defaultNow(),
 }, (table) => [
   index('daily_bonus_claims_user_id_idx').on(table.userId),
   uniqueIndex('daily_bonus_claims_user_date_idx').on(table.userId, table.claimDate),
 ]);
 
-// ============================================
-// RELATIONS
-// ============================================
+/**
+ * Barn Game Attempts Table
+ * Tracks attempts-based play system for card matching game
+ * - 10 attempts per purchase or cooldown reset
+ * - 12 hour cooldown when attempts run out
+ */
+export const barnGameAttempts = pgTable('barn_game_attempts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Number of attempts remaining
+  attemptsRemaining: integer('attempts_remaining').notNull().default(10),
+
+  // When cooldown started
+  cooldownStartedAt: timestamp('cooldown_started_at'),
+
+  // When cooldown ends (12 hours after cooldown started)
+  cooldownEndsAt: timestamp('cooldown_ends_at'),
+
+  // Last game played date (YYYY-MM-DD format)
+  lastPlayedDate: varchar('last_played_date', { length: 10 }),
+
+  // Total coins won today
+  totalCoinsWonToday: integer('total_coins_won_today').notNull().default(0),
+
+  // Matches found today
+  matchesFoundToday: integer('matches_found_today').notNull().default(0),
+
+  // Whether user has active game session
+  hasActiveGame: boolean('has_active_game').notNull().default(false),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('barn_game_attempts_user_id_idx').on(table.userId),
+]);
+
+/**
+ * Barn Game Purchases Table
+ * Records when users purchase attempts
+ */
+export const barnGamePurchases = pgTable('barn_game_purchases', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Payment reference from World App
+  paymentReference: varchar('payment_reference', { length: 100 }).notNull(),
+
+  // Transaction ID from World App
+  transactionId: varchar('transaction_id', { length: 100 }),
+
+  // Amount paid (in WLD)
+  amount: text('amount').notNull(),
+
+  // Token symbol (WLD)
+  tokenSymbol: varchar('token_symbol', { length: 10 }).notNull(),
+
+  // Status of purchase
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+  // Number of attempts granted
+  attemptsGranted: integer('attempts_granted').notNull().default(10),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  confirmedAt: timestamp('confirmed_at'),
+}, (table) => [
+  index('barn_game_purchases_user_id_idx').on(table.userId),
+  index('barn_game_purchases_payment_reference_idx').on(table.paymentReference),
+]);
+
+/**
+ * Payment References Table
+ * Stores secure payment reference IDs generated server-side
+ * Used for World App MiniKit payment verification
+ */
+export const paymentReferences = pgTable('payment_references', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Unique reference ID (32 hex chars)
+  referenceId: varchar('reference_id', { length: 64 }).notNull(),
+
+  // Reference to user
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+  // Amount to be paid
+  amount: text('amount').notNull(),
+
+  // Token symbol (WLD, USDC)
+  tokenSymbol: varchar('token_symbol', { length: 10 }).notNull(),
+
+  // Item type being purchased
+  itemType: varchar('item_type', { length: 50 }).notNull(),
+
+  // Status of the payment reference
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+  // When this reference expires (5 minutes)
+  expiresAt: timestamp('expires_at').notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('payment_references_reference_id_idx').on(table.referenceId),
+  index('payment_references_user_id_idx').on(table.userId),
+  index('payment_references_expires_at_idx').on(table.expiresAt),
+]);
+
+// Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
+  claimTransactions: many(claimTransactions),
   gameScores: many(gameScores),
   sessions: many(sessions),
+  dailyBonusClaims: many(dailyBonusClaims),
   barnGameAttempts: one(barnGameAttempts),
   barnGamePurchases: many(barnGamePurchases),
-  paymentReferences: many(paymentReferences),
-  claimTransactions: many(claimTransactions),
-  dailyBonusClaims: many(dailyBonusClaims),
+}));
+
+export const claimTransactionsRelations = relations(claimTransactions, ({ one }) => ({
+  user: one(users, {
+    fields: [claimTransactions.userId],
+    references: [users.id],
+  }),
 }));
 
 export const gameScoresRelations = relations(gameScores, ({ one }) => ({
@@ -250,6 +372,18 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   }),
 }));
 
+export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) => ({
+  user: one(users, {
+    fields: [dailyBonusClaims.userId],
+    references: [users.id],
+  }),
+  transaction: one(claimTransactions, {
+    fields: [dailyBonusClaims.transactionId],
+    references: [claimTransactions.id],
+  }),
+}));
+
+// Barn game relations
 export const barnGameAttemptsRelations = relations(barnGameAttempts, ({ one }) => ({
   user: one(users, {
     fields: [barnGameAttempts.userId],
@@ -271,63 +405,22 @@ export const paymentReferencesRelations = relations(paymentReferences, ({ one })
   }),
 }));
 
-export const claimTransactionsRelations = relations(claimTransactions, ({ one }) => ({
-  user: one(users, {
-    fields: [claimTransactions.userId],
-    references: [users.id],
-  }),
-}));
-
-export const dailyBonusClaimsRelations = relations(dailyBonusClaims, ({ one }) => ({
-  user: one(users, {
-    fields: [dailyBonusClaims.userId],
-    references: [users.id],
-  }),
-  transaction: one(claimTransactions, {
-    fields: [dailyBonusClaims.transactionId],
-    references: [claimTransactions.id],
-  }),
-}));
-
-// ============================================
-// TYPE EXPORTS
-// ============================================
+// Type exports for use in application
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type SiweNonce = typeof siweNonces.$inferSelect;
 export type NewSiweNonce = typeof siweNonces.$inferInsert;
+export type ClaimTransaction = typeof claimTransactions.$inferSelect;
+export type NewClaimTransaction = typeof claimTransactions.$inferInsert;
 export type GameScore = typeof gameScores.$inferSelect;
 export type NewGameScore = typeof gameScores.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
+export type NewDailyBonusClaim = typeof dailyBonusClaims.$inferInsert;
 export type BarnGameAttempt = typeof barnGameAttempts.$inferSelect;
 export type NewBarnGameAttempt = typeof barnGameAttempts.$inferInsert;
 export type BarnGamePurchase = typeof barnGamePurchases.$inferSelect;
 export type NewBarnGamePurchase = typeof barnGamePurchases.$inferInsert;
 export type PaymentReference = typeof paymentReferences.$inferSelect;
 export type NewPaymentReference = typeof paymentReferences.$inferInsert;
-export type ClaimTransaction = typeof claimTransactions.$inferSelect;
-export type NewClaimTransaction = typeof claimTransactions.$inferInsert;
-export type DailyBonusClaim = typeof dailyBonusClaims.$inferSelect;
-export type NewDailyBonusClaim = typeof dailyBonusClaims.$inferInsert;
-
-// Table names constant for reference
-export const TABLES = {
-  USERS: 'users',
-  SIWE_NONCES: 'siwe_nonces',
-  GAME_SCORES: 'game_scores',
-  SESSIONS: 'sessions',
-  BARN_GAME_ATTEMPTS: 'barn_game_attempts',
-  BARN_GAME_PURCHASES: 'barn_game_purchases',
-  PAYMENT_REFERENCES: 'payment_references',
-  CLAIM_TRANSACTIONS: 'claim_transactions',
-  DAILY_BONUS_CLAIMS: 'daily_bonus_claims',
-} as const;
-
-// Helper function to get current leaderboard period (YYYY-MM)
-export function getCurrentPeriod(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
-}

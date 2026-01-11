@@ -2,26 +2,30 @@
  * POST /api/auth/siwe/verify
  * Verify SIWE signature from World App Wallet Auth
  *
- * Simple SIWE implementation following World App MiniKit guidelines
- * Uses Drizzle ORM for database operations
- * Reference: https://docs.world.org/mini-apps/commands/wallet-auth
+ * This replaces the deprecated World ID Sign-In flow
+ * Reference: https://docs.world.org/world-id/sign-in/deprecation
  *
  * World App uses Safe addresses for SIWE, requiring ERC-1271 signature verification
  */
 
-import type { ApiRequest, ApiResponse } from '../../../lib/types/http.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import { ethers } from 'ethers';
-import { eq } from 'drizzle-orm';
 import { db, users } from '../../../lib/db/index.js';
-import { SignJWT } from 'jose';
-import { validateAndConsumeNonce } from './nonce.js';
+import { eq } from 'drizzle-orm';
+import {
+  createSessionToken,
+  createSession,
+  type SessionData,
+} from '../../../lib/services/auth.js';
+import { rateLimitCheck } from '../../../lib/middleware/rate-limit.js';
 import {
   API_STATUS,
   ERROR_MESSAGES,
   SESSION_CONFIG,
   WORLD_CHAIN,
 } from '../../../lib/config/constants.js';
+import { validateAndConsumeNonce } from './nonce.js';
 
 // Request validation schema
 const verifySchema = z.object({
@@ -49,11 +53,19 @@ async function verifyERC1271Signature(
   signature: string
 ): Promise<boolean> {
   try {
+    // Create provider for World Chain
     const rpcUrl = process.env.WORLD_CHAIN_RPC_URL || WORLD_CHAIN.MAINNET.rpcUrl;
     const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+    // Create contract instance
     const contract = new ethers.Contract(address, ERC1271_ABI, provider);
+
+    // Hash the message according to EIP-191
     const messageHash = ethers.hashMessage(message);
+
+    // Call isValidSignature on the contract
     const result = await contract.isValidSignature(messageHash, signature);
+
     return result === ERC1271_MAGIC_VALUE;
   } catch (error) {
     console.error('ERC-1271 verification error:', error);
@@ -87,38 +99,14 @@ async function verifySiweSignature(
  * Parse SIWE message to extract nonce
  */
 function extractNonceFromMessage(message: string): string | null {
+  // SIWE message format includes "Nonce: <nonce>"
   const nonceMatch = message.match(/Nonce:\s*([a-zA-Z0-9]+)/i);
   return nonceMatch ? nonceMatch[1] : null;
 }
 
-/**
- * Get JWT secret as Uint8Array
- */
-function getJwtSecret(): Uint8Array {
-  const secret = SESSION_CONFIG.jwtSecret;
-  if (!secret || secret.length < 32) {
-    throw new Error('JWT_SECRET must be at least 32 characters');
-  }
-  return new TextEncoder().encode(secret);
-}
-
-/**
- * Create a simple JWT token
- */
-async function createToken(userId: string, walletAddress: string): Promise<string> {
-  return await new SignJWT({
-    userId,
-    walletAddress,
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(SESSION_CONFIG.tokenExpiry)
-    .sign(getJwtSecret());
-}
-
 export default async function handler(
-  req: ApiRequest,
-  res: ApiResponse
+  req: VercelRequest,
+  res: VercelResponse
 ) {
   // Only allow POST
   if (req.method !== 'POST') {
@@ -127,6 +115,10 @@ export default async function handler(
       error: 'Method not allowed',
     });
   }
+
+  // Check rate limit
+  const rateLimited = rateLimitCheck(req, res);
+  if (rateLimited) return rateLimited;
 
   try {
     // Validate request body
@@ -152,7 +144,7 @@ export default async function handler(
     }
 
     // Step 2: Validate and consume nonce (one-time use)
-    const nonceValid = await validateAndConsumeNonce(nonce);
+    const nonceValid = validateAndConsumeNonce(nonce);
     if (!nonceValid) {
       return res.status(400).json({
         status: API_STATUS.ERROR,
@@ -172,39 +164,32 @@ export default async function handler(
     }
 
     // Step 4: Find or create user by wallet address
-    const walletAddressLower = address.toLowerCase();
+    let [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.walletAddress, address.toLowerCase()))
+      .limit(1);
 
-    // Try to find existing user
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.walletAddress, walletAddressLower),
-    });
-
-    let user = existingUser;
     let isNewUser = false;
 
     if (!existingUser) {
       // Create new user with wallet address
-      const walletNullifier = `wallet_${walletAddressLower}`;
+      // Note: Without World ID, we use wallet address as the unique identifier
+      // and generate a placeholder nullifier hash
+      const walletNullifier = `wallet_${address.toLowerCase()}`;
 
       const [newUser] = await db
         .insert(users)
         .values({
           nullifierHash: walletNullifier,
-          walletAddress: walletAddressLower,
-          verificationLevel: 'wallet',
+          walletAddress: address.toLowerCase(),
+          verificationLevel: 'wallet', // Wallet-based auth, not Orb verified
+          merkleRoot: null,
           lastLoginAt: new Date(),
-        })
+        } as typeof users.$inferInsert)
         .returning();
 
-      if (!newUser) {
-        console.error('Failed to create user');
-        return res.status(500).json({
-          status: API_STATUS.ERROR,
-          error: 'Failed to create user',
-        });
-      }
-
-      user = newUser;
+      existingUser = newUser;
       isNewUser = true;
     } else {
       // Update last login
@@ -213,13 +198,32 @@ export default async function handler(
         .set({
           lastLoginAt: new Date(),
           updatedAt: new Date(),
-        })
+        } as Partial<typeof users.$inferInsert>)
         .where(eq(users.id, existingUser.id));
     }
 
-    // Step 5: Create JWT token (no session table needed)
-    const token = await createToken(user!.id, user!.walletAddress);
-    const expiresAt = new Date(Date.now() + SESSION_CONFIG.sessionDuration);
+    // Step 5: Create session
+    const sessionData: SessionData = {
+      userId: existingUser.id,
+      walletAddress: existingUser.walletAddress,
+      nullifierHash: existingUser.nullifierHash,
+      expiresAt: new Date(Date.now() + SESSION_CONFIG.sessionDuration),
+    };
+
+    const token = await createSessionToken(sessionData);
+
+    const userAgent = req.headers['user-agent'] || undefined;
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+      req.socket?.remoteAddress ||
+      undefined;
+
+    const session = await createSession(
+      existingUser.id,
+      token,
+      existingUser.walletAddress,
+      { userAgent, ipAddress }
+    );
 
     // Return success response
     return res.status(200).json({
@@ -228,12 +232,12 @@ export default async function handler(
         isNewUser,
         token,
         user: {
-          id: user!.id,
-          walletAddress: user!.walletAddress,
-          verificationLevel: user!.verificationLevel,
-          createdAt: user!.createdAt,
+          id: existingUser.id,
+          walletAddress: existingUser.walletAddress,
+          verificationLevel: existingUser.verificationLevel,
+          createdAt: existingUser.createdAt,
         },
-        expiresAt,
+        expiresAt: session.expiresAt,
       },
     });
   } catch (error) {

@@ -1,16 +1,15 @@
 /**
  * GET /api/health
  * Health check endpoint for monitoring
- * Uses Drizzle ORM for database operations
  */
 
-import type { ApiRequest, ApiResponse } from '../lib/types/http.js';
-import { checkDatabaseConnection } from '../lib/db/index.js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { sql } from '../lib/db/index.js';
 import { API_STATUS, ACTIVE_CHAIN } from '../lib/config/constants.js';
 
 export default async function handler(
-  req: ApiRequest,
-  res: ApiResponse
+  req: VercelRequest,
+  res: VercelResponse
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({
@@ -35,14 +34,8 @@ export default async function handler(
 
   // Check database connection
   try {
-    const isConnected = await checkDatabaseConnection();
-
-    if (isConnected) {
-      health.services.database = 'ok';
-    } else {
-      health.services.database = 'error';
-      health.status = 'degraded';
-    }
+    await sql`SELECT 1`;
+    health.services.database = 'ok';
   } catch {
     health.services.database = 'error';
     health.status = 'degraded';

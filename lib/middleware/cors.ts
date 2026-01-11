@@ -3,7 +3,7 @@
  * Configures Cross-Origin Resource Sharing headers
  */
 
-import type { ApiRequest, ApiResponse } from '../types/http';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { SECURITY_CONFIG } from '../config/constants';
 
 /**
@@ -28,10 +28,10 @@ export function isOriginAllowed(origin: string | undefined): boolean {
  * Apply CORS headers to response
  */
 export function applyCorsHeaders(
-  req: ApiRequest,
-  res: ApiResponse
+  req: VercelRequest,
+  res: VercelResponse
 ): void {
-  const origin = req.headers.origin as string | undefined;
+  const origin = req.headers.origin;
 
   // Set CORS headers
   if (origin && isOriginAllowed(origin)) {
@@ -56,8 +56,8 @@ export function applyCorsHeaders(
  * Handle OPTIONS preflight request
  */
 export function handlePreflight(
-  req: ApiRequest,
-  res: ApiResponse
+  req: VercelRequest,
+  res: VercelResponse
 ): boolean {
   if (req.method === 'OPTIONS') {
     applyCorsHeaders(req, res);
@@ -71,9 +71,9 @@ export function handlePreflight(
  * CORS middleware wrapper for API handlers
  */
 export function withCors(
-  handler: (req: ApiRequest, res: ApiResponse) => Promise<void> | void
+  handler: (req: VercelRequest, res: VercelResponse) => Promise<void> | void
 ) {
-  return async (req: ApiRequest, res: ApiResponse) => {
+  return async (req: VercelRequest, res: VercelResponse) => {
     // Apply CORS headers
     applyCorsHeaders(req, res);
 
