@@ -224,6 +224,7 @@ export type Database = {
           is_validated: boolean
           leaderboard_period: string
           monthly_profit: number
+          moves: number | null
           score: number
           session_id: string | null
           time_taken: number | null
@@ -238,6 +239,7 @@ export type Database = {
           is_validated?: boolean
           leaderboard_period: string
           monthly_profit?: number
+          moves?: number | null
           score: number
           session_id?: string | null
           time_taken?: number | null
@@ -252,6 +254,7 @@ export type Database = {
           is_validated?: boolean
           leaderboard_period?: string
           monthly_profit?: number
+          moves?: number | null
           score?: number
           session_id?: string | null
           time_taken?: number | null

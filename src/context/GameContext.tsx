@@ -297,6 +297,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         gameType: "card_match",
         score: bonus,
         monthlyProfit: user.monthlyScore + bonus,
+        moves: game.moves,
         gameStartedAt: game.gameStartedAt,
         gameEndedAt: Date.now(),
         validationData: { moves: game.moves, elapsedTime: game.elapsedTime },

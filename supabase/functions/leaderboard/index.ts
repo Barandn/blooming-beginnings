@@ -12,6 +12,14 @@ function maskWalletAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+// Format time as MM:SS:ms for display
+function formatTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,69 +44,92 @@ serve(async (req) => {
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const includeStats = url.searchParams.get("stats") === "true";
 
-    // Get top scores for the period
+    // Get best scores for each user in the period
+    // Since we only keep one entry per user/game_type/period, just fetch all validated scores
     const { data: scores, error } = await supabase
       .from("game_scores")
       .select(`
         user_id,
         monthly_profit,
         score,
+        moves,
+        time_taken,
         users!inner(wallet_address)
       `)
       .eq("leaderboard_period", period)
       .eq("is_validated", true)
-      .order("monthly_profit", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .not("moves", "is", null)
+      .order("moves", { ascending: true }) // Fewer moves = better
+      .order("time_taken", { ascending: true }); // Faster time = better
 
     if (error) throw error;
 
-    // Aggregate by user
-    const userScores = new Map<string, {
+    // Since we now have one entry per user per game type, aggregate by user
+    // and keep their best game (fewest moves, then fastest time)
+    const userBestScores = new Map<string, {
       walletAddress: string;
+      moves: number;
+      timeTaken: number;
+      score: number;
       monthlyProfit: number;
-      totalScore: number;
       gamesPlayed: number;
     }>();
 
     for (const score of scores || []) {
       const userId = score.user_id;
-      const existing = userScores.get(userId);
+      const existing = userBestScores.get(userId);
       
       // users is returned as a single object from inner join
       const usersData = score.users as unknown as { wallet_address: string } | null;
       const walletAddress = usersData?.wallet_address || '';
       
+      const currentMoves = score.moves ?? 999999;
+      const currentTime = score.time_taken ?? 999999;
+      
       if (existing) {
-        existing.monthlyProfit = Math.max(existing.monthlyProfit, score.monthly_profit);
-        existing.totalScore += score.score;
         existing.gamesPlayed++;
+        // Check if this score is better (fewer moves, or same moves but faster)
+        const isBetter = currentMoves < existing.moves || 
+          (currentMoves === existing.moves && currentTime < existing.timeTaken);
+        
+        if (isBetter) {
+          existing.moves = currentMoves;
+          existing.timeTaken = currentTime;
+          existing.score = score.score;
+          existing.monthlyProfit = score.monthly_profit;
+        }
       } else {
-        userScores.set(userId, {
+        userBestScores.set(userId, {
           walletAddress,
+          moves: currentMoves,
+          timeTaken: currentTime,
+          score: score.score,
           monthlyProfit: score.monthly_profit,
-          totalScore: score.score,
           gamesPlayed: 1,
         });
       }
     }
 
-    // Sort, rank, and mask wallet addresses for privacy
-    const entries = Array.from(userScores.values())
-      .sort((a, b) => b.monthlyProfit - a.monthlyProfit)
+    // Sort by moves (ascending), then by time_taken (ascending)
+    const sortedEntries = Array.from(userBestScores.values())
+      .sort((a, b) => {
+        if (a.moves !== b.moves) return a.moves - b.moves; // Fewer moves = better
+        return a.timeTaken - b.timeTaken; // Faster time = better
+      });
+
+    // Apply pagination and mask addresses
+    const paginatedEntries = sortedEntries
+      .slice(offset, offset + limit)
       .map((entry, index) => ({
         rank: offset + index + 1,
-        walletAddress: maskWalletAddress(entry.walletAddress), // Privacy: mask addresses
+        walletAddress: maskWalletAddress(entry.walletAddress),
+        moves: entry.moves,
+        timeTaken: entry.timeTaken,
+        formattedTime: formatTime(entry.timeTaken),
+        score: entry.score,
         monthlyProfit: entry.monthlyProfit,
-        totalScore: entry.totalScore,
         gamesPlayed: entry.gamesPlayed,
       }));
-
-    // Get total count
-    const { count } = await supabase
-      .from("game_scores")
-      .select("user_id", { count: "exact", head: true })
-      .eq("leaderboard_period", period)
-      .eq("is_validated", true);
 
     // Get available periods
     const { data: periods } = await supabase
@@ -110,13 +141,15 @@ serve(async (req) => {
 
     // Stats if requested
     let stats = undefined;
-    if (includeStats && entries.length > 0) {
-      const totalProfit = entries.reduce((sum, e) => sum + e.monthlyProfit, 0);
+    if (includeStats && sortedEntries.length > 0) {
+      const totalProfit = sortedEntries.reduce((sum, e) => sum + e.monthlyProfit, 0);
       stats = {
-        totalPlayers: entries.length,
-        totalGames: entries.reduce((sum, e) => sum + e.gamesPlayed, 0),
+        totalPlayers: sortedEntries.length,
+        totalGames: sortedEntries.reduce((sum, e) => sum + e.gamesPlayed, 0),
         totalProfit,
-        averageProfit: Math.floor(totalProfit / entries.length),
+        averageProfit: Math.floor(totalProfit / sortedEntries.length),
+        bestMoves: sortedEntries[0]?.moves ?? 0,
+        bestTime: sortedEntries[0]?.timeTaken ?? 0,
       };
     }
 
@@ -127,12 +160,12 @@ serve(async (req) => {
           period,
           currentPeriod: new Date().toISOString().slice(0, 7),
           availablePeriods,
-          entries,
+          entries: paginatedEntries,
           pagination: {
             limit,
             offset,
-            total: count || 0,
-            hasMore: offset + limit < (count || 0),
+            total: sortedEntries.length,
+            hasMore: offset + limit < sortedEntries.length,
           },
           stats,
         },

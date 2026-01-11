@@ -184,6 +184,7 @@ export interface SubmitScoreRequest {
   gameType: 'card_match';
   score: number;
   monthlyProfit: number;
+  moves: number; // Number of moves/attempts (fewer is better)
   sessionId?: string;
   gameStartedAt: number;
   gameEndedAt: number;
@@ -193,8 +194,12 @@ export interface SubmitScoreRequest {
 export interface SubmitScoreResponse {
   scoreId: string;
   score: number;
+  moves: number;
+  timeTaken: number;
   monthlyProfit: number;
   leaderboardPeriod: string;
+  updated: boolean;
+  message?: string;
   flags?: string[];
   reward?: {
     amount: string;
@@ -399,8 +404,11 @@ export async function claimGameReward(score: number): Promise<GaslessClaimResult
 export interface LeaderboardEntry {
   rank: number;
   walletAddress: string;
+  moves: number;
+  timeTaken: number;
+  formattedTime: string;
+  score: number;
   monthlyProfit: number;
-  totalScore: number;
   gamesPlayed: number;
 }
 
@@ -426,6 +434,8 @@ export interface LeaderboardResponse {
     totalGames: number;
     totalProfit: number;
     averageProfit: number;
+    bestMoves?: number;
+    bestTime?: number;
   };
 }
 
