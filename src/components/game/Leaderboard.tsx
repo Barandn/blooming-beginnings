@@ -4,14 +4,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { getLeaderboard, getUserLeaderboard, LeaderboardEntry as ApiLeaderboardEntry } from "@/lib/minikit/api";
 
-// Format time as MM:SS:ms
-const formatTime = (ms: number): string => {
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  const centiseconds = Math.floor((ms % 1000) / 10);
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`;
-};
-
 // Calculate reward based on rank
 const getReward = (rank: number): number => {
   if (rank === 1) return 20;
@@ -34,7 +26,7 @@ const Leaderboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRank, setUserRank] = useState<number | null>(null);
-  const [userStats, setUserStats] = useState<{ monthlyProfit: number; gamesPlayed: number } | null>(null);
+  const [userStats, setUserStats] = useState<{ moves: number; timeTaken: number; gamesPlayed: number } | null>(null);
   const [totalPlayers, setTotalPlayers] = useState(0);
 
   const fetchLeaderboard = async () => {
@@ -51,7 +43,7 @@ const Leaderboard = () => {
         return;
       }
 
-      const { entries: apiEntries, pagination, stats } = response.data;
+      const { entries: apiEntries, pagination } = response.data;
       
       // Map entries and mark current user
       const currentWallet = authUser?.walletAddress?.toLowerCase();
@@ -63,10 +55,6 @@ const Leaderboard = () => {
       setEntries(mappedEntries);
       setTotalPlayers(pagination.total);
 
-      if (stats) {
-        // Stats available from main response
-      }
-
       // Fetch user-specific data if authenticated
       if (isAuthenticated) {
         const userResponse = await getUserLeaderboard();
@@ -74,7 +62,8 @@ const Leaderboard = () => {
           setUserRank(userResponse.data.rank);
           if (userResponse.data.entry) {
             setUserStats({
-              monthlyProfit: userResponse.data.entry.monthlyProfit,
+              moves: userResponse.data.stats?.cardMatchBestScore || 0,
+              timeTaken: 0,
               gamesPlayed: userResponse.data.entry.gamesPlayed,
             });
           }
@@ -142,9 +131,9 @@ const Leaderboard = () => {
         <div className="grid grid-cols-12 gap-1 p-3 border-b border-white/10 text-xs font-bold text-white/50 uppercase">
           <div className="col-span-1 text-center">#</div>
           <div className="col-span-4">Player</div>
-          <div className="col-span-2 text-center">Games</div>
-          <div className="col-span-2 text-center">Score</div>
-          <div className="col-span-3 text-center">Reward</div>
+          <div className="col-span-2 text-center">Moves</div>
+          <div className="col-span-3 text-center">Time</div>
+          <div className="col-span-2 text-center">Reward</div>
         </div>
 
         {/* List */}
@@ -175,13 +164,13 @@ const Leaderboard = () => {
                     {entry.walletAddress}
                     {entry.isCurrentUser && <span className="ml-1 text-blue-400">(You)</span>}
                   </div>
-                  <div className="col-span-2 text-center font-bold text-blue-400 text-sm">
-                    {entry.gamesPlayed}
+                  <div className="col-span-2 text-center font-bold text-green-400 text-sm">
+                    {entry.moves}
                   </div>
-                  <div className="col-span-2 text-center font-mono text-blue-300 text-sm">
-                    {entry.monthlyProfit.toLocaleString()}
+                  <div className="col-span-3 text-center font-mono text-blue-300 text-xs">
+                    {entry.formattedTime}
                   </div>
-                  <div className="col-span-3 text-center">
+                  <div className="col-span-2 text-center">
                     {reward > 0 && (
                       <span className="inline-block px-2 py-1 text-xs font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-full shadow-lg">
                         {reward} WLD
@@ -205,9 +194,9 @@ const Leaderboard = () => {
       {/* Current User Stats */}
       <div className="mt-4 w-full bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-xl border border-blue-500/30 flex justify-between items-center shadow-lg">
         <div>
-          <p className="text-xs text-blue-300 uppercase">Season Score</p>
+          <p className="text-xs text-blue-300 uppercase">Best Moves</p>
           <p className="text-xl font-bold text-white">
-            {userStats?.monthlyProfit?.toLocaleString() || gameUser.monthlyScore.toLocaleString()}
+            {userStats?.moves || '--'}
           </p>
         </div>
         <div className="text-right">

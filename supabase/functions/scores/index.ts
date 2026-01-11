@@ -227,7 +227,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { gameType, score, monthlyProfit, sessionId, gameStartedAt, gameEndedAt, validationData } = body;
+    const { gameType, score, monthlyProfit, sessionId, gameStartedAt, gameEndedAt, validationData, moves } = body;
 
     // Input type validation
     if (!gameType || typeof gameType !== "string") {
@@ -272,27 +272,97 @@ serve(async (req) => {
     // Get current leaderboard period (YYYY-MM)
     const leaderboardPeriod = new Date().toISOString().slice(0, 7);
 
-    // Insert score (all validation passed)
-    const { data: scoreRecord, error } = await supabase
+    // Check if user already has a score for this game type in this period
+    // Only keep the best score (fewer moves, then faster time)
+    const { data: existingScore } = await supabase
       .from("game_scores")
-      .insert({
-        user_id: userId,
-        game_type: gameType,
-        score,
-        monthly_profit: monthlyProfit || 0,
-        session_id: sessionId || null,
-        time_taken: timeTaken,
-        game_started_at: gameStartedAt ? new Date(gameStartedAt).toISOString() : null,
-        validation_data: validationData ? JSON.stringify(validationData) : null,
-        is_validated: true, // All validation passed
-        leaderboard_period: leaderboardPeriod,
-      })
-      .select()
-      .single();
+      .select("id, moves, time_taken")
+      .eq("user_id", userId)
+      .eq("game_type", gameType)
+      .eq("leaderboard_period", leaderboardPeriod)
+      .eq("is_validated", true)
+      .maybeSingle();
 
-    if (error) throw error;
+    const currentMoves = moves || 0;
+    const currentTime = timeTaken || 0;
 
-    console.log(`Score submitted successfully for user ${userId}: ${score} in ${gameType}`);
+    // Determine if we should update or insert
+    let scoreRecord;
+    let insertError;
+
+    if (existingScore) {
+      const existingMoves = existingScore.moves || 999999;
+      const existingTime = existingScore.time_taken || 999999;
+      
+      // Check if new score is better: fewer moves wins, if equal moves then faster time wins
+      const isBetterScore = currentMoves < existingMoves || 
+        (currentMoves === existingMoves && currentTime < existingTime);
+
+      if (isBetterScore) {
+        // Update existing record with better score
+        const { data, error } = await supabase
+          .from("game_scores")
+          .update({
+            score,
+            monthly_profit: monthlyProfit || 0,
+            moves: currentMoves,
+            time_taken: currentTime,
+            game_started_at: gameStartedAt ? new Date(gameStartedAt).toISOString() : null,
+            validation_data: validationData ? JSON.stringify(validationData) : null,
+          })
+          .eq("id", existingScore.id)
+          .select()
+          .single();
+        
+        scoreRecord = data;
+        insertError = error;
+        console.log(`Score updated for user ${userId}: ${currentMoves} moves in ${currentTime}s (was ${existingMoves} moves in ${existingTime}s)`);
+      } else {
+        // Existing score is better, return it without updating
+        console.log(`Score not updated for user ${userId}: ${currentMoves} moves not better than ${existingMoves} moves`);
+        return new Response(
+          JSON.stringify({
+            status: "success",
+            data: {
+              scoreId: existingScore.id,
+              score,
+              moves: currentMoves,
+              timeTaken: currentTime,
+              monthlyProfit: monthlyProfit || 0,
+              leaderboardPeriod,
+              updated: false,
+              message: "Your previous score was better",
+            },
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      // Insert new score
+      const { data, error } = await supabase
+        .from("game_scores")
+        .insert({
+          user_id: userId,
+          game_type: gameType,
+          score,
+          monthly_profit: monthlyProfit || 0,
+          moves: currentMoves,
+          session_id: sessionId || null,
+          time_taken: currentTime,
+          game_started_at: gameStartedAt ? new Date(gameStartedAt).toISOString() : null,
+          validation_data: validationData ? JSON.stringify(validationData) : null,
+          is_validated: true,
+          leaderboard_period: leaderboardPeriod,
+        })
+        .select()
+        .single();
+      
+      scoreRecord = data;
+      insertError = error;
+      console.log(`New score submitted for user ${userId}: ${currentMoves} moves in ${currentTime}s`);
+    }
+
+    if (insertError) throw insertError;
 
     return new Response(
       JSON.stringify({
@@ -300,8 +370,11 @@ serve(async (req) => {
         data: {
           scoreId: scoreRecord.id,
           score: scoreRecord.score,
+          moves: scoreRecord.moves,
+          timeTaken: scoreRecord.time_taken,
           monthlyProfit: scoreRecord.monthly_profit,
           leaderboardPeriod: scoreRecord.leaderboard_period,
+          updated: true,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
