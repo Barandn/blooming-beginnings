@@ -130,8 +130,8 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 // --- Constants ---
 
-const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟"];
-const GAME_PAIRS = 8; // 4x4 grid
+const FOOTBALL_EMOJIS = ["⚽", "🏆", "🥅", "🧤", "🏟️", "🟨", "🟥", "👟", "⚡", "🎯", "🔥", "💪", "🌟", "🎊", "🎉"];
+const GAME_PAIRS = 15; // 15 pairs (30 cards total)
 const TIME_LIMIT = 90000; // 90 seconds in milliseconds
 
 const INITIAL_GAME: GameSession = {
@@ -142,7 +142,7 @@ const INITIAL_GAME: GameSession = {
   moves: 0,
   gameStartedAt: 0,
   elapsedTime: 0,
-  remainingTime: TIME_LIMIT,
+  remainingTime: 0, // Counts up from 0
   isComplete: false,
   isTimeOut: false,
   boosters: INITIAL_BOOSTERS,
@@ -244,7 +244,7 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       ...INITIAL_GAME,
       cards: createDeck(),
       gameStartedAt: Date.now(),
-      remainingTime: TIME_LIMIT,
+      remainingTime: 0, // Start at 0 for count-up timer
       // Preserve purchased boosters but reset used status
       boosters: {
         mirror: { purchased: prev.boosters.mirror.purchased, used: false },
@@ -472,30 +472,17 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Timer effect - updates elapsed time and remaining time every 10ms
+  // Timer effect - updates elapsed time every 10ms (counts up)
   useEffect(() => {
     if (game.gameStartedAt > 0 && !game.isComplete && !game.isTimeOut) {
       timerRef.current = setInterval(() => {
         setGame(prev => {
           const elapsed = Date.now() - prev.gameStartedAt;
-          // Include bonus time from hourglass booster
-          const totalTimeLimit = TIME_LIMIT + bonusTimeRef.current;
-          const remaining = Math.max(0, totalTimeLimit - elapsed);
-
-          // Check if time has run out
-          if (remaining <= 0) {
-            return {
-              ...prev,
-              elapsedTime: elapsed,
-              remainingTime: 0,
-              isTimeOut: true,
-            };
-          }
 
           return {
             ...prev,
             elapsedTime: elapsed,
-            remainingTime: remaining,
+            remainingTime: elapsed, // Keep for compatibility, but represents elapsed time
           };
         });
       }, 10);
