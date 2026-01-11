@@ -286,10 +286,11 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
       monthlyScore: u.monthlyScore + bonus,
     }));
 
-    toast({
-      title: "SİUUUU!",
-      description: `You won ${bonus} Coins!`,
-    });
+    // Reward notification disabled
+    // toast({
+    //   title: "SİUUUU!",
+    //   description: `You won ${bonus} Coins!`,
+    // });
 
     if (isAuthenticated()) {
       submitScore({
