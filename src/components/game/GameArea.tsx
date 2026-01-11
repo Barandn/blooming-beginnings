@@ -182,10 +182,6 @@ const WinScreen = ({ moves, elapsedTime, onPlayAgain }: { moves: number; elapsed
         <p className="text-xs text-blue-200 uppercase tracking-wider">Time</p>
         <p className="text-2xl font-bold text-white font-mono">{formatTime(elapsedTime)}</p>
       </div>
-      <div className="bg-white/10 backdrop-blur-sm px-5 py-3 rounded-2xl text-center border border-white/20">
-        <p className="text-xs text-blue-200 uppercase tracking-wider">Reward</p>
-        <p className="text-2xl font-bold text-yellow-400">+100</p>
-      </div>
     </div>
 
     <button

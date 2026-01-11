@@ -21,7 +21,7 @@ const WeeklyPrize = () => {
   // We can just show 1..7. The ones <= currentStreak are "completed" or "active".
 
   return (
-    <div className="flex flex-col items-center p-6 min-h-[70vh]">
+    <div className="flex flex-col items-center p-6 min-h-[70vh] relative">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Weekly Training</h1>
         <p className="text-blue-100">Login 7 days in a row for the Golden Ball!</p>
@@ -85,6 +85,21 @@ const WeeklyPrize = () => {
           <p className="text-xs text-white/40 mt-1">
               Miss a day and your training resets!
           </p>
+      </div>
+
+      {/* Coming Soon Overlay */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+        <div className="text-center space-y-6 px-6">
+          <div className="text-8xl animate-pulse">🔒</div>
+          <div className="space-y-2">
+            <h2 className="text-4xl font-black text-yellow-400 tracking-wider drop-shadow-lg">
+              COMING SOON
+            </h2>
+            <p className="text-white/80 text-lg">
+              Daily rewards are being prepared...
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
