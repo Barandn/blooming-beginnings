@@ -20,10 +20,13 @@ export type Database = {
           cooldown_ends_at: string | null
           cooldown_started_at: string | null
           created_at: string
+          free_game_used: boolean
           has_active_game: boolean
           id: string
           last_played_date: string | null
           matches_found_today: number
+          play_pass_expires_at: string | null
+          play_pass_purchased_at: string | null
           total_coins_won_today: number
           updated_at: string
           user_id: string
@@ -33,10 +36,13 @@ export type Database = {
           cooldown_ends_at?: string | null
           cooldown_started_at?: string | null
           created_at?: string
+          free_game_used?: boolean
           has_active_game?: boolean
           id?: string
           last_played_date?: string | null
           matches_found_today?: number
+          play_pass_expires_at?: string | null
+          play_pass_purchased_at?: string | null
           total_coins_won_today?: number
           updated_at?: string
           user_id: string
@@ -46,10 +52,13 @@ export type Database = {
           cooldown_ends_at?: string | null
           cooldown_started_at?: string | null
           created_at?: string
+          free_game_used?: boolean
           has_active_game?: boolean
           id?: string
           last_played_date?: string | null
           matches_found_today?: number
+          play_pass_expires_at?: string | null
+          play_pass_purchased_at?: string | null
           total_coins_won_today?: number
           updated_at?: string
           user_id?: string
@@ -72,6 +81,7 @@ export type Database = {
           created_at: string
           id: string
           payment_reference: string
+          play_pass_duration_ms: number | null
           status: string
           token_symbol: string
           transaction_id: string | null
@@ -84,6 +94,7 @@ export type Database = {
           created_at?: string
           id?: string
           payment_reference: string
+          play_pass_duration_ms?: number | null
           status?: string
           token_symbol: string
           transaction_id?: string | null
@@ -96,6 +107,7 @@ export type Database = {
           created_at?: string
           id?: string
           payment_reference?: string
+          play_pass_duration_ms?: number | null
           status?: string
           token_symbol?: string
           transaction_id?: string | null
@@ -371,8 +383,10 @@ export type Database = {
       users: {
         Row: {
           created_at: string
+          daily_streak_count: number
           id: string
           is_active: boolean
+          last_daily_claim_date: string | null
           last_login_at: string | null
           merkle_root: string | null
           nullifier_hash: string
@@ -382,8 +396,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          daily_streak_count?: number
           id?: string
           is_active?: boolean
+          last_daily_claim_date?: string | null
           last_login_at?: string | null
           merkle_root?: string | null
           nullifier_hash: string
@@ -393,8 +409,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          daily_streak_count?: number
           id?: string
           is_active?: boolean
+          last_daily_claim_date?: string | null
           last_login_at?: string | null
           merkle_root?: string | null
           nullifier_hash?: string
