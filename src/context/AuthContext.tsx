@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const walletAuthPayload = {
         nonce,
         requestId: 'login',
-        expirationTime: expirationDate.toISOString(),
+        expirationTime: expirationDate,
         statement: 'Blooming Beginnings uygulamasina giris yap',
       };
 
