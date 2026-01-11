@@ -46,7 +46,7 @@ const Leaderboard = () => {
       const response = await getLeaderboard(undefined, 50, 0, true);
       
       if (response.status !== 'success' || !response.data) {
-        setError(response.error || 'Leaderboard yüklenemedi');
+        setError(response.error || 'Leaderboard could not be loaded');
         setEntries([]);
         return;
       }
@@ -83,7 +83,7 @@ const Leaderboard = () => {
 
     } catch (e) {
       console.error('Leaderboard fetch error:', e);
-      setError('Bağlantı hatası. Tekrar deneyin.');
+      setError('Connection error. Try again.');
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ const Leaderboard = () => {
 
   // Format Month
   const date = new Date();
-  const monthName = date.toLocaleString('tr-TR', { month: 'long' });
+  const monthName = date.toLocaleString('en-US', { month: 'long' });
   const year = date.getFullYear();
 
   return (
@@ -125,7 +125,7 @@ const Leaderboard = () => {
         className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-600/30 hover:bg-blue-600/50 rounded-lg text-white text-sm transition-colors disabled:opacity-50"
       >
         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        Yenile
+        Refresh
       </button>
 
       {/* Error State */}
@@ -151,11 +151,11 @@ const Leaderboard = () => {
         {loading ? (
           <div className="p-8 flex flex-col items-center justify-center gap-2">
             <Loader2 className="animate-spin text-blue-500 w-8 h-8" />
-            <p className="text-white/50 text-sm">Yükleniyor...</p>
+            <p className="text-white/50 text-sm">Loading...</p>
           </div>
         ) : entries.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-white/50 text-sm">Henüz skor yok. İlk sen ol!</p>
+            <p className="text-white/50 text-sm">No scores yet. Be the first!</p>
           </div>
         ) : (
           <div className="max-h-[50vh] overflow-y-auto">
@@ -173,7 +173,7 @@ const Leaderboard = () => {
                   </div>
                   <div className="col-span-4 font-mono text-xs text-white/90 truncate">
                     {entry.walletAddress}
-                    {entry.isCurrentUser && <span className="ml-1 text-blue-400">(Sen)</span>}
+                    {entry.isCurrentUser && <span className="ml-1 text-blue-400">(You)</span>}
                   </div>
                   <div className="col-span-2 text-center font-bold text-blue-400 text-sm">
                     {entry.gamesPlayed}
@@ -198,20 +198,20 @@ const Leaderboard = () => {
       {/* Total Players Count */}
       {totalPlayers > 0 && (
         <p className="mt-2 text-white/40 text-xs">
-          Toplam {totalPlayers} oyuncu
+          Total {totalPlayers} players
         </p>
       )}
 
       {/* Current User Stats */}
       <div className="mt-4 w-full bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-xl border border-blue-500/30 flex justify-between items-center shadow-lg">
         <div>
-          <p className="text-xs text-blue-300 uppercase">Sezon Skorun</p>
+          <p className="text-xs text-blue-300 uppercase">Season Score</p>
           <p className="text-xl font-bold text-white">
             {userStats?.monthlyProfit?.toLocaleString() || gameUser.monthlyScore.toLocaleString()}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-blue-300 uppercase">Sıralaman</p>
+          <p className="text-xs text-blue-300 uppercase">Your Rank</p>
           <p className="text-xl font-bold text-white">
             {userRank ? `#${userRank}` : '--'}
           </p>
@@ -222,7 +222,7 @@ const Leaderboard = () => {
       {userStats && (
         <div className="mt-2 text-center">
           <p className="text-white/50 text-xs">
-            Bu sezon {userStats.gamesPlayed} oyun oynadın
+            You played {userStats.gamesPlayed} games this season
           </p>
         </div>
       )}

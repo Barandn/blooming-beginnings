@@ -13,7 +13,7 @@ const BottomNavigation = ({ activeItem, onItemClick }: BottomNavigationProps) =>
 
   const navItems = [
     { id: "leaderboard", label: "Leaderboard", emoji: "🏆" },
-    { id: "game", label: "SİUU", emoji: "⚽" },
+    { id: "game", label: "SIUU", emoji: "⚽" },
     { id: "weekly", label: "Bonus", emoji: "🎁" },
   ];
 

@@ -132,7 +132,7 @@ const StartScreen = ({ onStart }: { onStart: () => void }) => (
 
     <div className="text-center space-y-2">
       <h2 className="text-4xl font-black text-white tracking-wider drop-shadow-lg">
-        SİUU GAME
+        SIUU GAME
       </h2>
       <p className="text-blue-100 text-center max-w-xs text-sm opacity-90">
         Find all matching pairs to win coins and climb the monthly leaderboard!
@@ -168,7 +168,7 @@ const WinScreen = ({ moves, elapsedTime, onPlayAgain }: { moves: number; elapsed
 
     <div className="text-center space-y-2">
       <h2 className="text-5xl font-black text-yellow-400 drop-shadow-lg tracking-wide">
-        SİUUUU!
+        SIUUUU!
       </h2>
       <p className="text-white text-lg opacity-90">You found all pairs!</p>
     </div>
