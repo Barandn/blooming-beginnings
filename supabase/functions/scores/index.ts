@@ -20,6 +20,12 @@ const GAME_VALIDATION = {
     minGameTime: 5, // seconds
     maxScorePerSecond: 50,
   },
+  card_match: {
+    maxDailyScore: 10000,
+    maxMonthlyProfit: 1000000,
+    minGameTime: 10, // seconds - minimum time to complete 15 pairs
+    maxScorePerSecond: 20,
+  },
 } as const;
 
 // Rate limiting configuration
