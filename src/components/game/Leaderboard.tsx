@@ -11,6 +11,16 @@ const formatTime = (ms: number): string => {
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${centiseconds.toString().padStart(2, '0')}`;
 };
 
+// Calculate reward based on rank
+const getReward = (rank: number): number => {
+  if (rank === 1) return 20;
+  if (rank === 2) return 15;
+  if (rank === 3) return 10;
+  if (rank >= 4 && rank <= 10) return 5;
+  if (rank >= 11 && rank <= 20) return 2;
+  return 0;
+};
+
 // Types for Leaderboard
 interface LeaderboardEntry {
   rank: number;
@@ -34,7 +44,7 @@ const Leaderboard = () => {
               // In production: const data = await getLeaderboard("2025-01");
 
               // We simulate "fetching" with moves and time data
-              const mockData: LeaderboardEntry[] = Array.from({ length: 10 }).map((_, i) => ({
+              const mockData: LeaderboardEntry[] = Array.from({ length: 20 }).map((_, i) => ({
                   rank: 0, // Will be calculated after sorting
                   userId: `0x${Math.random().toString(16).substr(2, 8)}...`,
                   score: Math.floor(10000 - (i * 500) + Math.random() * 100),
@@ -99,9 +109,10 @@ const Leaderboard = () => {
            {/* Header */}
            <div className="grid grid-cols-12 gap-1 p-3 border-b border-white/10 text-xs font-bold text-white/50 uppercase">
                <div className="col-span-1 text-center">#</div>
-               <div className="col-span-4">Player</div>
-               <div className="col-span-3 text-center">Moves</div>
-               <div className="col-span-4 text-right">Time</div>
+               <div className="col-span-3">Player</div>
+               <div className="col-span-2 text-center">Moves</div>
+               <div className="col-span-3 text-center">Time</div>
+               <div className="col-span-3 text-center">Reward</div>
            </div>
 
            {/* List */}
@@ -111,27 +122,37 @@ const Leaderboard = () => {
                </div>
            ) : (
                <div className="max-h-[50vh] overflow-y-auto">
-                   {entries.map((entry) => (
-                       <div
-                         key={entry.rank}
-                         className={`grid grid-cols-12 gap-1 p-3 border-b border-white/5 items-center ${
-                             entry.isCurrentUser ? "bg-blue-500/20" : ""
-                         }`}
-                       >
-                           <div className="col-span-1 text-center font-bold text-white text-sm">
-                               {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                   {entries.map((entry) => {
+                       const reward = getReward(entry.rank);
+                       return (
+                           <div
+                             key={entry.rank}
+                             className={`grid grid-cols-12 gap-1 p-3 border-b border-white/5 items-center ${
+                                 entry.isCurrentUser ? "bg-blue-500/20" : ""
+                             }`}
+                           >
+                               <div className="col-span-1 text-center font-bold text-white text-sm">
+                                   {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : entry.rank}
+                               </div>
+                               <div className="col-span-3 font-mono text-xs text-white/90 truncate">
+                                   {entry.userId}
+                               </div>
+                               <div className="col-span-2 text-center font-bold text-blue-400 text-sm">
+                                   {entry.moves}
+                               </div>
+                               <div className="col-span-3 text-center font-mono text-blue-300 text-xs">
+                                   {formatTime(entry.elapsedTime)}
+                               </div>
+                               <div className="col-span-3 text-center">
+                                   {reward > 0 && (
+                                       <span className="inline-block px-2 py-1 text-xs font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-full shadow-lg">
+                                           {reward} WLD
+                                       </span>
+                                   )}
+                               </div>
                            </div>
-                           <div className="col-span-4 font-mono text-xs text-white/90 truncate">
-                               {entry.userId}
-                           </div>
-                           <div className="col-span-3 text-center font-bold text-blue-400 text-sm">
-                               {entry.moves}
-                           </div>
-                           <div className="col-span-4 text-right font-mono text-blue-300 text-xs">
-                               {formatTime(entry.elapsedTime)}
-                           </div>
-                       </div>
-                   ))}
+                       );
+                   })}
                </div>
            )}
        </div>
