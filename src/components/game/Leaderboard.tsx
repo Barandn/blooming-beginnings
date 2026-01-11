@@ -9,8 +9,8 @@ const getReward = (rank: number): number => {
   if (rank === 1) return 20;
   if (rank === 2) return 15;
   if (rank === 3) return 10;
-  if (rank >= 4 && rank <= 10) return 5;
-  if (rank >= 11 && rank <= 20) return 2;
+  if (rank === 4) return 5;
+  if (rank === 5) return 5;
   return 0;
 };
 
