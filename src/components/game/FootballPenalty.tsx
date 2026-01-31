@@ -45,21 +45,33 @@ const FootballPenalty = () => {
     const [distance, setDistance] = useState(10); // Starting at 10 meters
     const [score, setScore] = useState(0);
     const [ballPosition, setBallPosition] = useState<Position>({ x: 50, y: 85 });
+    const [targetPosition, setTargetPosition] = useState<Position | null>(null);
     const [dragStart, setDragStart] = useState<Position | null>(null);
     const [dragCurrent, setDragCurrent] = useState<Position | null>(null);
     const [goalkeeperPosition, setGoalkeeperPosition] = useState(50); // 0-100 horizontal
+    const [goalkeeperDiving, setGoalkeeperDiving] = useState<"left" | "right" | "center" | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const gameAreaRef = useRef<HTMLDivElement>(null);
 
-    // Calculate goalkeeper size and goal size based on distance
-    const goalScale = Math.max(0.3, 1 - (distance - 10) / 250);
-    const goalkeeperScale = goalScale * 0.9;
+    // Calculate level (1-20)
+    const level = Math.floor((distance - 10) / 10) + 1;
+
+    // Goal scale decreases dramatically with distance
+    // At level 1 (10m): scale = 1.0
+    // At level 20 (200m): scale = 0.15
+    const goalScale = Math.max(0.15, 1 - (level - 1) * 0.045);
+
+    // Goal position moves up (further away) with distance
+    const goalTopPosition = 15 + (level - 1) * 0.5;
 
     // Reset ball position
     const resetBall = useCallback(() => {
         setBallPosition({ x: 50, y: 85 });
+        setTargetPosition(null);
         setDragStart(null);
         setDragCurrent(null);
+        setGoalkeeperDiving(null);
+        setGoalkeeperPosition(50);
     }, []);
 
     // Get position from event (touch or mouse)
@@ -102,19 +114,21 @@ const FootballPenalty = () => {
     const handleDragMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
         if (gameState !== "aiming" || !dragStart) return;
         e.preventDefault();
-        setDragCurrent(getEventPosition(e));
+        const currentPos = getEventPosition(e);
+        setDragCurrent(currentPos);
     }, [gameState, dragStart, getEventPosition]);
 
     // Handle drag end - shoot the ball
     const handleDragEnd = useCallback(() => {
         if (gameState !== "aiming" || !dragStart || !dragCurrent) return;
 
-        // Calculate velocity based on drag direction (inverted - drag back to shoot forward)
-        const velocityX = (dragStart.x - dragCurrent.x) * 0.5;
-        const velocityY = (dragStart.y - dragCurrent.y) * 0.8;
+        // Ball goes TO where you dragged (direct direction)
+        const targetX = dragCurrent.x;
+        const targetY = dragCurrent.y;
 
-        // Only shoot if there's enough power
-        if (Math.abs(velocityY) < 5) {
+        // Check if dragged upward (toward goal)
+        if (targetY >= dragStart.y - 5) {
+            // Not enough upward motion, cancel
             setGameState("ready");
             setDragStart(null);
             setDragCurrent(null);
@@ -123,43 +137,68 @@ const FootballPenalty = () => {
 
         setGameState("shooting");
 
-        // Random goalkeeper dive direction (weighted towards center)
-        const gkDiveDirection = Math.random() > 0.5 ? 1 : -1;
-        const gkDiveAmount = 20 + Math.random() * 25;
-        const newGkPosition = 50 + (gkDiveDirection * gkDiveAmount);
-        setGoalkeeperPosition(Math.max(10, Math.min(90, newGkPosition)));
+        // Calculate where the ball will end up (toward goal area)
+        // The ball should fly toward where you aimed
+        const goalY = goalTopPosition + 5; // Goal line Y position
 
-        // Calculate final ball position
-        const targetX = 50 + velocityX;
-        const targetY = 25; // Goal line position
+        // Calculate trajectory - ball goes to where finger pointed
+        const finalX = Math.max(5, Math.min(95, targetX));
 
-        // Animate ball
-        const clampedX = Math.max(15, Math.min(85, targetX));
-        setBallPosition({ x: clampedX, y: targetY });
+        // Set target for animation
+        setTargetPosition({ x: finalX, y: goalY });
+        setBallPosition({ x: finalX, y: goalY });
+
+        // Goalkeeper decides where to dive
+        // Higher levels = smarter goalkeeper (more likely to guess right)
+        const gkSmartness = 0.2 + (level * 0.03); // 23% at level 1, 80% at level 20
+        const gkGuessesRight = Math.random() < gkSmartness;
+
+        let diveDirection: "left" | "right" | "center";
+        if (gkGuessesRight) {
+            // Goalkeeper guesses correctly
+            if (finalX < 40) diveDirection = "left";
+            else if (finalX > 60) diveDirection = "right";
+            else diveDirection = "center";
+        } else {
+            // Goalkeeper guesses wrong
+            const wrongDirections: ("left" | "right" | "center")[] = [];
+            if (finalX >= 40) wrongDirections.push("left");
+            if (finalX <= 60) wrongDirections.push("right");
+            if (finalX < 40 || finalX > 60) wrongDirections.push("center");
+            diveDirection = wrongDirections[Math.floor(Math.random() * wrongDirections.length)] || "center";
+        }
+
+        setGoalkeeperDiving(diveDirection);
+
+        // Move goalkeeper
+        const gkTargetX = diveDirection === "left" ? 25 : diveDirection === "right" ? 75 : 50;
+        setGoalkeeperPosition(gkTargetX);
 
         // Check result after animation
         setTimeout(() => {
             // Goal boundaries (narrower as distance increases)
-            const goalWidth = 35 * goalScale;
+            const goalWidth = 40 * goalScale;
             const goalLeft = 50 - goalWidth / 2;
             const goalRight = 50 + goalWidth / 2;
 
             // Check if ball is in goal area
-            const isInGoal = clampedX >= goalLeft && clampedX <= goalRight;
-
-            // Check if goalkeeper saves (based on position overlap)
-            const gkWidth = 12 * goalkeeperScale;
-            const gkLeft = newGkPosition - gkWidth / 2;
-            const gkRight = newGkPosition + gkWidth / 2;
-            const isSaved = clampedX >= gkLeft && clampedX <= gkRight && isInGoal;
-
-            // Determine outcome (difficulty increases with distance)
-            const saveProbability = 0.15 + (distance / 400); // 15% base + distance bonus
-            const randomSave = Math.random() < saveProbability;
+            const isInGoal = finalX >= goalLeft && finalX <= goalRight;
 
             if (!isInGoal) {
+                // Missed the goal entirely
                 setGameState("missed");
-            } else if (isSaved || randomSave) {
+                return;
+            }
+
+            // Check if goalkeeper saves
+            // Goalkeeper catch range depends on where they dove
+            const gkCatchWidth = 18 * goalScale; // Catch width scales with goal size
+            const gkCatchLeft = gkTargetX - gkCatchWidth / 2;
+            const gkCatchRight = gkTargetX + gkCatchWidth / 2;
+
+            const isSaved = finalX >= gkCatchLeft && finalX <= gkCatchRight;
+
+            if (isSaved) {
                 setGameState("saved");
             } else {
                 setGameState("scored");
@@ -168,19 +207,18 @@ const FootballPenalty = () => {
                 setTimeout(() => setShowConfetti(false), 2000);
             }
         }, 800);
-    }, [gameState, dragStart, dragCurrent, goalScale, goalkeeperScale, distance]);
+    }, [gameState, dragStart, dragCurrent, goalScale, goalTopPosition, level]);
 
     // Continue after scoring
     const handleContinue = useCallback(() => {
         if (distance >= 200) {
-            // Max distance reached - could show victory screen
+            // Max distance reached - victory!
             setDistance(10);
             setScore(0);
         } else {
             setDistance((d) => Math.min(200, d + 10));
         }
         setGameState("ready");
-        setGoalkeeperPosition(50);
         resetBall();
     }, [distance, resetBall]);
 
@@ -189,30 +227,50 @@ const FootballPenalty = () => {
         setDistance(10);
         setScore(0);
         setGameState("ready");
-        setGoalkeeperPosition(50);
         resetBall();
     }, [resetBall]);
 
-    // Draw aim line
+    // Draw aim line (shows where ball will go)
     const getAimLine = () => {
         if (!dragStart || !dragCurrent || gameState !== "aiming") return null;
-        const dx = dragStart.x - dragCurrent.x;
-        const dy = dragStart.y - dragCurrent.y;
-        const power = Math.min(100, Math.sqrt(dx * dx + dy * dy) * 2);
+
+        // Line from ball to where you're dragging
+        const dx = dragCurrent.x - ballPosition.x;
+        const dy = dragCurrent.y - ballPosition.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
         return (
-            <div
-                className="absolute pointer-events-none"
-                style={{
-                    left: `${ballPosition.x}%`,
-                    top: `${ballPosition.y}%`,
-                    width: '2px',
-                    height: `${power}px`,
-                    background: `linear-gradient(to top, rgba(255,255,255,0.8), rgba(255,255,255,0.2))`,
-                    transform: `rotate(${Math.atan2(-dx, -dy) * (180 / Math.PI)}deg)`,
-                    transformOrigin: 'bottom center',
-                }}
-            />
+            <>
+                {/* Aim line */}
+                <div
+                    className="absolute pointer-events-none origin-left"
+                    style={{
+                        left: `${ballPosition.x}%`,
+                        top: `${ballPosition.y}%`,
+                        width: `${length}%`,
+                        height: '3px',
+                        background: `linear-gradient(to right, rgba(255,255,0,0.8), rgba(255,255,0,0.3))`,
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: 'left center',
+                    }}
+                />
+                {/* Target indicator */}
+                <div
+                    className="absolute pointer-events-none w-6 h-6 -translate-x-1/2 -translate-y-1/2 border-2 border-yellow-400 rounded-full animate-ping"
+                    style={{
+                        left: `${dragCurrent.x}%`,
+                        top: `${dragCurrent.y}%`,
+                    }}
+                />
+                <div
+                    className="absolute pointer-events-none w-3 h-3 -translate-x-1/2 -translate-y-1/2 bg-yellow-400 rounded-full"
+                    style={{
+                        left: `${dragCurrent.x}%`,
+                        top: `${dragCurrent.y}%`,
+                    }}
+                />
+            </>
         );
     };
 
@@ -234,14 +292,22 @@ const FootballPenalty = () => {
                 <div className="h-10 w-px bg-white/20" />
                 <div className="text-center">
                     <p className="text-xs text-green-200 uppercase tracking-wider">Level</p>
-                    <p className="text-2xl font-bold text-white">{Math.floor((distance - 10) / 10) + 1}/20</p>
+                    <p className="text-2xl font-bold text-white">{level}/20</p>
                 </div>
+            </div>
+
+            {/* Difficulty indicator */}
+            <div className="mb-3 bg-black/20 rounded-full h-2 overflow-hidden">
+                <div
+                    className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 transition-all duration-500"
+                    style={{ width: `${(level / 20) * 100}%` }}
+                />
             </div>
 
             {/* Game Area */}
             <div
                 ref={gameAreaRef}
-                className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden bg-gradient-to-b from-green-600 via-green-500 to-green-400 select-none touch-none"
+                className="relative w-full aspect-[3/4] rounded-3xl overflow-hidden bg-gradient-to-b from-green-700 via-green-600 to-green-500 select-none touch-none shadow-2xl"
                 onMouseDown={handleDragStart}
                 onMouseMove={handleDragMove}
                 onMouseUp={handleDragEnd}
@@ -250,72 +316,92 @@ const FootballPenalty = () => {
                 onTouchMove={handleDragMove}
                 onTouchEnd={handleDragEnd}
             >
+                {/* Sky background at top */}
+                <div
+                    className="absolute left-0 right-0 top-0 bg-gradient-to-b from-sky-400 to-transparent"
+                    style={{ height: `${goalTopPosition + 15}%` }}
+                />
+
                 {/* Field lines */}
                 <div className="absolute inset-0">
-                    {/* Penalty area */}
+                    {/* Penalty area - scales with distance */}
                     <div
-                        className="absolute left-1/2 -translate-x-1/2 border-2 border-white/40 rounded-sm"
+                        className="absolute left-1/2 -translate-x-1/2 border-2 border-white/30 rounded-sm"
                         style={{
-                            top: `${15 - 5 * goalScale}%`,
-                            width: `${60 * goalScale}%`,
-                            height: `${20 * goalScale}%`,
+                            top: `${goalTopPosition - 2}%`,
+                            width: `${70 * goalScale}%`,
+                            height: `${25 * goalScale}%`,
                         }}
                     />
-                    {/* Center line */}
-                    <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-white/20" />
-                    {/* Center circle */}
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-2 border-white/20 rounded-full" />
+                    {/* Penalty spot */}
+                    <div
+                        className="absolute left-1/2 -translate-x-1/2 w-2 h-2 bg-white/50 rounded-full"
+                        style={{ top: '80%' }}
+                    />
                 </div>
 
                 {/* Goal */}
                 <div
-                    className="absolute left-1/2 -translate-x-1/2 transition-all duration-300"
+                    className="absolute left-1/2 -translate-x-1/2 transition-all duration-500"
                     style={{
-                        top: `${20 - 5 * goalScale}%`,
-                        width: `${50 * goalScale}%`,
-                        height: `${15 * goalScale}%`,
+                        top: `${goalTopPosition}%`,
+                        width: `${55 * goalScale}%`,
+                        height: `${18 * goalScale}%`,
+                        minWidth: '60px',
+                        minHeight: '25px',
                     }}
                 >
-                    {/* Goal frame */}
-                    <div className="absolute inset-0 border-4 border-white rounded-t-lg bg-black/20" />
-                    {/* Net pattern */}
-                    <div className="absolute inset-1 opacity-30"
+                    {/* Goal posts */}
+                    <div className="absolute inset-0 border-4 border-white rounded-t-lg shadow-lg" />
+                    {/* Crossbar */}
+                    <div className="absolute top-0 left-0 right-0 h-2 bg-white rounded-t-lg" />
+                    {/* Left post */}
+                    <div className="absolute top-0 bottom-0 left-0 w-2 bg-white" />
+                    {/* Right post */}
+                    <div className="absolute top-0 bottom-0 right-0 w-2 bg-white" />
+                    {/* Net */}
+                    <div
+                        className="absolute inset-1 bg-black/40 rounded-t"
                         style={{
                             backgroundImage: `
-                linear-gradient(90deg, white 1px, transparent 1px),
-                linear-gradient(white 1px, transparent 1px)
+                linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px),
+                linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)
               `,
-                            backgroundSize: '8px 8px',
+                            backgroundSize: `${Math.max(4, 8 * goalScale)}px ${Math.max(4, 8 * goalScale)}px`,
                         }}
                     />
 
                     {/* Goalkeeper */}
                     <div
-                        className="absolute bottom-0 transition-all duration-500 ease-out"
+                        className={cn(
+                            "absolute bottom-0 transition-all duration-300 ease-out",
+                            goalkeeperDiving === "left" && "animate-pulse",
+                            goalkeeperDiving === "right" && "animate-pulse"
+                        )}
                         style={{
                             left: `${goalkeeperPosition}%`,
-                            transform: 'translateX(-50%)',
-                            width: `${25 * goalkeeperScale}%`,
-                            minWidth: '20px',
+                            transform: `translateX(-50%) ${goalkeeperDiving === "left" ? "translateX(-30%) rotate(-15deg)" : goalkeeperDiving === "right" ? "translateX(30%) rotate(15deg)" : ""}`,
+                            width: `${Math.max(20, 30 * goalScale)}%`,
+                            minWidth: '18px',
                         }}
                     >
-                        <div className="relative">
+                        <div className="relative" style={{ height: `${Math.max(30, 50 * goalScale)}px` }}>
                             {/* Body */}
-                            <div className="w-full aspect-[1/2] bg-yellow-400 rounded-t-full shadow-lg" />
+                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-3/4 bg-gradient-to-b from-yellow-400 to-yellow-500 rounded-t-full shadow-md" />
                             {/* Head */}
-                            <div
-                                className="absolute -top-2 left-1/2 -translate-x-1/2 w-3/4 aspect-square bg-yellow-300 rounded-full"
-                                style={{ minWidth: '10px' }}
-                            />
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 aspect-square bg-gradient-to-b from-yellow-300 to-yellow-400 rounded-full shadow-sm" />
                             {/* Arms (when diving) */}
-                            {gameState === "shooting" && (
+                            {goalkeeperDiving && goalkeeperDiving !== "center" && (
                                 <div
                                     className={cn(
-                                        "absolute top-1/4 w-full h-1/3 bg-yellow-400 rounded-full transition-all duration-300",
-                                        goalkeeperPosition > 50 ? "-right-1/2" : "-left-1/2"
+                                        "absolute top-1/3 w-full h-1/4 bg-yellow-400 rounded-full",
+                                        goalkeeperDiving === "left" ? "-left-full" : "-right-full"
                                     )}
                                 />
                             )}
+                            {/* Gloves */}
+                            <div className="absolute top-1/3 -left-1 w-2 h-2 bg-orange-500 rounded-full" />
+                            <div className="absolute top-1/3 -right-1 w-2 h-2 bg-orange-500 rounded-full" />
                         </div>
                     </div>
                 </div>
@@ -323,16 +409,16 @@ const FootballPenalty = () => {
                 {/* Ball */}
                 <div
                     className={cn(
-                        "absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 transition-all cursor-grab active:cursor-grabbing",
-                        gameState === "shooting" ? "duration-700 ease-out" : "duration-100"
+                        "absolute w-12 h-12 -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-20",
+                        gameState === "shooting" ? "transition-all duration-700 ease-out" : "transition-all duration-100"
                     )}
                     style={{
                         left: `${ballPosition.x}%`,
                         top: `${ballPosition.y}%`,
-                        transform: `translate(-50%, -50%) scale(${gameState === "shooting" ? 0.5 + goalScale * 0.3 : 1})`,
+                        transform: `translate(-50%, -50%) scale(${gameState === "shooting" ? 0.3 + goalScale * 0.4 : 1})`,
                     }}
                 >
-                    <div className="w-full h-full text-4xl flex items-center justify-center drop-shadow-lg select-none">
+                    <div className="w-full h-full text-5xl flex items-center justify-center drop-shadow-xl select-none">
                         ⚽
                     </div>
                 </div>
@@ -342,30 +428,31 @@ const FootballPenalty = () => {
 
                 {/* Result Overlays */}
                 {gameState === "scored" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-green-500/30 backdrop-blur-sm animate-in fade-in duration-300">
-                        <div className="text-center">
-                            <div className="text-6xl mb-4">⚽🥅</div>
-                            <h2 className="text-4xl font-black text-white drop-shadow-lg">GOAL!</h2>
-                            <p className="text-white/80 mt-2">From {distance}m away!</p>
+                    <div className="absolute inset-0 flex items-center justify-center bg-green-500/40 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+                        <div className="text-center p-6 bg-black/30 rounded-3xl backdrop-blur-md">
+                            <div className="text-7xl mb-4">⚽🥅</div>
+                            <h2 className="text-5xl font-black text-white drop-shadow-lg">GOAL!</h2>
+                            <p className="text-white/90 mt-2 text-lg">From {distance}m away!</p>
                             <button
                                 onClick={handleContinue}
-                                className="mt-6 px-8 py-3 bg-white text-green-600 font-bold rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform"
+                                className="mt-6 px-10 py-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white font-bold text-lg rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform"
                             >
-                                {distance >= 200 ? "🏆 You Win!" : `Next: ${distance + 10}m →`}
+                                {distance >= 200 ? "🏆 CHAMPION!" : `Next: ${distance + 10}m →`}
                             </button>
                         </div>
                     </div>
                 )}
 
                 {gameState === "missed" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-red-500/30 backdrop-blur-sm animate-in fade-in duration-300">
-                        <div className="text-center">
-                            <div className="text-6xl mb-4">😢</div>
-                            <h2 className="text-4xl font-black text-white drop-shadow-lg">MISSED!</h2>
-                            <p className="text-white/80 mt-2">The ball went wide...</p>
+                    <div className="absolute inset-0 flex items-center justify-center bg-red-500/40 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+                        <div className="text-center p-6 bg-black/30 rounded-3xl backdrop-blur-md">
+                            <div className="text-7xl mb-4">😢</div>
+                            <h2 className="text-5xl font-black text-white drop-shadow-lg">MISSED!</h2>
+                            <p className="text-white/90 mt-2 text-lg">The ball went wide...</p>
+                            <p className="text-white/70 text-sm mt-1">You scored {score} goals!</p>
                             <button
                                 onClick={handleRestart}
-                                className="mt-6 px-8 py-3 bg-white text-red-600 font-bold rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform"
+                                className="mt-6 px-10 py-4 bg-gradient-to-r from-red-400 to-rose-500 text-white font-bold text-lg rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform"
                             >
                                 🔄 Try Again
                             </button>
@@ -374,14 +461,15 @@ const FootballPenalty = () => {
                 )}
 
                 {gameState === "saved" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-orange-500/30 backdrop-blur-sm animate-in fade-in duration-300">
-                        <div className="text-center">
-                            <div className="text-6xl mb-4">🧤</div>
-                            <h2 className="text-4xl font-black text-white drop-shadow-lg">SAVED!</h2>
-                            <p className="text-white/80 mt-2">The goalkeeper caught it!</p>
+                    <div className="absolute inset-0 flex items-center justify-center bg-orange-500/40 backdrop-blur-sm animate-in fade-in zoom-in duration-300">
+                        <div className="text-center p-6 bg-black/30 rounded-3xl backdrop-blur-md">
+                            <div className="text-7xl mb-4">🧤</div>
+                            <h2 className="text-5xl font-black text-white drop-shadow-lg">SAVED!</h2>
+                            <p className="text-white/90 mt-2 text-lg">The goalkeeper caught it!</p>
+                            <p className="text-white/70 text-sm mt-1">You scored {score} goals!</p>
                             <button
                                 onClick={handleRestart}
-                                className="mt-6 px-8 py-3 bg-white text-orange-600 font-bold rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform"
+                                className="mt-6 px-10 py-4 bg-gradient-to-r from-orange-400 to-amber-500 text-white font-bold text-lg rounded-full shadow-xl hover:scale-105 active:scale-95 transition-transform"
                             >
                                 🔄 Try Again
                             </button>
@@ -392,14 +480,19 @@ const FootballPenalty = () => {
 
             {/* Instructions */}
             {gameState === "ready" && (
-                <p className="text-center text-green-200/60 text-sm mt-4 animate-pulse">
-                    👆 Drag the ball backwards and release to shoot!
-                </p>
+                <div className="text-center mt-4">
+                    <p className="text-green-200 text-sm animate-pulse">
+                        👆 Tap the ball, drag to aim at the goal, and release!
+                    </p>
+                    <p className="text-green-200/50 text-xs mt-1">
+                        Level {level}: Goal is {Math.round(55 * goalScale)}% size
+                    </p>
+                </div>
             )}
 
             {gameState === "aiming" && (
-                <p className="text-center text-yellow-200 text-sm mt-4 font-bold">
-                    🎯 Aim and release to shoot!
+                <p className="text-center text-yellow-300 text-sm mt-4 font-bold animate-bounce">
+                    🎯 Release to shoot!
                 </p>
             )}
         </div>
